@@ -2,7 +2,8 @@
   "name": "image-to-cad",
   "version": "0.1.0",
   "description": "Feed it a picture, get a parametric, jointed, exportable 3D model with a Lego-style build guide. Three.js CAD workspace with an exact boolean engine, STL splitting for 3D printing, and a Claude-powered image-to-design loop.",
-  "license": "fishejon",
+  "license": "MIT",
+  "author": "fishejon",
   "private": false,
   "scripts": {
     "test": "node tests/run.js && node tests/proxy.js",

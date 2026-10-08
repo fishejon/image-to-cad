@@ -2,5 +2,6 @@ node_modules/
 dist/
 tests/out/
 .env
+.vercel
 *.log
 .DS_Store
