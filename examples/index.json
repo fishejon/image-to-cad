@@ -1,0 +1,6 @@
+[
+  { "id": "sideboard", "file": "sideboard.json" },
+  { "id": "bookshelf", "file": "bookshelf.json" },
+  { "id": "stool", "file": "stool.json" },
+  { "id": "lamp", "file": "lamp.json" }
+]

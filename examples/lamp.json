@@ -1,0 +1,221 @@
+{
+ "name": "Table lamp",
+ "units": "mm",
+ "description": "Turned-style lamp: weighted steel base, brass stem, conical shade, glass bulb. Revolve and sphere primitives.",
+ "assumptions": [
+  "Cord, socket and switch are not modelled."
+ ],
+ "params": {
+  "H": {
+   "value": 480,
+   "min": 300,
+   "max": 700,
+   "step": 10,
+   "label": "Total height"
+  },
+  "SR": {
+   "value": 130,
+   "min": 90,
+   "max": 200,
+   "step": 5,
+   "label": "Shade radius"
+  },
+  "BR": {
+   "value": 80,
+   "min": 50,
+   "max": 120,
+   "step": 5,
+   "label": "Base radius"
+  },
+  "stemH": {
+   "expr": "H*0.62"
+  },
+  "shadeH": {
+   "expr": "H*0.34"
+  }
+ },
+ "materials": {
+  "shade": {
+   "base": "fabric",
+   "color": "#f1e7d3"
+  },
+  "base": {
+   "base": "steel",
+   "color": "#2a2d33"
+  }
+ },
+ "groups": [
+  {
+   "id": "body",
+   "name": "Body"
+  },
+  {
+   "id": "light",
+   "name": "Shade & bulb"
+  }
+ ],
+ "steps": [
+  "Fix the stem into the base",
+  "Fit the shade and bulb"
+ ],
+ "parts": [
+  {
+   "id": "base",
+   "name": "Base",
+   "group": "body",
+   "material": "base",
+   "prims": [
+    {
+     "type": "revolve",
+     "at": [
+      0,
+      0,
+      0
+     ],
+     "axis": "+z",
+     "profile": [
+      [
+       0,
+       0
+      ],
+      [
+       "BR",
+       0
+      ],
+      [
+       "BR",
+       6
+      ],
+      [
+       "BR*0.55",
+       34
+      ],
+      [
+       "BR*0.2",
+       48
+      ],
+      [
+       0,
+       48
+      ]
+     ],
+     "seg": 64
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "step": 0
+    }
+   ]
+  },
+  {
+   "id": "stem",
+   "name": "Stem",
+   "group": "body",
+   "material": "brass",
+   "prims": [
+    {
+     "type": "cylinder",
+     "base": [
+      0,
+      0,
+      48
+     ],
+     "axis": "+z",
+     "length": "stemH",
+     "r": 9,
+     "seg": 24
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "step": 0
+    }
+   ]
+  },
+  {
+   "id": "shade",
+   "name": "Shade",
+   "group": "light",
+   "material": "shade",
+   "prims": [
+    {
+     "type": "revolve",
+     "at": [
+      0,
+      0,
+      "stemH+48-30"
+     ],
+     "axis": "+z",
+     "profile": [
+      [
+       "SR*0.55",
+       0
+      ],
+      [
+       "SR",
+       "shadeH"
+      ],
+      [
+       "SR-3",
+       "shadeH"
+      ],
+      [
+       "SR*0.55-3",
+       3
+      ]
+     ],
+     "seg": 64
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "step": 1
+    }
+   ]
+  },
+  {
+   "id": "bulb",
+   "name": "Bulb",
+   "group": "light",
+   "material": "glass",
+   "prims": [
+    {
+     "type": "sphere",
+     "r": 34,
+     "center": [
+      0,
+      0,
+      "stemH+48+14"
+     ],
+     "seg": 32
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "step": 1
+    }
+   ]
+  }
+ ]
+}

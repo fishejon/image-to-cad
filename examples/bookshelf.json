@@ -1,0 +1,674 @@
+{
+ "name": "Bookshelf with drawers",
+ "units": "mm",
+ "description": "Parametric oak bookshelf. Fixed shelves are housed in stopped dados, the back is a floating ply panel in rabbets, the bottom bay holds two drawers with rabbeted fronts and grooved bottoms. No hardware.",
+ "assumptions": [
+  "Proportions are generic; all sizes are parameters."
+ ],
+ "params": {
+  "W": {
+   "value": 900,
+   "min": 600,
+   "max": 1400,
+   "step": 50,
+   "label": "Width"
+  },
+  "H": {
+   "value": 1800,
+   "min": 900,
+   "max": 2200,
+   "step": 50,
+   "label": "Height"
+  },
+  "D": {
+   "value": 300,
+   "min": 200,
+   "max": 420,
+   "step": 10,
+   "label": "Depth"
+  },
+  "n": {
+   "value": 4,
+   "min": 1,
+   "max": 8,
+   "step": 1,
+   "label": "Fixed shelves"
+  },
+  "t": {
+   "expr": "18"
+  },
+  "pl": {
+   "expr": "60"
+  },
+  "tw": {
+   "expr": "6"
+  },
+  "stop": {
+   "expr": "12"
+  },
+  "Wi": {
+   "expr": "W-2*t"
+  },
+  "zb1": {
+   "expr": "pl+t"
+  },
+  "bh": {
+   "expr": "(H-pl-2*t-n*t)/(n+1)"
+  },
+  "ow": {
+   "expr": "(Wi-18)/2"
+  },
+  "dw": {
+   "expr": "ow-3"
+  },
+  "dh": {
+   "expr": "bh-4"
+  },
+  "dl": {
+   "expr": "D-30"
+  }
+ },
+ "materials": {
+  "oak": {
+   "base": "oak"
+  },
+  "ply": {
+   "base": "ply"
+  }
+ },
+ "groups": [
+  {
+   "id": "carcass",
+   "name": "Carcass"
+  },
+  {
+   "id": "drawers",
+   "name": "Drawers"
+  }
+ ],
+ "steps": [
+  "Dry-fit, then glue the sides and boards (clamp across the width)",
+  "Slide in the floating back panel (do not glue)",
+  "Fit the bay divider and slide in the drawers"
+ ],
+ "kinematics": {
+  "drawerL": {
+   "label": "Left drawer",
+   "axis": [
+    0,
+    -1,
+    0
+   ],
+   "range": [
+    0,
+    "dl-40"
+   ]
+  },
+  "drawerR": {
+   "label": "Right drawer",
+   "axis": [
+    0,
+    -1,
+    0
+   ],
+   "range": [
+    0,
+    "dl-40"
+   ]
+  }
+ },
+ "parts": [
+  {
+   "id": "side_L",
+   "name": "Left side",
+   "group": "carcass",
+   "material": "oak",
+   "grain": "z",
+   "vars": {
+    "s": -1
+   },
+   "spec": "18 mm board, full height, shelf dados 6 mm deep, back rabbet",
+   "notes": [
+    "Dados stop 12 mm from front and back so the shelf ends never show at the front."
+   ],
+   "ops": [
+    {
+     "add": [
+      "s*(W/2)",
+      "-D/2",
+      0,
+      "s*(W/2-t)",
+      "D/2",
+      "H"
+     ]
+    },
+    {
+     "cut": [
+      "s*(W/2-t)",
+      "-D/2+stop",
+      "if(i==0,pl,if(i==n+1,H-t,zb1+i*bh+(i-1)*t))",
+      "s*(W/2-t+tw)",
+      "D/2-stop",
+      "if(i==0,pl,if(i==n+1,H-t,zb1+i*bh+(i-1)*t))+t"
+     ],
+     "repeat": {
+      "var": "i",
+      "count": "n+2"
+     },
+     "tag": "dado",
+     "fill": true,
+     "label": "Shelf dado 18 \u00d7 6"
+    },
+    {
+     "cut": [
+      "s*(W/2-t)",
+      "D/2-12",
+      "pl",
+      "s*(W/2-t+8)",
+      "D/2-6",
+      "H"
+     ],
+     "tag": "rabbet",
+     "fill": true,
+     "label": "Back rabbet 8 \u00d7 6"
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "step": 0
+    }
+   ]
+  },
+  {
+   "id": "side_R",
+   "name": "Right side",
+   "group": "carcass",
+   "material": "oak",
+   "grain": "z",
+   "vars": {
+    "s": 1
+   },
+   "spec": "18 mm board, full height, shelf dados 6 mm deep, back rabbet",
+   "notes": [
+    "Dados stop 12 mm from front and back so the shelf ends never show at the front."
+   ],
+   "ops": [
+    {
+     "add": [
+      "s*(W/2)",
+      "-D/2",
+      0,
+      "s*(W/2-t)",
+      "D/2",
+      "H"
+     ]
+    },
+    {
+     "cut": [
+      "s*(W/2-t)",
+      "-D/2+stop",
+      "if(i==0,pl,if(i==n+1,H-t,zb1+i*bh+(i-1)*t))",
+      "s*(W/2-t+tw)",
+      "D/2-stop",
+      "if(i==0,pl,if(i==n+1,H-t,zb1+i*bh+(i-1)*t))+t"
+     ],
+     "repeat": {
+      "var": "i",
+      "count": "n+2"
+     },
+     "tag": "dado",
+     "fill": true,
+     "label": "Shelf dado 18 \u00d7 6"
+    },
+    {
+     "cut": [
+      "s*(W/2-t)",
+      "D/2-12",
+      "pl",
+      "s*(W/2-t+8)",
+      "D/2-6",
+      "H"
+     ],
+     "tag": "rabbet",
+     "fill": true,
+     "label": "Back rabbet 8 \u00d7 6"
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "step": 0
+    }
+   ]
+  },
+  {
+   "id": "board",
+   "name": "Shelf / top / bottom board",
+   "group": "carcass",
+   "material": "oak",
+   "grain": "x",
+   "spec": "18 mm, tongues 6 mm each end",
+   "notes": [
+    "Same part for the top, the bottom and every fixed shelf."
+   ],
+   "ops": [
+    {
+     "add": [
+      "-Wi/2",
+      "-D/2",
+      0,
+      "Wi/2",
+      "D/2-12",
+      "t"
+     ]
+    },
+    {
+     "add": [
+      "Wi/2",
+      "-D/2+stop",
+      0,
+      "Wi/2+tw",
+      "D/2-stop",
+      "t"
+     ],
+     "tag": "tongue",
+     "label": "Tongue 18 \u00d7 6"
+    },
+    {
+     "add": [
+      "-Wi/2-tw",
+      "-D/2+stop",
+      0,
+      "-Wi/2",
+      "D/2-stop",
+      "t"
+     ],
+     "tag": "tongue",
+     "label": "Tongue 18 \u00d7 6"
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      0,
+      0,
+      "if(i==0,pl,if(i==n+1,H-t,zb1+i*bh+(i-1)*t))"
+     ],
+     "step": 0,
+     "repeat": {
+      "var": "i",
+      "count": "n+2"
+     }
+    }
+   ]
+  },
+  {
+   "id": "back",
+   "name": "Back panel",
+   "group": "carcass",
+   "material": "ply",
+   "grain": "x",
+   "spec": "6 mm ply, floats in the rabbets",
+   "ops": [
+    {
+     "add": [
+      "-Wi/2-8",
+      "D/2-12",
+      "pl",
+      "Wi/2+8",
+      "D/2-6",
+      "H"
+     ]
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "step": 1
+    }
+   ]
+  },
+  {
+   "id": "divider",
+   "name": "Bay divider",
+   "group": "carcass",
+   "material": "oak",
+   "grain": "z",
+   "ops": [
+    {
+     "add": [
+      -9,
+      "-D/2+12",
+      "zb1",
+      9,
+      "D/2-12",
+      "zb1+bh"
+     ]
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      0,
+      0,
+      0
+     ],
+     "step": 2
+    }
+   ]
+  },
+  {
+   "id": "drawer_front",
+   "name": "Drawer front",
+   "group": "drawers",
+   "material": "oak",
+   "grain": "x",
+   "spec": "18 mm, rabbeted ends, bottom groove",
+   "ops": [
+    {
+     "add": [
+      "-dw/2",
+      0,
+      0,
+      "dw/2",
+      18,
+      "dh"
+     ]
+    },
+    {
+     "cut": [
+      "-dw/2",
+      8,
+      0,
+      "-dw/2+12",
+      18,
+      "dh"
+     ],
+     "tag": "rabbet",
+     "fill": true,
+     "label": "Rabbet 12 \u00d7 10"
+    },
+    {
+     "cut": [
+      "dw/2-12",
+      8,
+      0,
+      "dw/2",
+      18,
+      "dh"
+     ],
+     "tag": "rabbet",
+     "fill": true,
+     "label": "Rabbet 12 \u00d7 10"
+    },
+    {
+     "cut": [
+      "-dw/2+12",
+      10,
+      6,
+      "dw/2-12",
+      18,
+      12
+     ],
+     "tag": "groove",
+     "fill": true,
+     "label": "Bottom groove 6 \u00d7 8"
+    },
+    {
+     "cut": [
+      -50,
+      0,
+      "dh-40",
+      50,
+      10,
+      "dh-20"
+     ],
+     "tag": "pull",
+     "label": "Finger pull 100 \u00d7 20"
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      "-(9+ow/2)",
+      "-D/2+2",
+      "zb1+2"
+     ],
+     "step": 2,
+     "kin": "drawerL"
+    },
+    {
+     "pos": [
+      "9+ow/2",
+      "-D/2+2",
+      "zb1+2"
+     ],
+     "step": 2,
+     "kin": "drawerR"
+    }
+   ]
+  },
+  {
+   "id": "drawer_side_L",
+   "name": "Drawer side \u2014 left",
+   "group": "drawers",
+   "material": "oak",
+   "grain": "y",
+   "vars": {
+    "s": -1
+   },
+   "ops": [
+    {
+     "add": [
+      "s*dw/2",
+      8,
+      0,
+      "s*(dw/2-12)",
+      "dl",
+      "dh"
+     ]
+    },
+    {
+     "cut": [
+      "s*(dw/2-12)",
+      18,
+      6,
+      "s*(dw/2-8)",
+      "dl",
+      12
+     ],
+     "tag": "groove",
+     "fill": true,
+     "label": "Bottom groove 6 \u00d7 4"
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      "-(9+ow/2)",
+      "-D/2+2",
+      "zb1+2"
+     ],
+     "step": 2,
+     "kin": "drawerL"
+    },
+    {
+     "pos": [
+      "9+ow/2",
+      "-D/2+2",
+      "zb1+2"
+     ],
+     "step": 2,
+     "kin": "drawerR"
+    }
+   ]
+  },
+  {
+   "id": "drawer_side_R",
+   "name": "Drawer side \u2014 right",
+   "group": "drawers",
+   "material": "oak",
+   "grain": "y",
+   "vars": {
+    "s": 1
+   },
+   "ops": [
+    {
+     "add": [
+      "s*dw/2",
+      8,
+      0,
+      "s*(dw/2-12)",
+      "dl",
+      "dh"
+     ]
+    },
+    {
+     "cut": [
+      "s*(dw/2-12)",
+      18,
+      6,
+      "s*(dw/2-8)",
+      "dl",
+      12
+     ],
+     "tag": "groove",
+     "fill": true,
+     "label": "Bottom groove 6 \u00d7 4"
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      "-(9+ow/2)",
+      "-D/2+2",
+      "zb1+2"
+     ],
+     "step": 2,
+     "kin": "drawerL"
+    },
+    {
+     "pos": [
+      "9+ow/2",
+      "-D/2+2",
+      "zb1+2"
+     ],
+     "step": 2,
+     "kin": "drawerR"
+    }
+   ]
+  },
+  {
+   "id": "drawer_back",
+   "name": "Drawer back",
+   "group": "drawers",
+   "material": "oak",
+   "grain": "x",
+   "ops": [
+    {
+     "add": [
+      "-dw/2+12",
+      "dl-12",
+      12,
+      "dw/2-12",
+      "dl",
+      "dh"
+     ]
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      "-(9+ow/2)",
+      "-D/2+2",
+      "zb1+2"
+     ],
+     "step": 2,
+     "kin": "drawerL"
+    },
+    {
+     "pos": [
+      "9+ow/2",
+      "-D/2+2",
+      "zb1+2"
+     ],
+     "step": 2,
+     "kin": "drawerR"
+    }
+   ]
+  },
+  {
+   "id": "drawer_bottom",
+   "name": "Drawer bottom",
+   "group": "drawers",
+   "material": "ply",
+   "grain": "y",
+   "spec": "6 mm ply, loose in grooves",
+   "ops": [
+    {
+     "add": [
+      "-dw/2+12",
+      10,
+      6,
+      "dw/2-12",
+      "dl",
+      12
+     ]
+    },
+    {
+     "add": [
+      "-dw/2+8",
+      18,
+      6,
+      "-dw/2+12",
+      "dl",
+      12
+     ]
+    },
+    {
+     "add": [
+      "dw/2-12",
+      18,
+      6,
+      "dw/2-8",
+      "dl",
+      12
+     ]
+    }
+   ],
+   "instances": [
+    {
+     "pos": [
+      "-(9+ow/2)",
+      "-D/2+2",
+      "zb1+2"
+     ],
+     "step": 2,
+     "kin": "drawerL"
+    },
+    {
+     "pos": [
+      "9+ow/2",
+      "-D/2+2",
+      "zb1+2"
+     ],
+     "step": 2,
+     "kin": "drawerR"
+    }
+   ]
+  }
+ ]
+}

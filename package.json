@@ -1,0 +1,35 @@
+{
+  "name": "image-to-cad",
+  "version": "0.1.0",
+  "description": "Feed it a picture, get a parametric, jointed, exportable 3D model with a Lego-style build guide. Three.js CAD workspace with an exact boolean engine, STL splitting for 3D printing, and a Claude-powered image-to-design loop.",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "test": "node tests/run.js && node tests/proxy.js",
+    "test:browser": "node tests/browser.mjs && node tests/browser-ai.mjs && node tests/browser-guide.mjs",
+    "build": "node tools/build.js",
+    "serve": "node server/proxy.js",
+    "export:sideboard": "node tools/export-sideboard-spec.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "three": "0.128.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR-NAME/image-to-cad.git"
+  },
+  "keywords": [
+    "cad",
+    "threejs",
+    "stl",
+    "3d-printing",
+    "woodworking",
+    "image-to-3d",
+    "parametric",
+    "claude"
+  ]
+}
