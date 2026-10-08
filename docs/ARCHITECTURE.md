@@ -15,7 +15,9 @@ picture ──► src/ai/vision.js ──► spec JSON ──► src/core/spec.j
 | `src/core/exporter.js` | Print orientation, scale, **auto-split with alignment keys**, plate nesting, STL files, CSV. Pure functions (no DOM). |
 | `src/ai/vision.js` | Prompt (embeds the spec language + a tested example), providers, `evaluate()` (the critic), `run()` (the builder⇄critic loop). |
 | `src/ui/app.js` | Three.js viewer and all panes. `src/ui/guide.js` renders the Lego-style guide pages (WebGL → canvas → HTML). |
-| `server/proxy.js` | Optional zero-dependency server that keeps the API key off the browser. |
+| `server/messages.js` | Shared Anthropic proxy (whitelist body, attach server-side key, rate limit). |
+| `server/proxy.js` | Local zero-dependency server: static files + `POST /api/messages`. |
+| `api/messages.js` | Vercel serverless function for the same proxy path. |
 | `tools/legacy/` | The original hand-coded sideboard generator (model + guide) that `examples/sideboard.json` was exported from, kept as a reference and as a regression oracle (`tests/run.js` checks the spec reproduces it exactly). |
 
 ## Why exact CSG on a grid
@@ -28,4 +30,4 @@ Furniture-class objects are almost entirely rectilinear. Collecting every box bo
 `CAD.MATS`, `CAD.GROUPS`, `CAD.STEPS` hold the *current* model's materials/groups/steps; `buildSpec` refreshes them on every build (the viewer, guide and checks read them). Build one model at a time per page.
 
 ## Security notes
-All spec-derived text is HTML-escaped before it reaches `innerHTML` (names, notes, labels, guide text); rich HTML is honoured only for trusted built-in examples. Expressions cannot call arbitrary functions. A browser-held API key is visible to anyone with access to that browser: use `server/proxy.js` for anything shared.
+All spec-derived text is HTML-escaped before it reaches `innerHTML` (names, notes, labels, guide text); rich HTML is honoured only for trusted built-in examples. Expressions cannot call arbitrary functions. A browser-held API key is visible to anyone with access to that browser: use the server proxy (`npm run serve` or the Vercel `/api/messages` function) for anything shared.

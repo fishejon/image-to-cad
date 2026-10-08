@@ -17,15 +17,26 @@ open dist/image-to-cad.html          # works from file://
 # or serve the source tree (examples are fetched):
 npm run serve          # http://localhost:8787
 ```
-Deploying to GitHub Pages: see `.github/workflows/pages.yml` (publishes the single-file build).
+
+## Deploy on Vercel
+The site is a static `dist/` build plus a serverless `POST /api/messages` proxy (same path as `npm run serve`).
+
+```bash
+npx vercel             # preview
+npx vercel --prod      # production
+```
+
+In the Vercel project, set `ANTHROPIC_API_KEY` (and optionally `RATE_PER_MIN`). The key never reaches the browser when visitors use **Server proxy**. You can still import the GitHub repo into Vercel for git-based deploys; this project does not use GitHub Pages.
+
+Hobby plans cap serverless request bodies at about 4.5 MB. Pictures are downscaled in the browser first; if a run still fails on size, use the browser API-key provider for that image.
 
 ## Designing from a picture
 Open the **AI** tab, drop/paste a picture, optionally add a brief ("height 850 mm, solid oak, no screws"), choose a provider and press **Generate**.
 
 | Provider | Use when |
 |---|---|
+| **Server proxy** | Recommended for sharing (Vercel, or `ANTHROPIC_API_KEY=… npm run serve`). The key stays in server env and never reaches the browser. |
 | **Claude API key (browser)** | Quick personal use. Your key stays in the page (optionally in localStorage) and calls `api.anthropic.com` directly. Anyone with access to your browser can read it. |
-| **Local proxy** | Recommended for sharing: `ANTHROPIC_API_KEY=… npm run serve`. The key never reaches the browser. |
 | **Claude (inside claude.ai)** | When the built page is opened as a Claude artifact, it uses the viewer's own Claude account. |
 
 Each round the critic reports spec errors, overlapping parts, unfilled joints and non-watertight parts back to the model. Tick **visual critic** to also send a render next to your picture. The result opens in the viewer and in the **Spec** tab, where you can edit it by hand.
