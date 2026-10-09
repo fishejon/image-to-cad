@@ -10,6 +10,12 @@ const near = (a, b, tol, m) => { if (Math.abs(a - b) > tol) throw new Error((m |
 const ev = (s, sc) => CAD.expr.ev(s, sc || {});
 const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = CAD.interference(M), fl = CAD.jointFill(M); return { man, it, fl, bad: fl.filter(r => r.ratio < .999) }; };
 (async () => {
+  console.log('display units');
+  await t('inches snap to 1/16 and print as fractions', () => {
+    eq(CAD.fmtInch(0), '0"'); eq(CAD.fmtInch(25.4), '1"'); eq(CAD.fmtInch(12.7), '1/2"'); eq(CAD.fmtInch(19.05), '3/4"');
+    eq(CAD.fmtInch(25.4 + 12.7), '1 1/2"'); eq(CAD.fmtInch(25.4 * 12 + 25.4 * 3 / 16), '12 3/16"');
+    ok(CAD.fmtInch3([25.4, 50.8, 76.2]).indexOf(' × ') > 0);
+  });
   console.log('expressions');
   await t('arithmetic & precedence', () => { eq(ev('2+3*4'), 14); eq(ev('(2+3)*4'), 20); eq(ev('-2^2'), -4); eq(ev('2^3^2'), 512); eq(ev('10/4'), 2.5); eq(ev('7%4'), 3); });
   await t('functions & conditionals', () => { eq(ev('max(1,5,3)'), 5); eq(ev('clamp(15,0,10)'), 10); near(ev('sin(30)'), .5, 1e-9); near(ev('cos(60)'), .5, 1e-9); eq(ev('if(3>2,10,20)'), 10); eq(ev('if(i==0,1,2)', { i: 0 }), 1); eq(ev('floor(2.7)+ceil(2.1)'), 5); });
@@ -56,6 +62,11 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     eq(V.extractJSON('```json\n{"a":1}\n```').a, 1); eq(V.extractJSON('Here you go: {"a":{"b":"}{"}} thanks').a.b, '}{'); let threw = false; try { V.extractJSON('{"a":[1,2'); } catch (e) { threw = /truncated/.test(e.message); } ok(threw, 'truncation not detected'); threw = false; try { V.extractJSON('no json'); } catch (e) { threw = true; } ok(threw); });
   await t('evaluate flags overlap, unfilled joints and bad expressions with actionable text', () => {
     const bad = JSON.parse(JSON.stringify(V.EXAMPLE)); bad.parts[1].ops.pop(); bad.parts[0].instances[0].pos[2] = 5; const r = V.evaluate(bad); ok(!r.ok); ok(r.interference.length > 0, 'interference'); ok(/INTERFERENCE/.test(r.text)); const bad2 = JSON.parse(JSON.stringify(V.EXAMPLE)); bad2.parts[1].ops[1].cut[5] = 'H-2'; const r2 = V.evaluate(bad2); ok(r2.underfilled.length > 0, 'underfilled'); ok(/UNFILLED/.test(r2.text)); const r3 = V.evaluate({ parts: [{ id: 'x', ops: [{ add: [0, 0, 0, 1, 1, 'zz'] }] }] }); ok(/unknown variable "zz"/.test(r3.text)); });
+  await t('revise prompt sends the current spec and the requested changes', async () => {
+    const mock = { responses: [JSON.stringify(V.EXAMPLE)] };
+    const res = await V.run({ task: 'revise', prevSpec: V.EXAMPLE, hints: 'make it 4 inches taller', provider: { kind: 'mock', mock }, maxRounds: 1 });
+    ok(res.rep.ok); ok(/REQUESTED CHANGES/.test(mock.calls[0].text) && /make it 4 inches taller/.test(mock.calls[0].text) && /CURRENT SPEC/.test(mock.calls[0].text));
+  });
   await t('Gauntlet loop: bad first draft → critic feedback reaches the model → fixed draft accepted', async () => {
     const bad = JSON.parse(JSON.stringify(V.EXAMPLE)); bad.parts[0].instances[0].pos[2] = 5; const mock = { responses: ['Sure!\n```json\n' + JSON.stringify(bad) + '\n```', JSON.stringify(V.EXAMPLE)] }, logs = [];
     const res = await V.run({ image: 'data:image/png;base64,AAAA', hints: 'height 420 mm', provider: { kind: 'mock', mock }, maxRounds: 3, onLog: m => logs.push(m) });

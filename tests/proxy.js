@@ -9,6 +9,7 @@ up.listen(0, async () => {
   check(!JSON.stringify([...r.headers]).includes('SERVERSIDE') && !JSON.stringify(j).includes('SERVERSIDE'), 'the key never reaches the browser');
   r = await post(null, '{bad'); check(r.status === 400, 'invalid JSON → 400'); r = await post({ model: 'm' }); check(r.status === 400, 'missing messages → 400');
   r = await fetch(base + '/'); check(r.status === 200 && /Image → CAD/.test(await r.text()), 'serves index.html'); r = await fetch(base + '/examples/stool.json'); check(r.status === 200 && (await r.json()).name === 'Three-leg stool', 'serves examples');
+  r = await fetch(base + '/api/status'); const st = await r.json(); check(r.status === 200 && st.hasKey === true && !JSON.stringify(st).includes('SERVERSIDE'), 'status reports the key is present without leaking it');
   for (const p of ['/package.json', '/server/proxy.js', '/tests/run.js', '/.git/config', '/%2e%2e/%2e%2e/etc/passwd', '/..%2fpackage.json', '/src/../package.json', '/node_modules/three/package.json']) { r = await fetch(base + p); check(r.status === 404 || r.status === 400, 'blocks ' + p + ' (' + r.status + ')'); }
   r = await fetch(base + '/api/messages', { method: 'PUT' }); check(r.status === 405, 'other methods rejected');
   let last; for (let i = 0; i < 8; i++) last = await post({ model: 'm', messages: [{ role: 'user', content: 'x' }] }); check(last.status === 429, 'rate limit kicks in');

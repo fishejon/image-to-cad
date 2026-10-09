@@ -24,7 +24,7 @@ async function handleMessagesRequest({ body, ip }) {
   if (limited(ip || 'unknown')) return { status: 429, json: { error: { message: 'rate limit: ' + rate() + ' requests per minute' } } };
   let b;
   try { b = parseBody(body); } catch (e) { return { status: 400, json: { error: { message: 'invalid JSON' } } }; }
-  const payload = { model: String(b.model || 'claude-sonnet-5-5'), max_tokens: Math.min(+b.max_tokens || 16000, 32000), messages: b.messages };
+  const payload = { model: String(b.model || 'claude-sonnet-4-5'), max_tokens: Math.min(+b.max_tokens || 16000, 32000), messages: b.messages };
   if (b.system) payload.system = String(b.system);
   if (!Array.isArray(payload.messages)) return { status: 400, json: { error: { message: 'messages must be an array' } } };
   try {

@@ -5,11 +5,13 @@ const T = THREE, CAD = window.CAD;
 const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
 const V = (x, y, z) => new T.Vector3(x, y, z);
 const fmt = (n, d) => (+n).toLocaleString('en-US', { maximumFractionDigits: d === undefined ? 0 : d, minimumFractionDigits: d || 0 });
+const inch = v => CAD.fmtInch(v), inch3 = a => CAD.fmtInch3(a);
+const outVal = (v, unit) => (!unit || unit === 'mm' || unit === 'in' || unit === '"') ? inch(v) : (v + (unit ? ' ' + unit : ''));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const gname = id => (CAD.GROUPS.find(g => g.id === id) || { name: id }).name;
 const S = { M: null, spec: null, ov: {}, R: [], kin: {}, sel: new Set(), hiddenDef: new Set(), hiddenGrp: new Set(), iso: null, mode: 'real', exF: 0, stepCur: 0, stepping: false,
   sec: { on: false, axis: 'y', off: 0, inv: false }, edges: true, meas: { on: false, pts: [], objs: [] }, q: '', need: true, hov: null, collapsed: new Set(), mv: {},
-  ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null }, examples: {} };
+  ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null }, examples: {}, nav: 'orbit', leftOn: true, rightOn: true };
 
 
 /* ---------------- renderer / scene ---------------- */
@@ -17,7 +19,7 @@ const cv = $('#cv'), wrap = $('#vpwrap');
 const renderer = new T.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.outputEncoding = T.sRGBEncoding; renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = .88; renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
 const scene = new T.Scene(), camera = new T.PerspectiveCamera(30, 1, 5, 40000); camera.up.set(0, 0, 1);
-const controls = new T.OrbitControls(camera, cv); controls.enableDamping = true; controls.dampingFactor = .12; controls.screenSpacePanning = true; controls.addEventListener('change', () => { S.need = true; });
+const controls = new T.OrbitControls(camera, cv); controls.enableDamping = true; controls.dampingFactor = .12; controls.screenSpacePanning = true; controls.enablePan = true; controls.panSpeed = 1.1; controls.mouseButtons = { LEFT: T.MOUSE.ROTATE, MIDDLE: T.MOUSE.PAN, RIGHT: T.MOUSE.PAN }; controls.touches = { ONE: T.TOUCH.ROTATE, TWO: T.TOUCH.DOLLY_PAN }; controls.addEventListener('change', () => { S.need = true; });
 const root = new T.Group(); scene.add(root);
 scene.add(new T.HemisphereLight(0xffffff, 0x8a8478, .55));
 const sun = new T.DirectionalLight(0xfff4e6, .95); sun.position.set(-1400, -2200, 2600); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); const sc_ = sun.shadow.camera; sc_.left = -1400; sc_.right = 1400; sc_.top = 1400; sc_.bottom = -1400; sc_.near = 500; sc_.far = 7000; sun.shadow.bias = -.0004; sun.shadow.normalBias = 1.5; scene.add(sun);
@@ -144,12 +146,31 @@ function snap(h) {
   [f.a, f.b, f.c].forEach(i => { const v = V(a.getX(i), a.getY(i), a.getZ(i)).applyMatrix4(h.object.matrixWorld), dd = v.distanceTo(p); if (dd < bd) { bd = dd; best = v; } });
   return bd < Math.max(camera.position.distanceTo(p) * .012, 3) ? { p: best, snapped: true } : { p, snapped: false };
 }
-let down = null;
-cv.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; });
+const floorPl = new T.Plane(new T.Vector3(0, 0, 1), 0);
+function hitFloor(cx, cy) { const r = cv.getBoundingClientRect(); mouse.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1); ray.setFromCamera(mouse, camera); const p = V(0, 0, 0); return ray.ray.intersectPlane(floorPl, p) ? p : null; }
+function applyNavMode() {
+  const m = S.nav; $$('#navMode button').forEach(b => b.classList.toggle('on', b.dataset.nav === m));
+  controls.enableRotate = m === 'orbit'; controls.enablePan = m !== 'move';
+  controls.mouseButtons.LEFT = m === 'pan' ? T.MOUSE.PAN : T.MOUSE.ROTATE;
+  cv.style.cursor = S.meas.on ? 'crosshair' : (m === 'pan' ? 'grab' : m === 'move' ? 'move' : '');
+  const bl = $('#hudBL'); if (bl) bl.textContent = m === 'pan' ? 'Drag to slide the view · scroll to zoom' : m === 'move' ? 'Drag to slide the model on the floor' : 'Drag to orbit · Shift-drag or Pan view to slide · scroll to zoom';
+}
+let down = null, draggingModel = null;
+cv.addEventListener('pointerdown', e => {
+  cv.focus(); down = { x: e.clientX, y: e.clientY };
+  if (e.shiftKey && S.nav === 'orbit' && e.button === 0) { controls.mouseButtons.LEFT = T.MOUSE.PAN; controls.enableRotate = false; controls.enablePan = true; }
+  if (S.nav === 'move' && e.button === 0 && !S.meas.on) { const p = hitFloor(e.clientX, e.clientY); if (p) { draggingModel = { ox: p.x - root.position.x, oy: p.y - root.position.y }; controls.enabled = false; cv.setPointerCapture(e.pointerId); } }
+}, true);
+cv.addEventListener('pointermove', e => {
+  if (!draggingModel) return; const p = hitFloor(e.clientX, e.clientY); if (!p) return;
+  root.position.x = p.x - draggingModel.ox; root.position.y = p.y - draggingModel.oy; S.need = true;
+});
 cv.addEventListener('pointerup', e => {
+  if (S.nav === 'orbit') { controls.mouseButtons.LEFT = T.MOUSE.ROTATE; controls.enableRotate = true; controls.enablePan = true; }
+  if (draggingModel) { draggingModel = null; controls.enabled = true; }
   if (!down) return; const mv = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null; if (mv > 4) return; const h = pickAt(e.clientX, e.clientY);
-  if (S.meas.on) { if (h) addMeasurePoint(snap(h).p); return; } if (!h) { if (!(e.ctrlKey || e.metaKey || e.shiftKey)) setSel([]); return; }
-  const R = h.object.userData.R; if (e.ctrlKey || e.metaKey || e.shiftKey) { const n = new Set(S.sel); n.has(R) ? n.delete(R) : n.add(R); setSel([...n]); } else setSel([R]);
+  if (S.meas.on) { if (h) addMeasurePoint(snap(h).p); return; } if (S.nav === 'move' || S.nav === 'pan') return; if (!h) { if (!(e.ctrlKey || e.metaKey || e.shiftKey)) setSel([]); return; }
+  const R = h.object.userData.R; if (e.ctrlKey || e.metaKey) { const n = new Set(S.sel); n.has(R) ? n.delete(R) : n.add(R); setSel([...n]); } else setSel([R]);
 });
 let hovT = 0;
 cv.addEventListener('pointermove', e => {
@@ -157,7 +178,7 @@ cv.addEventListener('pointermove', e => {
   const h = pickAt(e.clientX, e.clientY), R = h ? h.object.userData.R : null; if (R !== S.hov) { S.hov = R; updateVisuals(); }
   const tip = $('#tip'), r = wrap.getBoundingClientRect();
   if (R && !S.meas.on) { tip.style.display = 'block'; tip.style.left = Math.min(r.width - 290, e.clientX - r.left + 14) + 'px'; tip.style.top = (e.clientY - r.top + 14) + 'px'; tip.innerHTML = `<b>${esc(R.def.name)}</b><br><span style="color:var(--dim)">${esc(gname(R.def.grp))}${R.def.qty > 1 ? ' · #' + R.inst.qtyIdx + ' of ' + R.def.qty : ''}</span>`; }
-  else if (S.meas.on && h) { const s = snap(h); tip.style.display = 'block'; tip.style.left = (e.clientX - r.left + 14) + 'px'; tip.style.top = (e.clientY - r.top + 14) + 'px'; tip.textContent = (s.snapped ? 'Vertex ' : 'Surface ') + s.p.toArray().map(v => v.toFixed(1)).join(', '); } else hideTip();
+  else if (S.meas.on && h) { const s = snap(h); tip.style.display = 'block'; tip.style.left = (e.clientX - r.left + 14) + 'px'; tip.style.top = (e.clientY - r.top + 14) + 'px'; tip.textContent = (s.snapped ? 'Vertex ' : 'Surface ') + s.p.toArray().map(inch).join(', '); } else hideTip();
 });
 cv.addEventListener('pointerleave', () => { hideTip(); if (S.hov) { S.hov = null; updateVisuals(); } });
 function hideTip() { $('#tip').style.display = 'none'; }
@@ -168,7 +189,7 @@ function addMeasurePoint(p) {
   if (S.meas.pts.length >= 2) clearMeasure(); S.meas.pts.push(p.clone());
   const m = new T.Mesh(new T.SphereGeometry(Math.max(2.5, camera.position.distanceTo(p) * .005), 12, 10), new T.MeshBasicMaterial({ color: 0xffd400, depthTest: false })); m.position.copy(p); m.renderOrder = 10; scene.add(m); S.meas.objs.push(m);
   if (S.meas.pts.length === 2) { const [a, b] = S.meas.pts, ln = new T.Line(new T.BufferGeometry().setFromPoints([a, b]), new T.LineBasicMaterial({ color: 0xffd400, depthTest: false })); ln.renderOrder = 10; scene.add(ln); S.meas.objs.push(ln);
-    const d = b.clone().sub(a); S.meas.txt = `${d.length().toFixed(2)} mm   ΔX ${d.x.toFixed(1)}  ΔY ${d.y.toFixed(1)}  ΔZ ${d.z.toFixed(1)}`; S.meas.mid = a.clone().add(b).multiplyScalar(.5); placeMeasureLabel(); }
+    const d = b.clone().sub(a); S.meas.txt = `${inch(d.length())}   ΔX ${inch(d.x)}  ΔY ${inch(d.y)}  ΔZ ${inch(d.z)}`; S.meas.mid = a.clone().add(b).multiplyScalar(.5); placeMeasureLabel(); }
   S.need = true;
 }
 function placeMeasureLabel() {
@@ -181,6 +202,7 @@ let tween = null;
 function tweenCam(pos, tgt, ms) { tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: tgt, t: performance.now(), d: ms || 450 }; S.need = true; }
 function sceneBox() { const b = new T.Box3(); S.R.forEach(R => { if (R.mesh.visible) b.union(new T.Box3().setFromObject(R.mesh)); }); return b.isEmpty() ? new T.Box3(V(-700, -200, 0), V(700, 200, 850)) : b; }
 function viewTo(name) {
+  if (name === 'iso') root.position.set(0, 0, 0);
   const b = sceneBox(), c = b.getCenter(V(0, 0, 0)), r = b.getSize(V(0, 0, 0)).length() / 2, d = r / Math.tan(camera.fov * Math.PI / 360) * .98 * (camera.aspect < 1 ? 1.5 : 1);
   const dirs = { iso: [.7, -1, .52], front: [0, -1, .1], right: [1, 0, .1], top: [0, -.001, 1], back: [0, 1, .1], left: [-1, 0, .1] }, v = V(...dirs[name]).normalize(); tweenCam(c.clone().addScaledVector(v, d), c, 520);
 }
@@ -214,15 +236,15 @@ function renderInspect() {
   const el = $('#p-insp'), M = S.M; if (!M) return;
   if (!S.sel.size) {
     let mass = 0; const byMat = {}; M.insts.forEach(i => { const d = M.defs.get(i.def); mass += d.mass; const k = (CAD.MATS[d.solid.mat] || {}).name || d.solid.mat; byMat[k] = (byMat[k] || 0) + d.mass; });
-    el.innerHTML = `<h3>${esc(M.meta.name)}</h3>${M.meta.description ? `<div class="card">${esc(M.meta.description)}</div>` : ''}<div class="kv"><span>Overall size</span><span>${M.size.map(v => fmt(v)).join(' × ')} mm</span><span>Part types / pieces</span><span>${M.defs.size} / ${M.insts.length}</span><span>Weight (est.)</span><span>${fmt(mass, 1)} kg</span>${Object.entries(byMat).map(([k, v]) => `<span>${esc(k)}</span><span>${fmt(v, 1)} kg</span>`).join('')}</div>
+    el.innerHTML = `<h3>${esc(M.meta.name)}</h3>${M.meta.description ? `<div class="card">${esc(M.meta.description)}</div>` : ''}<div class="kv"><span>Overall size</span><span>${inch3(M.size)}</span><span>Part types / pieces</span><span>${M.defs.size} / ${M.insts.length}</span><span>Weight (est.)</span><span>${fmt(mass, 1)} kg</span>${Object.entries(byMat).map(([k, v]) => `<span>${esc(k)}</span><span>${fmt(v, 1)} kg</span>`).join('')}</div>
       ${M.meta.assumptions.length ? `<h3>Assumptions</h3><div class="card">${M.meta.assumptions.map(a => '• ' + esc(a)).join('<br>')}</div>` : ''}${S.lastWarnings.length ? `<div class="card warn"><b>Warnings</b>${S.lastWarnings.slice(0, 6).map(esc).join('<br>')}</div>` : ''}
-      <div class="card"><b>How to use</b>Click a part to see its joinery. <i>Explode</i>, <i>Section</i> and <i>Measure</i> are in the top bar. <i>Move</i> drives moving parts, <i>Design</i> resizes the model, <i>Export</i> makes print-ready STLs, <b>Build guide</b> is the step-by-step manual, <i>AI</i> designs from a picture and <i>Spec</i> is the editable source.</div>`; return; }
+      <div class="card"><b>How to use</b>Click a part to see its joinery. Use <i>Orbit</i>, <i>Pan view</i> and <i>Move model</i> in the top bar. <b>AI</b> generates from a picture or revises this design from a written change. Collapse the side panels with the ‹ › buttons on the viewport. <i>Build guide</i> is the step-by-step manual — Back to model returns here.</div>`; return; }
   const first = [...S.sel][0], d = first.def, many = new Set([...S.sel].map(R => R.def.id)).size > 1;
   if (many) { const m = {}; S.sel.forEach(R => m[R.def.id] = (m[R.def.id] || 0) + 1); el.innerHTML = `<h3>${S.sel.size} pieces selected</h3><div class="kv">${Object.entries(m).map(([id, n]) => `<span>${esc(S.M.defs.get(id).name)}</span><span>${n}×</span>`).join('')}</div>${acts()}`; bindActs(); return; }
   const sz = d.size, rows = d.solid.exact ? fillFor().filter(r => r.part === d.id + '#' + first.inst.qtyIdx) : [], by = {};
   rows.forEach(r => { const k = r.tag; (by[k] = by[k] || { n: 0, by: new Set(), ok: true }).n++; r.by.split('+').filter(Boolean).forEach(x => by[k].by.add(x)); if (r.ratio < .999) by[k].ok = false; });
   const lab = {}; (d.solid.feat || []).forEach(f => { if (f.label && !lab[f.tag]) lab[f.tag] = f.label; });
-  el.innerHTML = `<h3>${esc(d.name)}</h3><div class="kv"><span>Group</span><span>${esc(gname(d.grp))}</span><span>Quantity</span><span>${d.qty}${d.qty > 1 ? ' (this is #' + first.inst.qtyIdx + ')' : ''}</span><span>Size</span><span>${fmt(sz[0], 1)} × ${fmt(sz[1], 1)} × ${fmt(sz[2], 1)} mm</span>
+  el.innerHTML = `<h3>${esc(d.name)}</h3><div class="kv"><span>Group</span><span>${esc(gname(d.grp))}</span><span>Quantity</span><span>${d.qty}${d.qty > 1 ? ' (this is #' + first.inst.qtyIdx + ')' : ''}</span><span>Size</span><span>${inch3(sz)}</span>
     <span>Material</span><span>${esc((CAD.MATS[d.solid.mat] || {}).name || d.solid.mat)}</span><span>Kind</span><span>${d.solid.exact ? 'solid (exact boolean)' : 'mesh primitives'}</span><span>Volume / mass</span><span>${fmt(d.vol / 1000, 1)} cm³ · ${fmt(d.mass, 2)} kg</span><span>Step</span><span>${first.inst.step + 1}. ${esc((S.M.steps[first.inst.step] || {}).title || '')}</span></div>
     ${d.spec || d.notes.length ? `<div class="card"><b>Spec</b>${esc(d.spec)}${d.notes.length ? '<br>' + d.notes.map(esc).join('<br>') : ''}</div>` : ''}
     ${Object.keys(by).length ? `<h3>Joinery on this part</h3><table>${Object.entries(by).map(([tag, v]) => `<tr><td>${esc(lab[tag] || tag)}</td><td class="n">${v.n}×</td><td class="${v.ok ? 'pass' : 'fail'}">${v.ok ? '✓ ' + esc([...v.by].join(', ')) : '✗ not filled'}</td></tr>`).join('')}</table>` : ''}${acts()}`; bindActs();
@@ -246,28 +268,28 @@ $('#bPlay').onclick = () => playT ? stopPlay() : startPlay(); $('#bStepAll').onc
 
 
 /* ---------------- panes ---------------- */
-const slider = (id, label, min, max, step, val, unit) => `<div class="row"><label for="${id}">${label}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><output id="${id}o">${val}${unit || ''}</output></div>`;
+const slider = (id, label, min, max, step, val, shown) => `<div class="row"><label for="${id}">${label}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><output id="${id}o">${shown}</output></div>`;
 function renderMotion() {
-  const el = $('#p-motion'), M = S.M, ks = Object.entries(M.kinematics), u = kc => kc.unit === 'deg' ? '°' : ' mm';
-  el.innerHTML = (ks.length ? '<h3>Moving parts</h3>' + ks.map(([k, kc], i) => slider('mk' + i, esc(kc.label), kc.range[0], kc.range[1], Math.max(.1, +((kc.range[1] - kc.range[0]) / 300).toFixed(2)), S.mv[k] || 0, u(kc))).join('') + '<div class="grid2"><button class="btn sm" id="mOpen">Open all</button><button class="btn sm" id="mClose">Close all</button></div>'
+  const el = $('#p-motion'), M = S.M, ks = Object.entries(M.kinematics), shown = (kc, v) => kc.unit === 'deg' ? v + '°' : inch(v);
+  el.innerHTML = (ks.length ? '<h3>Moving parts</h3>' + ks.map(([k, kc], i) => slider('mk' + i, esc(kc.label), kc.range[0], kc.range[1], Math.max(.1, +((kc.range[1] - kc.range[0]) / 300).toFixed(2)), S.mv[k] || 0, shown(kc, S.mv[k] || 0))).join('') + '<div class="grid2"><button class="btn sm" id="mOpen">Open all</button><button class="btn sm" id="mClose">Close all</button></div>'
     : '<div class="card"><b>No moving parts</b>Add a <code>kinematics</code> entry to the spec (and <code>"kin"</code> on instances) to get sliders here.</div>') +
     `<h3>Section plane</h3><div class="row"><label>Axis</label><div class="seg" id="secAx">${['x', 'y', 'z'].map(a => `<button class="btn sm ${S.sec.axis === a ? 'on' : ''}" data-a="${a}">${a.toUpperCase()}</button>`).join('')}</div><button class="btn sm" id="secInv">Flip</button></div><div id="secSl"></div>`;
-  ks.forEach(([k, kc], i) => { const e = $('#mk' + i); e.oninput = () => { S.mv[k] = +e.value; $('#mk' + i + 'o').textContent = e.value + u(kc); applyMotion(); }; });
+  ks.forEach(([k, kc], i) => { const e = $('#mk' + i); e.oninput = () => { S.mv[k] = +e.value; $('#mk' + i + 'o').textContent = shown(kc, +e.value); applyMotion(); }; });
   const setAll = open => { ks.forEach(([k, kc]) => S.mv[k] = open ? kc.range[1] : kc.range[0]); applyMotion(); renderMotion(); };
   if (ks.length) { $('#mOpen').onclick = () => setAll(true); $('#mClose').onclick = () => setAll(false); }
   $$('#secAx button').forEach(b => b.onclick = () => { S.sec.axis = b.dataset.a; S.sec.off = Math.round(sceneBox().getCenter(V(0, 0, 0))[S.sec.axis]); applySection(); renderMotion(); }); $('#secInv').onclick = () => { S.sec.inv = !S.sec.inv; applySection(); }; renderMotionSection();
 }
 function renderMotionSection() {
   const el = $('#secSl'); if (!el) return; const b = sceneBox(), a = S.sec.axis, lo = Math.floor(b.min[a]), hi = Math.ceil(b.max[a]);
-  el.innerHTML = slider('so', 'Offset', lo, hi, 1, S.sec.off, ' mm') + `<div class="chk"><input type="checkbox" id="secOn" ${S.sec.on ? 'checked' : ''}><label for="secOn">Section active</label></div>`;
-  $('#so').oninput = e => { S.sec.off = +e.target.value; $('#soo').textContent = e.target.value + ' mm'; if (S.sec.on) applySection(); }; $('#secOn').onchange = e => { S.sec.on = e.target.checked; $('#bSec').classList.toggle('on', S.sec.on); applySection(); };
+  el.innerHTML = slider('so', 'Offset', lo, hi, 1, S.sec.off, inch(S.sec.off)) + `<div class="chk"><input type="checkbox" id="secOn" ${S.sec.on ? 'checked' : ''}><label for="secOn">Section active</label></div>`;
+  $('#so').oninput = e => { S.sec.off = +e.target.value; $('#soo').textContent = inch(+e.target.value); if (S.sec.on) applySection(); }; $('#secOn').onchange = e => { S.sec.on = e.target.checked; $('#bSec').classList.toggle('on', S.sec.on); applySection(); };
 }
 function renderParam() {
   const el = $('#p-param'), M = S.M, pd = M.paramDefs;
-  el.innerHTML = (pd.length ? '<h3>Parameters (releasing a slider re-cuts every joint)</h3>' + pd.map((p, i) => slider('pp' + i, esc(p.label), p.min, p.max, p.step, p.value, p.unit ? ' ' + esc(p.unit) : '')).join('') + '<div class="grid2"><button class="btn sm" id="pReset">Reset to spec defaults</button><button class="btn sm" id="pSpec">Edit in spec</button></div>'
+  el.innerHTML = (pd.length ? '<h3>Parameters (releasing a slider re-cuts every joint)</h3>' + pd.map((p, i) => slider('pp' + i, esc(p.label), p.min, p.max, p.step, p.value, outVal(p.value, p.unit))).join('') + '<div class="grid2"><button class="btn sm" id="pReset">Reset to spec defaults</button><button class="btn sm" id="pSpec">Edit in spec</button></div>'
     : '<div class="card"><b>No parameters</b>Dimensions in this spec are fixed numbers. Put them in <code>params</code> and reference them in expressions to get sliders here.</div>') +
     `<h3>Assembly sequence</h3><ol style="margin:0;padding-left:18px">${M.steps.map(s => `<li>${esc(s.title)}</li>`).join('')}</ol>`;
-  pd.forEach((p, i) => { const e = $('#pp' + i); e.oninput = () => $('#pp' + i + 'o').textContent = e.value + (p.unit ? ' ' + p.unit : ''); e.onchange = () => { const ov = {}; pd.forEach((q, j) => ov[q.key] = +$('#pp' + j).value); toast('Re-cutting joinery…'); setTimeout(() => { loadSpec(S.spec, ov, true); toast('Rebuilt: ' + S.M.size.map(Math.round).join(' × ') + ' mm'); }, 20); }; });
+  pd.forEach((p, i) => { const e = $('#pp' + i); e.oninput = () => $('#pp' + i + 'o').textContent = outVal(+e.value, p.unit); e.onchange = () => { const ov = {}; pd.forEach((q, j) => ov[q.key] = +$('#pp' + j).value); toast('Re-cutting joinery…'); setTimeout(() => { loadSpec(S.spec, ov, true); toast('Rebuilt: ' + inch3(S.M.size)); }, 20); }; });
   if (pd.length) { $('#pReset').onclick = () => loadSpec(S.spec, {}, true); $('#pSpec').onclick = () => setTab('spec'); }
 }
 
@@ -311,8 +333,8 @@ function info() { try { let np = 0, ns = 0, mesh = 0; S.M.defs.forEach(d => { co
 /* ---------------- cut list modal ---------------- */
 function showCut() {
   const rows = CAD.cutList(S.M).sort((a, b) => CAD.GROUPS.findIndex(g => g.id === a.grp) - CAD.GROUPS.findIndex(g => g.id === b.grp)); let last = '', i = 0, tw = 0; rows.forEach(r => tw += r.mass * r.qty);
-  $('#mtitle').textContent = 'Cut list: finished sizes (add ~3 mm per dimension for milling)'; $('#mextra').textContent = rows.length + ' part types · ' + fmt(tw, 1) + ' kg';
-  $('#mbody').innerHTML = `<table><tr><th class="n">#</th><th>Part</th><th class="n">Qty</th><th class="n">T</th><th class="n">W</th><th class="n">L</th><th>Material</th><th>Notes</th></tr>${rows.map(r => { let h = ''; if (r.grp !== last) { last = r.grp; h = `<tr><td colspan="8" style="background:var(--panel2);font-weight:600">${esc(gname(r.grp))}</td></tr>`; } return h + `<tr><td class="n">${++i}</td><td>${esc(r.name)}</td><td class="n">${r.qty}</td><td class="n">${fmt(r.T, 1)}</td><td class="n">${fmt(r.W, 1)}</td><td class="n">${fmt(r.L, 1)}</td><td>${esc(r.mat)}</td><td>${esc(r.spec)}</td></tr>`; }).join('')}</table>`;
+  $('#mtitle').textContent = 'Cut list: finished sizes (nearest 1/16″)'; $('#mextra').textContent = rows.length + ' part types · ' + fmt(tw, 1) + ' kg';
+  $('#mbody').innerHTML = `<table><tr><th class="n">#</th><th>Part</th><th class="n">Qty</th><th class="n">T</th><th class="n">W</th><th class="n">L</th><th>Material</th><th>Notes</th></tr>${rows.map(r => { let h = ''; if (r.grp !== last) { last = r.grp; h = `<tr><td colspan="8" style="background:var(--panel2);font-weight:600">${esc(gname(r.grp))}</td></tr>`; } return h + `<tr><td class="n">${++i}</td><td>${esc(r.name)}</td><td class="n">${r.qty}</td><td class="n">${inch(r.T)}</td><td class="n">${inch(r.W)}</td><td class="n">${inch(r.L)}</td><td>${esc(r.mat)}</td><td>${esc(r.spec)}</td></tr>`; }).join('')}</table>`;
   $('#modal').style.display = 'block'; $('#mcsv').onclick = () => deliver('cut_list', [{ name: safe(S.M.meta.name) + '_cut_list.csv', data: cutCSV() }]);
 }
 $('#mclose').onclick = () => $('#modal').style.display = 'none';
@@ -326,7 +348,7 @@ function runChecks() {
     const row = (ok, t, d) => `<tr><td class="${ok ? 'pass' : 'fail'}">${ok ? '✓' : '✗'}</td><td>${t}</td><td>${d}</td></tr>`, exact = [...M.defs.values()].filter(d => d.solid.exact).length;
     out.innerHTML = `<table>${row(!S.lastErrors.length, 'Spec', S.lastErrors.length ? esc(S.lastErrors.slice(0, 3).join('; ')) : 'valid' + (S.lastWarnings.length ? ' · ' + S.lastWarnings.length + ' warning(s)' : ''))}
       ${row(!man.length, 'Watertight meshes', man.length ? esc(man.map(r => r.id).join(', ')) : 'all ' + M.defs.size + ' part meshes closed &amp; manifold')}
-      ${row(!it.length, 'Part-to-part interference', it.length ? it.length + ' pairs: ' + esc(it.slice(0, 3).map(x => x.a + '×' + x.b).join('; ')) : 'exact solid test on ' + exact + ' solid part types: 0 mm³ overlap')}
+      ${row(!it.length, 'Part-to-part interference', it.length ? it.length + ' pairs: ' + esc(it.slice(0, 3).map(x => x.a + '×' + x.b).join('; ')) : 'exact solid test on ' + exact + ' solid part types: no overlap')}
       ${row(!bad.length, 'Joint fill (' + fl.length + ' mortises, dados, grooves…)', bad.length ? bad.length + ' not filled: ' + esc(bad.slice(0, 3).map(r => r.part + '/' + r.tag).join('; ')) : fl.length ? 'every cut that should hold a mating part is filled 100 %' : 'no "fill" joints declared')}
       ${row(!over.length, 'Fits ' + S.ex.bed.join('×') + ' bed at 1:' + S.ex.scale, over.length ? over.length + ' oversize pieces (round parts are not split)' : plates.length + ' plate(s) hold every piece')}
       ${row(!rtBad, 'STL round-trip', n + ' parts exported and re-read; volume matches within 0.1 %')}${row(true, 'Elapsed', fmt(performance.now() - t0) + ' ms')}</table>`; }, 20);
@@ -346,39 +368,80 @@ function setSpecText() { const t = $('#specTxt'); if (t && S.spec) t.value = jso
 function renderSpecErrors() { const el = $('#specErr'); if (!el) return; el.innerHTML = (S.lastErrors.length ? `<div class="card fail"><b>Errors</b>${S.lastErrors.slice(0, 12).map(esc).join('<br>')}</div>` : '') + (S.lastWarnings.length ? `<div class="card warn"><b>Warnings</b>${S.lastWarnings.slice(0, 8).map(esc).join('<br>')}</div>` : ''); }
 
 /* ---------------- AI: picture → design (builder ⇄ critic loop) ---------------- */
+const AI_MODELS = [
+  { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5', hint: 'Recommended' },
+  { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', hint: 'Newest Sonnet' },
+  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6', hint: 'Highest quality' },
+  { id: 'claude-opus-4-5', label: 'Claude Opus 4.5', hint: 'High quality' },
+  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', hint: 'Faster / cheaper' }
+];
 function aiLog(m) { S.ai.log.push(m); const el = $('#aiLog'); if (el) { el.innerHTML = S.ai.log.map(esc).join('<br>'); el.scrollTop = 1e9; } const r = $('#rLog'); if (r) r.innerHTML = S.ai.log.map(esc).join('<br>'); }
 function downscale(file, max) { return new Promise((res, rej) => { const img = new Image(), url = URL.createObjectURL(file); img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', .86)); }; img.onerror = () => rej(new Error('could not read the image')); img.src = url; }); }
-async function setImage(file) { if (!file || !/^image\//.test(file.type)) return toast('Please choose an image file'); try { const u = await downscale(file, 1568); S.ai.img = u; $('#aiPrev').src = u; $('#aiPrev').style.display = 'block'; $('#aiDropT').textContent = file.name || 'pasted image'; } catch (e) { toast(e.message); } }
+async function setImage(file) { if (!file || !/^image\//.test(file.type)) return toast('Please choose an image file'); try { const u = await downscale(file, 1568); S.ai.img = u; const prev = $('#aiPrev'); if (prev) { prev.src = u; prev.style.display = 'block'; } const t = $('#aiDropT'); if (t) t.textContent = file.name || 'pasted image'; } catch (e) { toast(e.message); } }
 const frames = n => new Promise(r => { const f = () => --n <= 0 ? r() : requestAnimationFrame(f); requestAnimationFrame(f); });
+function setAIConn(text, ok) { const el = $('#aiConn'); if (!el) return; el.textContent = text; el.className = 'aiConn' + (ok === true ? ' ok' : ok === false ? ' bad' : ''); }
+async function checkConnection() {
+  const kind = $('#aiProv') && $('#aiProv').value, model = $('#aiModel') && $('#aiModel').value;
+  if (!kind) return; setAIConn('Checking ' + model + '…');
+  try {
+    if (kind === 'proxy') {
+      const r = await fetch('/api/status'); const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error('proxy not reachable');
+      if (!j.hasKey) throw new Error('server is up but ANTHROPIC_API_KEY is not set');
+      setAIConn('Connected · ' + model + ' via server proxy', true);
+    } else if (kind === 'anthropic') {
+      const key = $('#aiKey').value.trim(); if (!key) throw new Error('paste an Anthropic API key');
+      const r = await fetch('https://api.anthropic.com/v1/models', { headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' } });
+      if (!r.ok) throw new Error('Anthropic rejected the key (' + r.status + ')');
+      setAIConn('Connected · API key valid · ' + model, true);
+    } else setAIConn('Using Claude on this page · ' + (model || 'account default'), true);
+  } catch (e) { setAIConn('Not connected: ' + e.message, false); }
+}
+function openAI() { $('#aiBox').classList.add('open'); $('#bAI').classList.add('on'); checkConnection(); }
+function closeAI() { $('#aiBox').classList.remove('open'); $('#bAI').classList.remove('on'); }
 function renderAI() {
   const inClaude = !!window.claude, remembered = (() => { try { return localStorage.getItem('image-to-cad.key') || ''; } catch (e) { return ''; } })();
   const hosted = location.protocol !== 'file:';
-  $('#p-ai').innerHTML = `<h3>1 · Picture</h3><div id="aiDrop" style="border:2px dashed var(--line);border-radius:10px;padding:14px;text-align:center;cursor:pointer"><div id="aiDropT">Drop, paste or click to choose an image</div><input type="file" id="aiFile" accept="image/*" hidden><img id="aiPrev" style="display:none;max-width:100%;max-height:200px;margin:8px auto 0;border-radius:6px"></div>
-  <h3>2 · Brief (optional)</h3><textarea id="aiHints" rows="3" placeholder="e.g. overall height 850 mm, solid oak, no screws, two drawers" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
-  <h3>3 · Model</h3><div class="row"><label>Provider</label><select id="aiProv" class="btn" style="flex:1"><option value="proxy"${hosted && !inClaude ? ' selected' : ''}>Server proxy (Vercel / npm run serve)</option><option value="anthropic"${!hosted && !inClaude ? ' selected' : ''}>Claude API key (browser)</option>${inClaude ? '<option value="artifact" selected>Claude (this page, your account)</option>' : ''}</select></div>
+  $('#p-ai').innerHTML = `<h3>Connection</h3>
+  <div class="row"><label>Provider</label><select id="aiProv" class="btn" style="flex:1"><option value="proxy"${hosted && !inClaude ? ' selected' : ''}>Server proxy (Vercel / npm run serve)</option><option value="anthropic"${!hosted && !inClaude ? ' selected' : ''}>Claude API key (browser)</option>${inClaude ? '<option value="artifact" selected>Claude (this page, your account)</option>' : ''}</select></div>
   <div class="row" id="aiKeyRow"><label>API key</label><input id="aiKey" type="password" placeholder="sk-ant-…" value="${esc(remembered)}" style="flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
-  <div class="row"><label>Model</label><input id="aiModel" value="claude-sonnet-5-5" style="flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
-  <div class="row"><label>Max rounds</label><select id="aiRounds" class="btn"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select><div class="chk" style="margin:0"><input type="checkbox" id="aiVis"><label for="aiVis">visual critic</label></div></div>
+  <div class="row"><label>Model</label><select id="aiModel" class="btn" style="flex:1">${AI_MODELS.map((m, i) => `<option value="${esc(m.id)}"${i === 0 ? ' selected' : ''}>${esc(m.label)} — ${esc(m.hint)}</option>`).join('')}</select></div>
   <div class="chk"><input type="checkbox" id="aiRem"><label for="aiRem">remember key in this browser (localStorage)</label></div>
-  <div class="grid2"><button class="btn pri" id="aiGo">Generate</button><button class="btn" id="aiStop" disabled>Stop</button></div><div class="log" id="aiLog" style="max-height:220px;overflow:auto;margin-top:8px">${S.ai.log.map(esc).join('<br>')}</div>
-  <div class="card"><b>How it works</b>The model writes a design spec from your picture. An exact geometry critic then checks it (overlaps, unfilled joints, watertightness, bad expressions) and sends its findings back until the design passes or the rounds run out. The result opens here and in the Spec tab. Your picture is sent to the provider you choose and nowhere else.</div>`;
+  <button class="btn sm" id="aiPing" style="width:100%">Check connection</button>
+  <h3>From a picture</h3><div id="aiDrop" style="border:2px dashed var(--line);border-radius:10px;padding:14px;text-align:center;cursor:pointer"><div id="aiDropT">Drop, paste or click to choose an image</div><input type="file" id="aiFile" accept="image/*" hidden><img id="aiPrev" style="display:none;max-width:100%;max-height:200px;margin:8px auto 0;border-radius:6px"></div>
+  <textarea id="aiHints" rows="2" placeholder="e.g. overall height 33 1/2&quot;, solid oak, no screws, two drawers" style="width:100%;margin-top:8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
+  <div class="row"><label>Max rounds</label><select id="aiRounds" class="btn"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select><div class="chk" style="margin:0"><input type="checkbox" id="aiVis"><label for="aiVis">visual critic</label></div></div>
+  <div class="grid2"><button class="btn pri" id="aiGo">Generate</button><button class="btn" id="aiStop" disabled>Stop</button></div>
+  <h3>Revise this design</h3>
+  <textarea id="aiRevise" rows="3" placeholder="e.g. make it 4&quot; taller, add a third drawer, change the legs to 1 1/2&quot; square oak" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
+  <button class="btn pri" id="aiRev" style="width:100%;margin-top:6px">Apply changes</button>
+  <div class="log" id="aiLog" style="max-height:220px;overflow:auto;margin-top:8px">${S.ai.log.map(esc).join('<br>')}</div>
+  <div class="card"><b>How it works</b>Generate writes a spec from a picture. Revise sends your written changes plus the current spec to the same model. A geometry critic then checks overlaps, unfilled joints and watertightness. The picture (if any) is sent only to the provider you choose.</div>`;
   const drop = $('#aiDrop'); drop.onclick = () => $('#aiFile').click(); $('#aiFile').onchange = e => setImage(e.target.files[0]);
   drop.ondragover = e => { e.preventDefault(); drop.style.borderColor = 'var(--acc)'; }; drop.ondragleave = () => drop.style.borderColor = ''; drop.ondrop = e => { e.preventDefault(); drop.style.borderColor = ''; setImage(e.dataTransfer.files[0]); };
-  const sync = () => { $('#aiKeyRow').style.display = $('#aiProv').value === 'anthropic' ? 'flex' : 'none'; }; $('#aiProv').onchange = sync; sync();
-  $('#aiGo').onclick = runAI; $('#aiStop').onclick = () => S.ai.abort && S.ai.abort.abort();
+  const sync = () => { $('#aiKeyRow').style.display = $('#aiProv').value === 'anthropic' ? 'flex' : 'none'; checkConnection(); };
+  $('#aiProv').onchange = sync; $('#aiModel').onchange = checkConnection; $('#aiKey').onchange = checkConnection; $('#aiPing').onclick = checkConnection; sync();
+  $('#aiGo').onclick = () => runAI('design'); $('#aiRev').onclick = () => runAI('revise'); $('#aiStop').onclick = () => S.ai.abort && S.ai.abort.abort();
 }
-addEventListener('paste', e => { const f = [...(e.clipboardData ? e.clipboardData.files : [])].find(f => /^image\//.test(f.type)); if (f) { setTab('ai'); setImage(f); } });
+addEventListener('paste', e => { const f = [...(e.clipboardData ? e.clipboardData.files : [])].find(f => /^image\//.test(f.type)); if (f) { openAI(); setImage(f); } });
 function viewNow(name) { viewTo(name); if (tween) { camera.position.copy(tween.p1); controls.target.copy(tween.t1); tween = null; controls.update(); S.need = true; } }
-async function runAI() {
-  if (S.ai.busy) return; if (!S.ai.img) return toast('Choose a picture first'); const kind = $('#aiProv').value, key = $('#aiKey').value.trim(); if (kind === 'anthropic' && !key) return toast('Paste your Anthropic API key');
+async function runAI(task) {
+  if (S.ai.busy) return; task = task || 'design';
+  const kind = $('#aiProv').value, key = $('#aiKey').value.trim(), model = $('#aiModel').value;
+  if (kind === 'anthropic' && !key) return toast('Paste your Anthropic API key');
+  if (task === 'design' && !S.ai.img) return toast('Choose a picture first');
+  if (task === 'revise' && !S.spec) return toast('Load a design first');
+  const hints = task === 'revise' ? $('#aiRevise').value.trim() : $('#aiHints').value.trim();
+  if (task === 'revise' && !hints) return toast('Describe the changes you want');
   if ($('#aiRem').checked) { try { localStorage.setItem('image-to-cad.key', key); } catch (e) { } }
-  S.ai.busy = true; S.ai.log = []; $('#aiGo').disabled = true; $('#aiStop').disabled = false; const ac = new AbortController(); S.ai.abort = ac;
+  S.ai.busy = true; S.ai.log = []; $('#aiGo').disabled = true; $('#aiRev').disabled = true; $('#aiStop').disabled = false; const ac = new AbortController(); S.ai.abort = ac;
+  aiLog('Using ' + model + ' (' + (kind === 'proxy' ? 'server proxy' : kind === 'anthropic' ? 'browser API key' : 'this page') + ')');
   try {
-    const res = await CAD.vision.run({ image: S.ai.img, hints: $('#aiHints').value.trim(), provider: { kind, apiKey: key, model: $('#aiModel').value.trim() }, maxRounds: +$('#aiRounds').value, visual: $('#aiVis').checked, signal: ac.signal, onLog: aiLog,
+    const res = await CAD.vision.run({ image: S.ai.img, hints, task, prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model }, maxRounds: +$('#aiRounds').value, visual: $('#aiVis').checked, signal: ac.signal, onLog: aiLog,
       onSpec: (spec) => { if (loadSpec(spec, {}, true)) { viewNow('iso'); setSpecText(); } }, render: async (spec) => { loadSpec(spec, {}, true); viewNow('iso'); await frames(4); return renderer.domElement.toDataURL('image/jpeg', .85); } });
-    res.spec.__ai = true; loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText(); S.ai.img && toast(res.rep.ok ? 'Design ready: passes every check' : 'Design loaded with remaining issues, see the log'); setTab('insp');
+    res.spec.__ai = true; loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText(); toast(res.rep.ok ? 'Design ready: passes every check' : 'Design loaded with remaining issues, see the log'); closeAI(); setTab('insp');
   } catch (e) { aiLog('Error: ' + (e.name === 'AbortError' ? 'stopped' : e.message)); toast('AI run failed: see the log'); }
-  finally { S.ai.busy = false; $('#aiGo').disabled = false; $('#aiStop').disabled = true; }
+  finally { S.ai.busy = false; $('#aiGo').disabled = false; $('#aiRev').disabled = false; $('#aiStop').disabled = true; }
 }
 
 
@@ -387,17 +450,35 @@ function toast(t) { const e = $('#toast'); e.textContent = t; e.style.display = 
 $$('#views button').forEach(b => b.onclick = () => viewTo(b.dataset.v)); $('#bFit').onclick = () => viewTo('iso'); $('#exs').oninput = e => { S.exF = +e.target.value; applyTransforms(); };
 $('#cmode').onchange = e => { S.mode = e.target.value; updateVisuals(); }; $('#bEdge').classList.add('on'); $('#bEdge').onclick = e => { S.edges = !S.edges; e.target.classList.toggle('on', S.edges); updateVisuals(); };
 $('#bSec').onclick = e => { S.sec.on = !S.sec.on; e.target.classList.toggle('on', S.sec.on); if (S.sec.on && !S.sec.off) S.sec.off = Math.round(sceneBox().getCenter(V(0, 0, 0))[S.sec.axis]); applySection(); setTab('motion'); };
-$('#bMeas').onclick = e => { S.meas.on = !S.meas.on; e.target.classList.toggle('on', S.meas.on); cv.style.cursor = S.meas.on ? 'crosshair' : ''; if (!S.meas.on) clearMeasure(); toast(S.meas.on ? 'Measure: click two points (snaps to vertices)' : 'Measure off'); };
+$('#bMeas').onclick = e => { S.meas.on = !S.meas.on; e.target.classList.toggle('on', S.meas.on); applyNavMode(); if (!S.meas.on) clearMeasure(); toast(S.meas.on ? 'Measure: click two points (snaps to vertices)' : 'Measure off'); };
 $('#bBom').onclick = showCut; $('#bExp').onclick = () => setTab('export'); $('#tq').oninput = e => { S.q = e.target.value; buildTree(); }; $('#bShowAll').onclick = showAll;
-$('#bLeft').onclick = () => $('#left').classList.toggle('open'); $('#bRight').onclick = () => $('#right').classList.toggle('open');
-function setTab(t) { $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); $$('.pane').forEach(p => p.classList.toggle('on', p.id === 'p-' + t)); $('#right').classList.add('open'); }
+function setPanels() {
+  const m = $('main'); m.classList.toggle('left-off', !S.leftOn); m.classList.toggle('right-off', !S.rightOn);
+  $('#edgeL').textContent = S.leftOn ? '‹' : '›'; $('#edgeR').textContent = S.rightOn ? '›' : '‹';
+  $('#left').classList.toggle('open', S.leftOn); $('#right').classList.toggle('open', S.rightOn); S.need = true;
+}
+$('#edgeL').onclick = () => { S.leftOn = !S.leftOn; setPanels(); };
+$('#edgeR').onclick = () => { S.rightOn = !S.rightOn; setPanels(); };
+$('#bLeft').onclick = () => { S.leftOn = !S.leftOn; setPanels(); };
+$('#bRight').onclick = () => { S.rightOn = !S.rightOn; setPanels(); };
+$$('#navMode button').forEach(b => b.onclick = () => { S.nav = b.dataset.nav; applyNavMode(); });
+$('#bAI').onclick = () => { $('#aiBox').classList.contains('open') ? closeAI() : openAI(); };
+$('#aiClose').onclick = closeAI;
+function setTab(t) {
+  if (t === 'ai') { openAI(); return; }
+  S.rightOn = true; setPanels();
+  $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); $$('.pane').forEach(p => p.classList.toggle('on', p.id === 'p-' + t)); $('#right').classList.add('open');
+}
 $$('.tabs button').forEach(b => b.onclick = () => setTab(b.dataset.t));
+applyNavMode();
 let exAnim = null;
 addEventListener('keydown', e => {
+  if ($('#aiBox').classList.contains('open') && e.key === 'Escape') { e.preventDefault(); closeAI(); return; }
   if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.type !== 'range') return; if ($('#guide').style.display === 'flex') return; const k = e.key.toLowerCase();
   if (k === 'f') focusSel(); else if (k === 'e') { const to = S.exF > .5 ? 0 : 1, from = S.exF, t0 = performance.now(); cancelAnimationFrame(exAnim); const st = () => { const t = Math.min(1, (performance.now() - t0) / 700); S.exF = from + (to - from) * (t * t * (3 - 2 * t)); $('#exs').value = S.exF; applyTransforms(); if (t < 1) exAnim = requestAnimationFrame(st); }; st(); }
   else if (k === 's') $('#bSec').click(); else if (k === 'm') $('#bMeas').click(); else if (k === 'escape') { setSel([]); clearMeasure(); S.iso = null; updateVisuals(); } else if (k === 'h') { if (e.altKey) showAll(); else { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); setSel([]); updateVisuals(); buildTree(); } }
   else if (k === 'i') { if (S.sel.size) { S.iso = new Set(S.sel); updateVisuals(); } } else if (k === ' ') { e.preventDefault(); playT ? stopPlay() : startPlay(); } else if ('12345'.includes(k) && k) viewTo(['iso', 'front', 'right', 'top', 'back'][+k - 1]);
+  else if (k === '[') { S.leftOn = !S.leftOn; setPanels(); } else if (k === ']') { S.rightOn = !S.rightOn; setPanels(); }
 });
 
 
@@ -415,7 +496,7 @@ function frame(now) {
   renderer.setScissorTest(false); renderer.setViewport(0, 0, wrap.clientWidth, wrap.clientHeight); renderer.autoClear = true; renderer.render(scene, camera);
   const g = 96; renderer.autoClear = false; renderer.clearDepth(); renderer.setScissorTest(true); renderer.setScissor(8, 8, g, g); renderer.setViewport(8, 8, g, g); gcam.position.copy(camera.position).sub(controls.target).setLength(4); gcam.lookAt(0, 0, 0);
   renderer.clippingPlanes = []; renderer.render(gz, gcam); renderer.clippingPlanes = S.sec.on ? [plane] : []; renderer.setScissorTest(false);
-  const h = $('#hudTL'); if (h) h.textContent = `${S.R.filter(R => R.mesh.visible).length}/${S.R.length} pieces shown · ${S.sel.size ? S.sel.size + ' selected' : 'nothing selected'}`; const hr = $('#hudTR'); if (hr) hr.textContent = S.sec.on ? `Section ${S.sec.axis.toUpperCase()} = ${S.sec.off} mm` : '';
+  const h = $('#hudTL'); if (h) h.textContent = `${S.R.filter(R => R.mesh.visible).length}/${S.R.length} pieces shown · ${S.sel.size ? S.sel.size + ' selected' : 'nothing selected'}`; const hr = $('#hudTR'); if (hr) hr.textContent = S.sec.on ? `Section ${S.sec.axis.toUpperCase()} = ${inch(S.sec.off)}` : '';
 }
 requestAnimationFrame(frame);
 
