@@ -132,8 +132,8 @@ CAD.makeGuide = function (ctx) {
     return `<section class="${cls}" ${wide ? 'style="grid-template-columns:1fr"' : ''}><div class="hd"><div class="badge">${st.n}</div><div><div class="ph">${st.phase}</div><h2>${st.title}</h2></div></div>${parts}${body}${side}<div class="ft"><span>${esc(S.M.meta.name)} · build guide</span><div class="bar"><i style="width:${(i + 1) / total * 100}%"></i></div><span>${i + 1} / ${total}</span></div></section>`;
   }
   function cutTable() {
-    const rows = CAD.cutList(S.M).sort((a, b) => CAD.GROUPS.findIndex(g => g.id === a.grp) - CAD.GROUPS.findIndex(g => g.id === b.grp)); const half = Math.ceil(rows.length / 2), t = rs => `<table><tr><th>Part</th><th>Qty</th><th>T×W×L</th></tr>${rs.map(r => `<tr><td>${esc(r.name.replace(/\(.*\)/, ''))}</td><td>${r.qty}</td><td>${N(r.T)} × ${N(r.W)} × ${N(r.L)}</td></tr>`).join('')}</table>`;
-    return `<div class="hero" style="background:#fff;display:block;padding:8px 14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">${t(rows.slice(0, half))}${t(rows.slice(half))}</div><p style="font-size:11px;margin:8px 0 0;color:#445">Finished sizes to the nearest 1/16″. Mill each part a little over, then cut the joints. Total material ≈ ${(rows.reduce((s, r) => s + r.vol * r.qty, 0) / 1e6).toFixed(1)} dm³.</p></div>`;
+    const rows = CAD.cutList(S.M).sort((a, b) => CAD.GROUPS.findIndex(g => g.id === a.grp) - CAD.GROUPS.findIndex(g => g.id === b.grp)); const half = Math.ceil(rows.length / 2), t = rs => `<table><tr><th>Part</th><th>Qty</th><th>T×W×L</th><th>Notes</th></tr>${rs.map(r => `<tr><td>${esc(r.name.replace(/\(.*\)/, ''))}</td><td>${r.qty}</td><td>${N(r.T)} × ${N(r.W)} × ${N(r.L)}</td><td>${esc(CAD.inchifyText(r.spec || ''))}</td></tr>`).join('')}</table>`;
+    return `<div class="hero" style="background:#fff;display:block;padding:8px 14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">${t(rows.slice(0, half))}${t(rows.slice(half))}</div><p style="font-size:11px;margin:8px 0 0;color:#445">Finished sizes to the nearest 1/16″. Mill each part a little over, then cut the joints.</p></div>`;
   }
   async function generate(cb) {
     steps = CAD.guideSteps(S.M); pages = []; thumbs = {}; const imgs = []; const tick = () => new Promise(r => setTimeout(r, 0));
@@ -146,16 +146,25 @@ CAD.makeGuide = function (ctx) {
     } clear(); return pages.length;
   }
   const el = { box: () => $('#guide'), body: () => $('#gbody'), sel: () => $('#gsel') };
-  function show(i) { cur = Math.max(0, Math.min(pages.length - 1, i)); el.body().innerHTML = pages[cur]; el.body().parentNode.dataset.mode = 'one'; el.sel().value = cur; $('#gprog').textContent = `step ${cur + 1} of ${pages.length}`; el.body().scrollTop = 0; }
-  function showAll() { el.body().innerHTML = '<div style="display:flex;flex-direction:column;gap:18px;width:100%;align-items:center">' + pages.join('') + '</div>'; }
+  function syncNav() {
+    const n = pages ? pages.length : 0, atStart = cur <= 0, atEnd = !n || cur >= n - 1;
+    ['gprev', 'gprev2'].forEach(id => { const b = $('#' + id); if (b) b.disabled = atStart; });
+    ['gnext', 'gnext2'].forEach(id => { const b = $('#' + id); if (b) { b.disabled = atEnd; b.textContent = atEnd ? 'Last step' : 'Next step ▶'; } });
+    const stepBar = document.querySelector('#guide .gstep'); if (stepBar) stepBar.style.display = el.body().parentNode.dataset.mode === 'all' ? 'none' : 'flex';
+  }
+  function show(i) { if (!pages || !pages.length) return; cur = Math.max(0, Math.min(pages.length - 1, i)); el.body().innerHTML = pages[cur]; el.body().parentNode.dataset.mode = 'one'; el.sel().value = cur; $('#gprog').textContent = `step ${cur + 1} of ${pages.length}`; el.body().scrollTop = 0; syncNav(); }
+  function showAll() { el.body().innerHTML = '<div style="display:flex;flex-direction:column;gap:18px;width:100%;align-items:center">' + pages.join('') + '</div>'; el.body().parentNode.dataset.mode = 'all'; syncNav(); }
   async function open() {
     el.box().style.display = 'flex'; if (!pages) { el.body().innerHTML = '<div style="padding:40px;color:#445;font:16px system-ui">Rendering the guide from the live model… <b id="gp">0%</b></div>'; await generate((i, n) => { const p = $('#gp'); if (p) p.textContent = Math.round(i / n * 100) + '%  (step ' + (i + 1) + ' of ' + n + ')'; }); el.sel().innerHTML = steps.map((s, i) => `<option value="${i}">${s.n}. ${s.title}</option>`).join(''); } show(cur);
   }
   function invalidate() { pages = null; }
   function standalone() { return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${esc(S.M.meta.name)}: build guide</title><style>${css}\nbody{overflow:auto!important;background:#eef1f5;height:auto!important}#guide{display:block!important;position:static!important}#gbody{display:flex;flex-direction:column;gap:18px;align-items:center;padding:18px}.pg{width:min(1180px,96vw)}</style></head><body><div id="guide"><div class="gb" id="gbody">${pages.join('')}</div></div></body></html>`; }
   async function save() { if (!pages) await generate(); const html = standalone(); return ctx.deliver('build_guide', [{ name: ctx.safe(S.M.meta.name) + '_build_guide.html', data: html }]); }
-  $('#gclose').onclick = () => { el.box().style.display = 'none'; ctx.S.need = true; }; $('#gprev').onclick = () => show(cur - 1); $('#gnext').onclick = () => show(cur + 1); $('#gsel').onchange = e => show(+e.target.value); $('#gall').onclick = () => { if (pages) showAll(); }; $('#gprint').onclick = () => { if (pages) { showAll(); setTimeout(() => window.print(), 100); } }; $('#gsave').onclick = save;
-  addEventListener('keydown', e => { if (el.box().style.display !== 'flex') return; if (e.key === 'ArrowRight') show(cur + 1); else if (e.key === 'ArrowLeft') show(cur - 1); else if (e.key === 'Escape') $('#gclose').click(); });
+  $('#gclose').onclick = () => { el.box().style.display = 'none'; ctx.S.need = true; };
+  const goPrev = () => show(cur - 1), goNext = () => show(cur + 1);
+  $('#gprev').onclick = goPrev; $('#gnext').onclick = goNext; $('#gprev2').onclick = goPrev; $('#gnext2').onclick = goNext;
+  $('#gsel').onchange = e => show(+e.target.value); $('#gall').onclick = () => { if (pages) showAll(); }; $('#gprint').onclick = () => { if (pages) { showAll(); setTimeout(() => window.print(), 100); } }; $('#gsave').onclick = save;
+  addEventListener('keydown', e => { if (el.box().style.display !== 'flex') return; if (e.key === 'ArrowRight') goNext(); else if (e.key === 'ArrowLeft') goPrev(); else if (e.key === 'Escape') $('#gclose').click(); });
   return { open, save, generate, show, showAll, invalidate, steps: () => steps, pages: () => pages, standalone };
 };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
