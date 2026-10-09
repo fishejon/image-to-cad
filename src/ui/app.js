@@ -165,10 +165,28 @@ function matFor(R) {
 let prevM = null, fillRows = null; const fillFor = () => fillRows || (fillRows = CAD.jointFill(S.M));
 function disposeScene() { while (root.children.length) root.remove(root.children[0]); S.R = []; S.sel.clear(); S.iso = null; S.hov = null; clearMeasure(); }
 /* returns true when the scene was replaced */
+const hist = { stack: [], i: -1, max: 50, lock: false, sig: '' };
+function histSig() { try { return JSON.stringify({ s: S.spec, o: S.ov }); } catch (e) { return String(Date.now()); } }
+function pushHist() {
+  if (hist.lock || !S.spec) return;
+  const sig = histSig(); if (sig === hist.sig) return;
+  hist.stack = hist.stack.slice(0, hist.i + 1);
+  hist.stack.push({ spec: JSON.parse(JSON.stringify(S.spec)), ov: Object.assign({}, S.ov) });
+  if (hist.stack.length > hist.max) hist.stack.shift();
+  hist.i = hist.stack.length - 1; hist.sig = sig;
+}
+function restoreHist() {
+  const h = hist.stack[hist.i]; if (!h) return;
+  hist.lock = true;
+  loadSpec(JSON.parse(JSON.stringify(h.spec)), Object.assign({}, h.ov), true);
+  setSpecText(); hist.lock = false; hist.sig = histSig();
+}
+function undo() { if (hist.i <= 0) return toast('Nothing to undo'); hist.i--; restoreHist(); toast('Undo'); }
+function redo() { if (hist.i >= hist.stack.length - 1) return toast('Nothing to redo'); hist.i++; restoreHist(); toast('Redo'); }
 function loadSpec(spec, ov, quiet) {
   const M = CAD.buildSpec(spec, ov || {});
   if (!M.insts.length) { if (prevM) { CAD.GROUPS = prevM.groups; CAD.STEPS = prevM.steps.map(s => s.title); CAD.MATS = prevM.materials; } S.lastErrors = M.errors; S.lastWarnings = M.warnings; renderSpecErrors(); if (!quiet) toast('The spec has errors: see the Spec tab'); return false; }
-  S.spec = spec; S.ov = ov || {}; build(M); persistActive(); return true;
+  S.spec = spec; S.ov = ov || {}; build(M); if (!hist.lock) pushHist(); persistActive(); return true;
 }
 function build(M) {
   disposeScene(); Object.keys(mc).forEach(k => delete mc[k]); prevM = S.M = M; S.lastErrors = M.errors; S.lastWarnings = M.warnings; fillRows = null; S.mv = {}; S.hiddenDef.clear(); S.hiddenGrp.clear(); root.position.set(0, 0, 0);
@@ -286,9 +304,11 @@ function selectDef(id, add) { const l = S.R.filter(R => R.def.id === id); if (ad
 function selectedPartIds() { return [...new Set([...S.sel].map(R => R.def.id))]; }
 function applyMaterial(matKey) {
   const ids = selectedPartIds(); if (!ids.length) return toast('Select one or more parts first');
-  if (!S.spec.materials) S.spec.materials = {}; if (!S.spec.materials[matKey]) S.spec.materials[matKey] = { base: matKey };
+  if (!S.spec.materials) S.spec.materials = {};
+  const base = CAD.DEFAULT_MATS[matKey];
+  if (!S.spec.materials[matKey]) S.spec.materials[matKey] = base ? Object.assign({ base: matKey }, { name: base.name }) : { base: matKey };
   (S.spec.parts || []).forEach(p => { if (ids.includes(p.id)) p.material = matKey; });
-  const keep = new Set(ids); loadSpec(S.spec, S.ov, true); setSpecText(); setSel(S.R.filter(R => keep.has(R.def.id))); toast('Material set to ' + ((CAD.DEFAULT_MATS[matKey] || {}).name || matKey));
+  const keep = new Set(ids); loadSpec(S.spec, S.ov, true); setSpecText(); setSel(S.R.filter(R => keep.has(R.def.id))); toast('Material set on ' + ids.length + ' part type(s): ' + ((CAD.DEFAULT_MATS[matKey] || {}).name || matKey));
 }
 function clearMeasure() { S.meas.objs.forEach(o => scene.remove(o)); S.meas.objs = []; S.meas.pts = []; const l = $('#mlabel'); if (l) l.style.display = 'none'; }
 function addMeasurePoint(p) {
@@ -312,8 +332,15 @@ function viewTo(name) {
   const b = sceneBox(), c = b.getCenter(V(0, 0, 0)), r = b.getSize(V(0, 0, 0)).length() / 2, d = r / Math.tan(camera.fov * Math.PI / 360) * .98 * (camera.aspect < 1 ? 1.5 : 1);
   const dirs = { iso: [.7, -1, .52], front: [0, -1, .1], right: [1, 0, .1], top: [0, -.001, 1], back: [0, 1, .1], left: [-1, 0, .1] }, v = V(...dirs[name]).normalize(); tweenCam(c.clone().addScaledVector(v, d), c, 520);
 }
+function fitView() {
+  if (S.sel.size) return focusSel();
+  const b = sceneBox(), c = b.getCenter(V(0, 0, 0)), r = Math.max(40, b.getSize(V(0, 0, 0)).length() / 2);
+  const d = r / Math.tan(camera.fov * Math.PI / 360) * 1.08 * (camera.aspect < 1 ? 1.5 : 1);
+  let dir = camera.position.clone().sub(controls.target); if (dir.lengthSq() < 1e-6) return viewTo('iso');
+  tweenCam(c.clone().addScaledVector(dir.normalize(), d), c, 450);
+}
 function focusSel() {
-  if (!S.sel.size) return viewTo('iso'); const b = new T.Box3(); S.sel.forEach(R => b.union(new T.Box3().setFromObject(R.mesh)));
+  if (!S.sel.size) return fitView(); const b = new T.Box3(); S.sel.forEach(R => b.union(new T.Box3().setFromObject(R.mesh)));
   const c = b.getCenter(V(0, 0, 0)), r = Math.max(50, b.getSize(V(0, 0, 0)).length() / 2), d = r / Math.tan(camera.fov * Math.PI / 360) * 1.6, dir = camera.position.clone().sub(controls.target).normalize(); tweenCam(c.clone().addScaledVector(dir, d), c, 450);
 }
 
@@ -325,7 +352,16 @@ function buildTree() {
     const n = defs.reduce((s, d) => s + d.qty, 0), col = S.collapsed.has(g.id) && !q, wg = document.createElement('div'); wg.className = 'g';
     const h = document.createElement('div'); h.className = 'gh';
     h.innerHTML = `<span class="eye ${S.hiddenGrp.has(g.id) ? 'off' : ''}" data-g="${g.id}">●</span><span class="dot" style="background:#${g.color.toString(16).padStart(6, '0')}"></span><span>${col ? '▸' : '▾'} ${esc(g.name)}</span><span class="cnt">${defs.length} · ${n}×</span>`;
-    h.addEventListener('click', e => { if (e.target.classList.contains('eye')) { S.hiddenGrp.has(g.id) ? S.hiddenGrp.delete(g.id) : S.hiddenGrp.add(g.id); updateVisuals(); buildTree(); return; } if (e.detail === 2) { setSel(S.R.filter(R => R.def.grp === g.id)); return; } col ? S.collapsed.delete(g.id) : S.collapsed.add(g.id); buildTree(); });
+    h.addEventListener('click', e => {
+      if (e.target.classList.contains('eye')) { S.hiddenGrp.has(g.id) ? S.hiddenGrp.delete(g.id) : S.hiddenGrp.add(g.id); updateVisuals(); buildTree(); return; }
+      const parts = S.R.filter(R => R.def.grp === g.id);
+      if (e.shiftKey || e.metaKey || e.ctrlKey) {
+        const n = new Set(S.sel); parts.forEach(R => n.add(R)); setSel([...n]);
+        return;
+      }
+      if (e.detail === 2) { setSel(parts); return; }
+      col ? S.collapsed.delete(g.id) : S.collapsed.add(g.id); buildTree();
+    });
     wg.appendChild(h);
     if (!col) defs.forEach(d => { const r = document.createElement('div'); r.className = 'pr'; r.dataset.id = d.id;
       r.innerHTML = `<span class="eye ${S.hiddenDef.has(d.id) ? 'off' : ''}">●</span><span class="nm" title="${esc(d.name)}">${esc(d.name)}</span><span class="q">${d.qty}×</span>`;
@@ -348,9 +384,10 @@ function renderInspect() {
   const first = [...S.sel][0], d = first.def, many = new Set([...S.sel].map(R => R.def.id)).size > 1;
   const matPicker = () => {
     const cur = [...new Set([...S.sel].map(R => R.def.solid.mat))];
-    const woods = CAD.WOOD_KEYS.map(k => { const m = CAD.DEFAULT_MATS[k]; return `<option value="${esc(k)}"${cur.length === 1 && cur[0] === k ? ' selected' : ''}>${esc(m.name)}</option>`; }).join('');
-    return `<h3>Wood / material</h3><div class="row"><label>Species</label><select id="matPick" class="btn" style="flex:1"><option value="">${cur.length > 1 ? 'Mixed — pick to apply…' : 'Choose…'}</option>${woods}<option value="marble">Marble</option><option value="paint">Painted</option><option value="steel">Steel</option></select></div>
-      <div class="card">Applies to ${selectedPartIds().length} selected part type(s). Shift-click or Shift-drag to select more.</div>`;
+    const btn = (k, label) => `<button type="button" class="btn sm matbtn${cur.length === 1 && cur[0] === k ? ' on' : ''}" data-mat="${esc(k)}">${esc(label)}</button>`;
+    const woods = CAD.WOOD_KEYS.map(k => btn(k, (CAD.DEFAULT_MATS[k] || { name: k }).name)).join('');
+    return `<h3>Wood / material</h3><div class="matrow">${woods}${btn('marble', 'Marble')}${btn('paint', 'Painted')}${btn('steel', 'Steel')}</div>
+      <div class="card">Applies to all <b>${selectedPartIds().length}</b> selected part type(s)${S.sel.size > selectedPartIds().length ? ' (' + S.sel.size + ' pieces)' : ''}. Shift-click a group or part in the tree to add more.</div>`;
   };
   if (many) { const m = {}; S.sel.forEach(R => m[R.def.id] = (m[R.def.id] || 0) + 1); el.innerHTML = `<h3>${S.sel.size} pieces selected</h3><div class="kv">${Object.entries(m).map(([id, n]) => `<span>${esc(S.M.defs.get(id).name)}</span><span>${n}×</span>`).join('')}</div>${matPicker()}${acts()}`; bindActs(); return; }
   const sz = d.size, rows = d.solid.exact ? fillFor().filter(r => r.part === d.id + '#' + first.inst.qtyIdx) : [], by = {};
@@ -365,7 +402,7 @@ function renderInspect() {
 const acts = () => `<h3>Actions</h3><div class="grid2"><button class="btn sm" data-a="focus">Focus</button><button class="btn sm" data-a="iso">Isolate</button><button class="btn sm" data-a="hide">Hide</button><button class="btn sm" data-a="showall">Show all</button><button class="btn sm" data-a="ai" style="grid-column:1/3">Revise selected with AI…</button><button class="btn sm" data-a="stlp" style="grid-column:1/3">STL · print-ready (${S.ex.scale === 1 ? '1:1' : '1:' + S.ex.scale})</button></div>`;
 function bindActs() {
   $$('#p-insp [data-a]').forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'focus') focusSel(); else if (a === 'iso') { S.iso = new Set(S.sel); updateVisuals(); } else if (a === 'hide') { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); setSel([]); updateVisuals(); buildTree(); } else if (a === 'showall') showAll(); else if (a === 'stlp') exportSelected(); else if (a === 'ai') { openAI(); const t = $('#aiRevise'); if (t) t.focus(); } });
-  const mp = $('#matPick'); if (mp) mp.onchange = () => { if (mp.value) applyMaterial(mp.value); };
+  $$('#p-insp .matbtn').forEach(b => b.onclick = () => applyMaterial(b.dataset.mat));
 }
 function showAll() { S.hiddenDef.clear(); S.hiddenGrp.clear(); S.iso = null; S.stepCur = S.M.steps.length - 1; S.stepping = false; stopPlay(); S.R.forEach(R => R.anim = 1); updateVisuals(); applyTransforms(); buildTree(); buildSteps(); }
 
@@ -400,11 +437,49 @@ function renderMotionSection() {
   el.innerHTML = slider('so', 'Offset', lo, hi, 1, S.sec.off, inch(S.sec.off)) + `<div class="chk"><input type="checkbox" id="secOn" ${S.sec.on ? 'checked' : ''}><label for="secOn">Section active</label></div>`;
   $('#so').oninput = e => { S.sec.off = +e.target.value; $('#soo').textContent = inch(+e.target.value); if (S.sec.on) applySection(); }; $('#secOn').onchange = e => { S.sec.on = e.target.checked; $('#bSec').classList.toggle('on', S.sec.on); applySection(); };
 }
+function parseInchInput(s) {
+  s = String(s || '').trim().replace(/["″']/g, '');
+  if (!s) return NaN;
+  const mixed = s.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
+  if (mixed) return (+mixed[1] + (+mixed[2] / +mixed[3])) * CAD.MM_PER_IN;
+  const frac = s.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (frac) return (+frac[1] / +frac[2]) * CAD.MM_PER_IN;
+  const n = parseFloat(s);
+  return isFinite(n) ? n * CAD.MM_PER_IN : NaN;
+}
+function applyOverallSize() {
+  const tw = parseInchInput($('#ovW').value), td = parseInchInput($('#ovD').value), th = parseInchInput($('#ovH').value);
+  if (![tw, td, th].every(v => v > 1 && isFinite(v))) return toast('Enter overall width, depth, and height in inches');
+  const [cw, cd, ch] = S.M.size; if (!(cw > 0 && cd > 0 && ch > 0)) return;
+  const pd = S.M.paramDefs, by = Object.fromEntries(pd.map(p => [p.key.toLowerCase(), p]));
+  const wKey = by.w || by.width, dKey = by.d || by.depth || by.depthmm, hKey = by.h || by.height;
+  if (wKey && dKey && hKey) {
+    const ov = {}; pd.forEach(p => { ov[p.key] = p.value; });
+    ov[wKey.key] = tw; ov[dKey.key] = td; ov[hKey.key] = th;
+    toast('Rebuilding to ' + inch3([tw, td, th]) + '…');
+    setTimeout(() => { if (loadSpec(S.spec, ov, true)) toast('Resized: ' + inch3(S.M.size)); }, 20);
+    return;
+  }
+  const sx = tw / cw, sy = td / cd, sz = th / ch;
+  if ([sx, sy, sz].some(v => v < .05 || v > 40)) return toast('That size change is too extreme');
+  toast('Scaling model to ' + inch3([tw, td, th]) + '…');
+  setTimeout(() => {
+    const scaled = CAD.scaleSpec(S.spec, sx, sy, sz);
+    if (loadSpec(scaled, {}, true)) { setSpecText(); toast('Resized: ' + inch3(S.M.size)); }
+  }, 20);
+}
 function renderParam() {
   const el = $('#p-param'), M = S.M, pd = M.paramDefs;
-  el.innerHTML = (pd.length ? '<h3>Parameters (releasing a slider re-cuts every joint)</h3>' + pd.map((p, i) => slider('pp' + i, esc(p.label), p.min, p.max, p.step, p.value, outVal(p.value, p.unit))).join('') + '<div class="grid2"><button class="btn sm" id="pReset">Reset to spec defaults</button><button class="btn sm" id="pSpec">Edit in spec</button></div>'
-    : '<div class="card"><b>No parameters</b>Dimensions in this spec are fixed numbers. Put them in <code>params</code> and reference them in expressions to get sliders here.</div>') +
+  const [cw, cd, ch] = M.size;
+  const overall = `<h3>Overall size</h3><div class="card">Current: <b>${inch3(M.size)}</b>. Set target overall size in inches — the model rebuilds to fill that box.</div>
+    <div class="row"><label>Width</label><input id="ovW" type="text" value="${esc(CAD.fmtInch(cw).replace(/"$/, ''))}" style="flex:1" placeholder='e.g. 55'></div>
+    <div class="row"><label>Depth</label><input id="ovD" type="text" value="${esc(CAD.fmtInch(cd).replace(/"$/, ''))}" style="flex:1" placeholder='e.g. 16'></div>
+    <div class="row"><label>Height</label><input id="ovH" type="text" value="${esc(CAD.fmtInch(ch).replace(/"$/, ''))}" style="flex:1" placeholder='e.g. 33 1/2'></div>
+    <button class="btn pri sm" id="ovApply" style="width:100%;margin:4px 0 10px">Apply overall size</button>`;
+  el.innerHTML = overall + (pd.length ? '<h3>Parameters (releasing a slider re-cuts every joint)</h3>' + pd.map((p, i) => slider('pp' + i, esc(p.label), p.min, p.max, p.step, p.value, outVal(p.value, p.unit))).join('') + '<div class="grid2"><button class="btn sm" id="pReset">Reset to spec defaults</button><button class="btn sm" id="pSpec">Edit in spec</button></div>'
+    : '<div class="card"><b>No named parameters</b>This design uses fixed numbers. Overall size still works by scaling the whole model.</div>') +
     `<h3>Assembly sequence</h3><ol style="margin:0;padding-left:18px">${M.steps.map(s => `<li>${esc(s.title)}</li>`).join('')}</ol>`;
+  $('#ovApply').onclick = applyOverallSize;
   pd.forEach((p, i) => { const e = $('#pp' + i); e.oninput = () => $('#pp' + i + 'o').textContent = outVal(+e.value, p.unit); e.onchange = () => { const ov = {}; pd.forEach((q, j) => ov[q.key] = +$('#pp' + j).value); toast('Re-cutting joinery…'); setTimeout(() => { loadSpec(S.spec, ov, true); toast('Rebuilt: ' + inch3(S.M.size)); }, 20); }; });
   if (pd.length) { $('#pReset').onclick = () => loadSpec(S.spec, {}, true); $('#pSpec').onclick = () => setTab('spec'); }
 }
@@ -449,8 +524,11 @@ function info() { try { let np = 0, ns = 0, mesh = 0; S.M.defs.forEach(d => { co
 /* ---------------- cut list modal ---------------- */
 function showCut() {
   const rows = CAD.cutList(S.M).sort((a, b) => CAD.GROUPS.findIndex(g => g.id === a.grp) - CAD.GROUPS.findIndex(g => g.id === b.grp)); let last = '', i = 0, tw = 0; rows.forEach(r => tw += r.mass * r.qty);
-  $('#mtitle').textContent = 'Cut list: finished sizes (nearest 1/16″)'; $('#mextra').textContent = rows.length + ' part types · ' + lb(tw);
-  $('#mbody').innerHTML = `<table><tr><th class="n">#</th><th>Part</th><th class="n">Qty</th><th class="n">T</th><th class="n">W</th><th class="n">L</th><th>Material</th><th>Notes</th></tr>${rows.map(r => { let h = ''; if (r.grp !== last) { last = r.grp; h = `<tr><td colspan="8" style="background:var(--panel2);font-weight:600">${esc(gname(r.grp))}</td></tr>`; } return h + `<tr><td class="n">${++i}</td><td>${esc(r.name)}</td><td class="n">${r.qty}</td><td class="n">${inch(r.T)}</td><td class="n">${inch(r.W)}</td><td class="n">${inch(r.L)}</td><td>${esc(r.mat)}</td><td>${esc(note(r.spec))}</td></tr>`; }).join('')}</table>`;
+  const buy = CAD.lumberList(S.M);
+  $('#mtitle').textContent = 'Cut list & lumber to buy'; $('#mextra').textContent = rows.length + ' part types · ' + lb(tw);
+  $('#mbody').innerHTML = `<h3 style="margin-top:4px">Finished sizes (nearest 1/16″)</h3><table><tr><th class="n">#</th><th>Part</th><th class="n">Qty</th><th class="n">T</th><th class="n">W</th><th class="n">L</th><th>Buy stock</th><th>Material</th><th>Notes</th></tr>${rows.map(r => { const st = CAD.stockForPart(r.T, r.W, r.L, r.mat); let h = ''; if (r.grp !== last) { last = r.grp; h = `<tr><td colspan="9" style="background:var(--panel2);font-weight:600">${esc(gname(r.grp))}</td></tr>`; } return h + `<tr><td class="n">${++i}</td><td>${esc(r.name)}</td><td class="n">${r.qty}</td><td class="n">${inch(r.T)}</td><td class="n">${inch(r.W)}</td><td class="n">${inch(r.L)}</td><td>${esc(st.stock)}</td><td>${esc(r.mat)}</td><td>${esc(note(r.spec))}</td></tr>`; }).join('')}</table>
+    <h3>Dimensional lumber to buy</h3><p style="color:var(--dim);font-size:13px;margin:0 0 8px">Nominal sizes (1×4, 2×4, 5/4…). Lengths include ~15% waste, rounded up to the next foot.</p>
+    <table><tr><th>Stock</th><th>Material</th><th class="n">Pcs</th><th>Buy</th><th>Note</th></tr>${buy.map(b => `<tr><td><b>${esc(b.stock)}</b></td><td>${esc(b.mat)}</td><td class="n">${b.pieces}</td><td>${esc(b.buy)}</td><td>${esc(b.note || '')}</td></tr>`).join('')}</table>`;
   $('#modal').style.display = 'block'; $('#mcsv').onclick = () => deliver('cut_list', [{ name: safe(S.M.meta.name) + '_cut_list.csv', data: cutCSV() }]);
 }
 $('#mclose').onclick = () => $('#modal').style.display = 'none';
@@ -582,7 +660,7 @@ async function runAI(task) {
 
 /* ---------------- UI wiring ---------------- */
 function toast(t) { const e = $('#toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 2600); }
-$$('#views button[data-v]').forEach(b => b.onclick = () => viewTo(b.dataset.v)); $('#bFit').onclick = () => viewTo('iso'); $('#exs').oninput = e => { S.exF = +e.target.value; applyTransforms(); };
+$$('#views button[data-v]').forEach(b => b.onclick = () => viewTo(b.dataset.v)); $('#bFit').onclick = () => fitView(); $('#exs').oninput = e => { S.exF = +e.target.value; applyTransforms(); };
 $('#cmode').onchange = e => { S.mode = e.target.value; updateVisuals(); };
 $('#bEdge').classList.add('on');
 $('#bEdge').onclick = e => { const btn = e.currentTarget; S.edges = !S.edges; btn.classList.toggle('on', S.edges); updateVisuals(); };
@@ -614,7 +692,10 @@ applyNavMode();
 let exAnim = null;
 addEventListener('keydown', e => {
   if ($('#aiBox').classList.contains('open') && e.key === 'Escape') { e.preventDefault(); closeAI(); return; }
-  if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.type !== 'range') return; if ($('#guide').style.display === 'flex') return; const k = e.key.toLowerCase();
+  const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+  if (mod && k === 'z' && !e.shiftKey) { if (!/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); undo(); } return; }
+  if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { if (!/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); redo(); } return; }
+  if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.type !== 'range') return; if ($('#guide').style.display === 'flex') return;
   if (k === 'f') focusSel(); else if (k === 'e') { const to = S.exF > .5 ? 0 : 1, from = S.exF, t0 = performance.now(); cancelAnimationFrame(exAnim); const st = () => { const t = Math.min(1, (performance.now() - t0) / 700); S.exF = from + (to - from) * (t * t * (3 - 2 * t)); $('#exs').value = S.exF; applyTransforms(); if (t < 1) exAnim = requestAnimationFrame(st); }; st(); }
   else if (k === 's') $('#bSec').click(); else if (k === 'm') $('#bMeas').click(); else if (k === 'escape') { setSel([]); clearMeasure(); S.iso = null; updateVisuals(); } else if (k === 'h') { if (e.altKey) showAll(); else { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); setSel([]); updateVisuals(); buildTree(); } }
   else if (k === 'i') { if (S.sel.size) { S.iso = new Set(S.sel); updateVisuals(); } } else if (k === ' ') { e.preventDefault(); playT ? stopPlay() : startPlay(); } else if ('12345'.includes(k) && k) viewTo(['iso', 'front', 'right', 'top', 'back'][+k - 1]);
@@ -685,6 +766,6 @@ function boot() {
   }, 30);
 }
 $('#bGuide').onclick = () => window.__guide && window.__guide.open();
-window.__cad = { S, T, CAD, loadSpec, loadExample, newDesign, duplicateDesign, renameDesign, deleteDesign, openDoc, viewTo, viewNow, applyMotion, applySection, setSel, selectDef, exportSelected, exportAll, exportAssembly, exportPlates, exportGroup, runChecks, gotoStep, showAll, camera, controls, renderer, scene, root, sceneBox, updateVisuals, showCut, setTab, deliver, runAI, setImage, aiLog };
+window.__cad = { S, T, CAD, loadSpec, loadExample, newDesign, duplicateDesign, renameDesign, deleteDesign, openDoc, viewTo, viewNow, fitView, undo, redo, applyMotion, applySection, setSel, selectDef, exportSelected, exportAll, exportAssembly, exportPlates, exportGroup, runChecks, gotoStep, showAll, camera, controls, renderer, scene, root, sceneBox, updateVisuals, showCut, setTab, deliver, runAI, setImage, aiLog };
 boot();
 })();

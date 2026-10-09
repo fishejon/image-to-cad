@@ -27,16 +27,20 @@ async function handleMessagesRequest({ body, ip }) {
   const payload = { model: String(b.model || 'claude-sonnet-4-5'), max_tokens: Math.min(+b.max_tokens || 16000, 32000), messages: b.messages };
   if (b.system) payload.system = String(b.system);
   if (!Array.isArray(payload.messages)) return { status: 400, json: { error: { message: 'messages must be an array' } } };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), +(process.env.UPSTREAM_TIMEOUT_MS || 280000));
   try {
     const r = await fetch(upstream() + '/v1/messages', {
       method: 'POST',
+      signal: ctrl.signal,
       headers: { 'content-type': 'application/json', 'x-api-key': KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify(payload)
     });
     return { status: r.status, text: await r.text() };
   } catch (e) {
+    if (e && e.name === 'AbortError') return { status: 504, json: { error: { message: 'upstream timed out waiting for Anthropic — try fewer AI rounds or a shorter revise' } } };
     return { status: 502, json: { error: { message: 'upstream error: ' + e.message } } };
-  }
+  } finally { clearTimeout(timer); }
 }
 
 module.exports = { handleMessagesRequest, limited, MAX_BODY, rate };

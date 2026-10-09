@@ -17,6 +17,9 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     ok(CAD.fmtInch3([25.4, 50.8, 76.2]).indexOf(' × ') > 0);
     ok(/lb$/.test(CAD.fmtLb(1))); near(parseFloat(CAD.fmtLb(1)), 2.2, .05);
     ok(/1\/2"/.test(CAD.inchifyText('Cut a 12.7 mm tenon'))); ok(!/mm/.test(CAD.inchifyText('40 × 40 mm, 15 mm tenon')));
+    ok(/11\/16"/.test(CAD.inchifyText('Divider dado 18 x 8'))); ok(/1\/4"/.test(CAD.inchifyText('Back-panel groove 6 wide')));
+    const st = CAD.stockForPart(19, 89, 1200, 'American walnut'); ok(/1×|5\/4|4\/4|2×/.test(st.stock), 'stock ' + st.stock);
+    const buy = CAD.lumberList(CAD.buildSpec(load('bookshelf'))); ok(buy.length > 0, 'lumber list');
   });
   console.log('expressions');
   await t('arithmetic & precedence', () => { eq(ev('2+3*4'), 14); eq(ev('(2+3)*4'), 20); eq(ev('-2^2'), -4); eq(ev('2^3^2'), 512); eq(ev('10/4'), 2.5); eq(ev('7%4'), 3); });

@@ -163,4 +163,30 @@ class SpecModel {
 }
 CAD.buildSpec = (spec, ov) => new SpecModel(spec, ov);
 CAD.SpecModel = SpecModel;
+
+/* Scale a baked (non-parametric) spec so overall size becomes targetW×D×H (mm). Pure numbers in boxes/pos/explode/pivots are scaled; expression strings are left alone. */
+CAD.scaleSpec = function (spec, sx, sy, sz) {
+  const s = JSON.parse(JSON.stringify(spec)), ax = [sx, sy, sz];
+  const n = (v, i) => (typeof v === 'number' && isFinite(v) ? v * ax[i] : v);
+  const v3 = a => Array.isArray(a) && a.length >= 3 ? [n(a[0], 0), n(a[1], 1), n(a[2], 2)].concat(a.slice(3)) : a;
+  const box6 = a => Array.isArray(a) && a.length >= 6 ? [n(a[0], 0), n(a[1], 1), n(a[2], 2), n(a[3], 0), n(a[4], 1), n(a[5], 2)].concat(a.slice(6)) : a;
+  const scalePrim = p => {
+    if (!p || typeof p !== 'object') return;
+    if (p.min) p.min = v3(p.min); if (p.max) p.max = v3(p.max); if (p.base) p.base = v3(p.base); if (p.center) p.center = v3(p.center);
+    if (typeof p.length === 'number') { const axis = String(p.axis || '+z').replace('+', '').replace('-', ''); p.length *= axis === 'x' ? sx : axis === 'y' ? sy : sz; }
+    ['r', 'r0', 'r1', 'ro', 'ri'].forEach(k => { if (typeof p[k] === 'number') p[k] *= Math.cbrt(sx * sy * sz); });
+    if (Array.isArray(p.profile)) p.profile = p.profile.map(pt => Array.isArray(pt) ? pt.map((v, i) => typeof v === 'number' ? v * (i === 0 ? Math.sqrt(sx * sy) : sz) : v) : pt);
+    if (Array.isArray(p.range) && p.range.length >= 2) { const pl = String(p.plane || 'xy'); const wi = pl.includes('x') && pl.includes('y') ? 2 : pl.includes('x') ? 1 : 0; p.range = [n(p.range[0], wi === 2 ? 2 : wi === 1 ? 1 : 0), n(p.range[1], wi === 2 ? 2 : wi === 1 ? 1 : 0)]; }
+  };
+  (s.parts || []).forEach(p => {
+    (p.ops || []).forEach(op => { if (op.add) op.add = box6(op.add); if (op.cut) op.cut = box6(op.cut); });
+    (p.prims || []).forEach(scalePrim);
+    (p.instances || []).forEach(inst => { if (inst.pos) inst.pos = v3(inst.pos); if (inst.explode) inst.explode = v3(inst.explode); });
+  });
+  Object.values(s.kinematics || {}).forEach(k => {
+    if (k.pivot) k.pivot = v3(k.pivot);
+    if (Array.isArray(k.range) && k.unit !== 'deg') k.range = k.range.map((v, i) => typeof v === 'number' ? v * (k.axis ? Math.abs(k.axis[0]) * sx + Math.abs(k.axis[1]) * sy + Math.abs(k.axis[2]) * sz : sx) : v);
+  });
+  return s;
+};
 })(typeof globalThis !== 'undefined' ? globalThis : window);
