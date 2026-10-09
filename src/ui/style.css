@@ -49,6 +49,9 @@ header{
 }
 .iconbtn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .iconbtn .iclabel{font-size:10px;font-weight:700;letter-spacing:.04em;font-family:var(--font-mono);pointer-events:none}
+.matrow{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.matrow .matbtn{font-size:12px;padding:4px 8px}
+.matrow .matbtn.on{background:var(--acc);border-color:var(--acc);color:#fff}
 .iconbtn:hover{background:var(--panel);color:var(--text)}
 .iconbtn.on{background:var(--acc);color:#fff}
 .iconbtn.pri{background:var(--acc);color:#fff}

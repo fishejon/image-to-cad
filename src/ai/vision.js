@@ -86,8 +86,17 @@ V.providers = {
   anthropic: async o => { const r = await fetch((o.baseUrl || 'https://api.anthropic.com') + '/v1/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json', 'x-api-key': o.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: 24000, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error('Anthropic API ' + r.status + ': ' + ((j.error && j.error.message) || r.statusText)); return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join(''); },
-  proxy: async o => { const r = await fetch(o.proxyUrl || '/api/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: 24000, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
-    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error('Proxy ' + r.status + ': ' + ((j.error && (j.error.message || j.error)) || r.statusText)); return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join(''); },
+  proxy: async o => {
+    const maxTok = Math.min(+o.max_tokens || (o.task === 'revise' ? 12000 : 20000), 32000);
+    const r = await fetch(o.proxyUrl || '/api/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: maxTok, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const msg = (j.error && (j.error.message || j.error)) || r.statusText;
+      if (r.status === 504 || r.status === 524) throw new Error('Proxy timed out (504). The model took too long — try fewer rounds, turn off visual critic, or use a browser API key. ' + msg);
+      throw new Error('Proxy ' + r.status + ': ' + msg);
+    }
+    return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
+  },
   artifact: async o => { const c = root.claude; if (!c || !c.use) throw new Error('not running inside Claude'); const sample = await c.use('sample'); if (!sample) throw new Error('Claude sampling is not available here');
     const blobs = o.images.map(i => { const bin = atob(i.base64), u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k); return new Blob([u], { type: i.mediaType }); });
     const res = await sample(o.text, { images: blobs, modelTier: 'complex', signal: o.signal, cache: false }); return res.text; },
@@ -104,7 +113,7 @@ V.run = async function (o) {
     log('Round ' + round + '/' + max + ': ' + (round === 1 ? first : mode === 'visual' ? 'visual critique against the reference…' : 'sending critic findings back to the model…'));
     const images = refs.slice(); if (mode === 'visual' && o.render) { const png = await o.render(prev); if (png) images.push(typeof png === 'string' ? V.dataUrlToImage(png) : png); }
     const text = V.buildPrompt({ round, prevSpec: prev, report, hints: o.hints, mode, task: o.task, focusParts: o.focusParts });
-    let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
+    let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal, task: o.task, max_tokens: o.task === 'revise' ? 12000 : 20000 })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
     let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object.' }; mode = 'fix'; continue; }
     const rep = V.evaluate(spec); log('Critic: ' + (rep.ok ? 'all geometry checks passed' : rep.errors.length + ' errors, ' + rep.interference.length + ' interferences, ' + rep.underfilled.length + ' unfilled joints') + (rep.size ? ' · ' + rep.size.join('×') + ' mm' : ''));
     if (o.onSpec) o.onSpec(spec, rep, round); if (!best || rep.score < best.rep.score) best = { spec, rep, round }; if (rep.ok) lastOk = { spec, rep, round };
