@@ -12,6 +12,9 @@ function serveStatic(req, res) {
   fs.stat(f, (e, st) => { if (e || !st.isFile()) return send(res, 404, { error: 'not found' }); send(res, 200, fs.readFileSync(f), MIME[path.extname(f)] || 'application/octet-stream'); });
 }
 const server = http.createServer((req, res) => {
+  if ((req.method === 'GET' || req.method === 'HEAD') && (req.url === '/api/status' || req.url.startsWith('/api/status?'))) {
+    return send(res, 200, { ok: true, hasKey: !!process.env.ANTHROPIC_API_KEY });
+  }
   if (req.method === 'POST' && req.url === '/api/messages') {
     const chunks = []; let size = 0, dead = false;
     req.on('data', c => { size += c.length; if (size > MAX_BODY) { dead = true; send(res, 413, { error: { message: 'request too large' } }); req.destroy(); } else chunks.push(c); });

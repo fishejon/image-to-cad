@@ -2,7 +2,7 @@
 (function (root) {
 'use strict';
 const CAD = root.CAD;
-const N = Math.round;
+const N = v => CAD.fmtInch(v);
 
 const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 CAD.sanitizeHTML = s => escH(s).replace(/&lt;(\/?)(b|i|br)&gt;/g, '<$1$2>');
@@ -16,8 +16,7 @@ function guideSteps(M) {
       if (o.focus) { o.focus = o.focus.filter(has); if (!o.focus.length) return; } if (o.show) { o.show = o.show.filter(s => has(s.def)); if (!o.show.length) return; } if (o.parts) o.parts = o.parts.filter(p => has(p.def)); if (o.kind === 'asm' && !(o.asm >= 0 && o.asm < M.steps.length)) return; add(o); });
     if (S.length) return S;
   }
-  const sz = M.size.map(Math.round);
-  add({ kind: 'hero', phase: 'Welcome', title: E(M.meta.name), text: [].concat(M.meta.description ? [E(M.meta.description)] : [], [`Finished size <b>${sz.join(' × ')} mm</b>: ${defs.length} part types, ${M.insts.length} pieces.`,
+  add({ kind: 'hero', phase: 'Welcome', title: E(M.meta.name), text: [].concat(M.meta.description ? [E(M.meta.description)] : [], [`Finished size <b>${CAD.fmtInch3(M.size)}</b>: ${defs.length} part types, ${M.insts.length} pieces.`,
     'How to read the pictures: <span style="color:#e86a00">orange parts</span> are new in this step; <span style="color:#e86a00">orange boxes</span> inside a part are material to remove; <span style="color:#18a34a">green boxes</span> are tenons and tongues you leave standing.'], M.meta.assumptions.slice(0, 2).map(a => 'Assumed: ' + E(a))), tools: [], tip: 'Dry-fit every joint before gluing.' });
   add({ kind: 'flat', phase: 'Welcome', title: 'Parts overview', text: [`<b>${defs.length} part types, ${M.insts.length} pieces.</b> Each tile shows the part name and the quantity you need.`, 'Part names match the cut list on the next page.'], tools: [], tip: 'Label every part with its name and an orientation arrow as soon as you make it.' });
   add({ kind: 'cutlist', phase: 'Prepare', title: 'Cut list & milling', text: [] });
@@ -133,8 +132,8 @@ CAD.makeGuide = function (ctx) {
     return `<section class="${cls}" ${wide ? 'style="grid-template-columns:1fr"' : ''}><div class="hd"><div class="badge">${st.n}</div><div><div class="ph">${st.phase}</div><h2>${st.title}</h2></div></div>${parts}${body}${side}<div class="ft"><span>${esc(S.M.meta.name)} · build guide</span><div class="bar"><i style="width:${(i + 1) / total * 100}%"></i></div><span>${i + 1} / ${total}</span></div></section>`;
   }
   function cutTable() {
-    const rows = CAD.cutList(S.M).sort((a, b) => CAD.GROUPS.findIndex(g => g.id === a.grp) - CAD.GROUPS.findIndex(g => g.id === b.grp)); const half = Math.ceil(rows.length / 2), t = rs => `<table><tr><th>Part</th><th>Qty</th><th>T×W×L (mm)</th></tr>${rs.map(r => `<tr><td>${esc(r.name.replace(/\(.*\)/, ''))}</td><td>${r.qty}</td><td>${N(r.T)} × ${N(r.W)} × ${N(r.L)}</td></tr>`).join('')}</table>`;
-    return `<div class="hero" style="background:#fff;display:block;padding:8px 14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">${t(rows.slice(0, half))}${t(rows.slice(half))}</div><p style="font-size:11px;margin:8px 0 0;color:#445">Finished sizes. Mill each part ~3 mm over in every dimension, then cut the joints. Total material ≈ ${(rows.reduce((s, r) => s + r.vol * r.qty, 0) / 1e6).toFixed(1)} dm³.</p></div>`;
+    const rows = CAD.cutList(S.M).sort((a, b) => CAD.GROUPS.findIndex(g => g.id === a.grp) - CAD.GROUPS.findIndex(g => g.id === b.grp)); const half = Math.ceil(rows.length / 2), t = rs => `<table><tr><th>Part</th><th>Qty</th><th>T×W×L</th></tr>${rs.map(r => `<tr><td>${esc(r.name.replace(/\(.*\)/, ''))}</td><td>${r.qty}</td><td>${N(r.T)} × ${N(r.W)} × ${N(r.L)}</td></tr>`).join('')}</table>`;
+    return `<div class="hero" style="background:#fff;display:block;padding:8px 14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">${t(rows.slice(0, half))}${t(rows.slice(half))}</div><p style="font-size:11px;margin:8px 0 0;color:#445">Finished sizes to the nearest 1/16″. Mill each part a little over, then cut the joints. Total material ≈ ${(rows.reduce((s, r) => s + r.vol * r.qty, 0) / 1e6).toFixed(1)} dm³.</p></div>`;
   }
   async function generate(cb) {
     steps = CAD.guideSteps(S.M); pages = []; thumbs = {}; const imgs = []; const tick = () => new Promise(r => setTimeout(r, 0));

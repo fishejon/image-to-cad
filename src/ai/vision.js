@@ -19,7 +19,7 @@ V.EXAMPLE = {
 };
 
 V.SPEC_DOC = `
-# DESIGN SPEC (JSON) — units are millimetres, Z is up, X is the long side, the FRONT faces -Y, origin is the centre of the footprint on the floor.
+# DESIGN SPEC (JSON) — numeric geometry is millimetres (the engine's unit). Z is up, X is the long side, the FRONT faces -Y, origin is the centre of the footprint on the floor. User-facing text (name, description, spec, notes, labels, param labels) MUST use inches to the nearest 1/16, written as fractions under 1" (3/4\" not 0.75\") and mixed numbers above (12 3/16\"). Convert: 1 inch = 25.4 mm.
 Top-level keys: name, description, assumptions[], params{}, materials{}, groups[], steps[], kinematics{}, parts[] (required).
 Every NUMBER may be an arithmetic expression string using params, part "vars", and the repeat variable. Operators + - * / % ^ ( ) comparisons < > <= >= == != ; functions min max abs round floor ceil sqrt pow mod sin cos tan atan2 clamp if(c,a,b). Angles are in degrees.
 params: { "W": {"value":900,"min":600,"max":1400,"step":50,"label":"Width"}, "t": {"expr":"18"}, "Wi": {"expr":"W-2*t"} }  (objects with "value" become UI sliders; "expr" are derived values; params are evaluated in order, so define a name before using it).
@@ -36,7 +36,11 @@ V.EXAMPLE_JSON = JSON.stringify(V.EXAMPLE);
 
 V.buildPrompt = function (o) {
   o = o || {}; const parts = [];
-  if (o.round === 1 || !o.prevSpec) {
+  if (o.task === 'revise' && o.prevSpec && (o.round === 1 || !o.report)) {
+    parts.push('You are revising an existing CAD design spec. Apply the user\'s requested changes and return the COMPLETE updated spec as ONE JSON object (no commentary, no markdown fences). Keep everything that is not mentioned. Preserve joinery: if you move or resize a part, update its mating mortises/tenons so they still fill.');
+    parts.push(V.SPEC_DOC); parts.push('CURRENT SPEC:\n' + JSON.stringify(o.prevSpec));
+    parts.push('REQUESTED CHANGES: ' + (o.hints || '(none)'));
+  } else if (o.round === 1 || !o.prevSpec) {
     parts.push('You are an expert CAD engineer and furniture/product designer. Study the attached picture and write a design spec for a 3D model of the object in it, as ONE JSON object that follows the DESIGN SPEC below. Reproduce the real proportions, parts, joinery and details you can see (drawers, doors, slats, legs, stretchers, round parts...). Where something is hidden, choose the most plausible construction and list it in "assumptions". Return ONLY the JSON object: no commentary, no markdown fences.');
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
     if (o.hints) parts.push('USER HINTS (they override anything you guess from the picture): ' + o.hints);
@@ -79,9 +83,9 @@ V.evaluate = function (spec, o) {
 const blocks = (text, images) => images.map(i => ({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.base64 } })).concat([{ type: 'text', text }]);
 V.providers = {
   anthropic: async o => { const r = await fetch((o.baseUrl || 'https://api.anthropic.com') + '/v1/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json', 'x-api-key': o.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: o.model || 'claude-sonnet-5-5', max_tokens: 24000, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
+      body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: 24000, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error('Anthropic API ' + r.status + ': ' + ((j.error && j.error.message) || r.statusText)); return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join(''); },
-  proxy: async o => { const r = await fetch(o.proxyUrl || '/api/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: o.model || 'claude-sonnet-5-5', max_tokens: 24000, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
+  proxy: async o => { const r = await fetch(o.proxyUrl || '/api/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: 24000, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error('Proxy ' + r.status + ': ' + ((j.error && (j.error.message || j.error)) || r.statusText)); return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join(''); },
   artifact: async o => { const c = root.claude; if (!c || !c.use) throw new Error('not running inside Claude'); const sample = await c.use('sample'); if (!sample) throw new Error('Claude sampling is not available here');
     const blobs = o.images.map(i => { const bin = atob(i.base64), u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k); return new Blob([u], { type: i.mediaType }); });
@@ -92,11 +96,13 @@ V.providers = {
 /* ---------- the loop ---------- */
 V.run = async function (o) {
   const log = o.onLog || (() => {}), max = o.maxRounds || 3, call = V.providers[o.provider.kind]; if (!call) throw new Error('unknown provider ' + o.provider.kind);
-  const refs = o.image ? [typeof o.image === 'string' ? V.dataUrlToImage(o.image) : o.image] : []; let best = null, prev = null, report = null, mode = 'fix', visualDone = false, lastOk = null;
+  if (o.task === 'revise' && !o.prevSpec) throw new Error('no current design to revise');
+  const refs = o.image ? [typeof o.image === 'string' ? V.dataUrlToImage(o.image) : o.image] : []; let best = null, prev = o.task === 'revise' ? o.prevSpec : null, report = null, mode = 'fix', visualDone = false, lastOk = null;
   for (let round = 1; round <= max; round++) {
-    log('Round ' + round + '/' + max + ': ' + (round === 1 ? 'asking the model to design from the picture…' : mode === 'visual' ? 'visual critique against the reference…' : 'sending critic findings back to the model…'));
+    const first = o.task === 'revise' ? 'asking the model to apply your changes…' : 'asking the model to design from the picture…';
+    log('Round ' + round + '/' + max + ': ' + (round === 1 ? first : mode === 'visual' ? 'visual critique against the reference…' : 'sending critic findings back to the model…'));
     const images = refs.slice(); if (mode === 'visual' && o.render) { const png = await o.render(prev); if (png) images.push(typeof png === 'string' ? V.dataUrlToImage(png) : png); }
-    const text = V.buildPrompt({ round, prevSpec: prev, report, hints: o.hints, mode });
+    const text = V.buildPrompt({ round, prevSpec: prev, report, hints: o.hints, mode, task: o.task });
     let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
     let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object.' }; mode = 'fix'; continue; }
     const rep = V.evaluate(spec); log('Critic: ' + (rep.ok ? 'all geometry checks passed' : rep.errors.length + ' errors, ' + rep.interference.length + ' interferences, ' + rep.underfilled.length + ' unfilled joints') + (rep.size ? ' · ' + rep.size.join('×') + ' mm' : ''));
