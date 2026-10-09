@@ -4,38 +4,71 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Image → CAD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="src/ui/style.css">
 </head>
 <body>
 <div id="loading"><div id="ltxt">Loading…</div><div class="bar"><i id="lbar"></i></div></div>
 <div id="app">
 <header>
-  <h1>Image → CAD <small>picture to parametric, jointed, printable 3D model</small></h1><select id="exsel" class="btn" title="Example designs"></select>
-  <button class="btn mob" id="bLeft">Parts</button>
-  <div class="seg" id="views">
-    <button class="btn" data-v="iso">Iso</button><button class="btn" data-v="front">Front</button><button class="btn" data-v="right">Right</button><button class="btn" data-v="top">Top</button><button class="btn" data-v="back">Back</button>
+  <div class="hleft">
+    <div class="brand" title="Image → CAD">Image → CAD</div>
+    <div class="hbar" id="fileBar" title="Designs">
+      <select id="docsel" class="filesel" aria-label="Open design"></select>
+      <button type="button" class="iconbtn" id="bNew" title="New design"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button type="button" class="iconbtn" id="bDup" title="Duplicate design"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1.5"/><path d="M5 16V5.5A1.5 1.5 0 0 1 6.5 4H16"/></svg></button>
+      <button type="button" class="iconbtn" id="bRename" title="Rename design"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M13.5 7.5l3 3"/></svg></button>
+      <button type="button" class="iconbtn danger" id="bDel" title="Delete design"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M8 7l1-2h6l1 2M7 7l1 12a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-12"/></svg></button>
+    </div>
+    <button type="button" class="btn mob" id="bLeft">Parts</button>
   </div>
-  <button class="btn" id="bFit">Fit</button>
-  <div class="seg" id="navMode" title="How dragging on the model works">
-    <button class="btn on" data-nav="orbit">Orbit</button>
-    <button class="btn" data-nav="pan">Pan view</button>
-    <button class="btn" data-nav="move">Move model</button>
+
+  <div class="hmid">
+    <div class="hbar" id="views" title="Camera view">
+      <button type="button" class="iconbtn" data-v="iso" title="Isometric"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
+      <button type="button" class="iconbtn" data-v="front" title="Front"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="1.5"/><path d="M9 20v-6h6v6"/></svg></button>
+      <button type="button" class="iconbtn" data-v="right" title="Right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h7l5 5v9a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M14 5v5h5"/></svg></button>
+      <button type="button" class="iconbtn" data-v="top" title="Top"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="16" height="10" rx="1.5"/><path d="M8 7V5h8v2"/></svg></button>
+      <button type="button" class="iconbtn" data-v="back" title="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="1.5"/><path d="M8 8h8M8 12h8"/></svg></button>
+      <button type="button" class="iconbtn" id="bFit" title="Fit view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg></button>
+    </div>
+
+    <div class="hbar" id="navMode" title="Drag mode">
+      <button type="button" class="iconbtn on" data-nav="orbit" title="Orbit"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3a9 9 0 0 1 9 9M12 21a9 9 0 0 1-9-9"/><path d="M19.5 8.5l1.5.5-.5 1.5M4.5 15.5L3 15l.5-1.5"/></svg></button>
+      <button type="button" class="iconbtn" data-nav="pan" title="Pan view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16M7 7l-3 5 3 5M17 7l3 5-3 5M7 7l5-3 5 3M7 17l5 3 5-3"/></svg></button>
+      <button type="button" class="iconbtn" data-nav="move" title="Move model"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M8 7l4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg></button>
+    </div>
+    <div class="hbar" id="movePlane" title="Move plane" style="display:none">
+      <button type="button" class="iconbtn on" data-plane="xy" title="Floor XY"><span class="iclabel">XY</span></button>
+      <button type="button" class="iconbtn" data-plane="xz" title="Front XZ"><span class="iclabel">XZ</span></button>
+      <button type="button" class="iconbtn" data-plane="yz" title="Side YZ"><span class="iclabel">YZ</span></button>
+    </div>
+
+    <label class="explode" title="Explode assembly"><span class="explabel">Explode</span><input type="range" id="exs" min="0" max="1" step="0.01" value="0" aria-label="Explode assembly"></label>
+
+    <div class="hbar" title="Display">
+      <select id="cmode" class="iconish" title="Colour mode" aria-label="Colour mode">
+        <option value="real">Wood</option>
+        <option value="group">Groups</option>
+        <option value="xray">X-ray</option>
+      </select>
+      <button type="button" class="iconbtn on" id="bEdge" title="Toggle edges"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6l8-3 8 3v12l-8 3-8-3V6z"/><path d="M12 3v18M4 6l8 3 8-3"/></svg></button>
+      <button type="button" class="iconbtn" id="bSec" title="Section plane"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M4 12h16"/></svg></button>
+      <button type="button" class="iconbtn" id="bMeas" title="Measure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h16v4H4z"/><path d="M7 14v2M10 14v3M13 14v2M16 14v3M19 14v2"/></svg></button>
+    </div>
   </div>
-  <div class="seg" id="movePlane" title="Plane to slide the model on" style="display:none">
-    <button class="btn on" data-plane="xy">Floor XY</button>
-    <button class="btn" data-plane="xz">Front XZ</button>
-    <button class="btn" data-plane="yz">Side YZ</button>
+
+  <div class="hright">
+    <div class="hbar actions">
+      <button type="button" class="iconbtn pri" id="bAI" title="AI design — picture or revise"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/><path d="M18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9L18 15z"/></svg></button>
+      <button type="button" class="iconbtn" id="bBom" title="Cut list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V6a2 2 0 0 1 2-2z"/><path d="M9 9h6M9 13h6"/></svg></button>
+      <button type="button" class="iconbtn" id="bGuide" title="Build guide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M14 4v5h5M8 13h8M8 17h6"/></svg></button>
+      <button type="button" class="iconbtn" id="bExp" title="Export STL"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10M8 9l4 4 4-4"/><path d="M5 17v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2"/></svg></button>
+    </div>
+    <button type="button" class="btn mob" id="bRight">Panel</button>
   </div>
-  <label style="display:flex;gap:6px;align-items:center;margin-left:6px">Explode <input type="range" id="exs" min="0" max="1" step="0.01" value="0" style="width:110px"></label>
-  <select id="cmode" class="btn" title="Colour mode"><option value="real">Realistic wood</option><option value="group">By subassembly</option><option value="xray">X-ray</option></select>
-  <button class="btn" id="bEdge">Edges</button>
-  <button class="btn" id="bSec">Section</button>
-  <button class="btn" id="bMeas">Measure</button>
-  <div class="sp"></div>
-  <button class="btn pri" id="bAI" title="Generate from a picture or revise with a prompt">AI design</button>
-  <button class="btn" id="bBom">Cut list</button><button class="btn" id="bGuide">Build guide</button>
-  <button class="btn" id="bExp">Export STL</button>
-  <button class="btn mob" id="bRight">Panel</button>
 </header>
 <main>
   <aside id="left">
@@ -60,14 +93,14 @@
   </aside>
 </main>
 <footer>
-  <button class="btn sm" id="bPlay">▶ Assemble</button>
-  <button class="btn sm" id="bStepAll">Show all</button>
+  <button class="btn sm" id="bPlay" title="Play assembly">▶ Assemble</button>
+  <button class="btn sm" id="bStepAll" title="Show all steps">Show all</button>
   <div id="steps"></div>
   <div id="stepTxt"></div>
 </footer>
 </div>
 <div id="modal"><div class="box"><div class="mh"><b id="mtitle"></b><div class="sp"></div><span id="mextra"></span><button class="btn sm" id="mcsv">Download CSV</button><button class="btn sm" id="mclose">Close</button></div><div class="mb" id="mbody"></div></div></div>
-<div id="aiBox"><div class="aih"><b>AI</b><span id="aiConn" class="aiConn">Checking connection…</span><div class="sp"></div><button class="btn sm" id="aiClose">Close</button></div><div class="aib" id="p-ai"></div></div>
+<div id="aiBox"><div class="aih"><b>AI design</b><span id="aiConn" class="aiConn">Checking connection…</span><div class="sp"></div><button class="btn sm" id="aiClose">Close</button></div><div class="aib" id="p-ai"></div></div>
 <div id="guide"><div class="gh"><button class="btn pri" id="gclose">← Back to model</button><b>Build guide</b><span id="gprog" style="color:#6b7788"></span><div class="sp"></div><select id="gsel" class="btn"></select><button class="btn sm" id="gprev">◀ Previous step</button><button class="btn pri sm" id="gnext">Next step ▶</button><button class="btn sm" id="gall">All pages</button><button class="btn sm" id="gsave">Save guide (HTML)</button><button class="btn sm" id="gprint">Print / PDF</button></div><div class="gb" id="gbody"></div><div class="gstep"><button class="btn" id="gprev2">◀ Previous</button><button class="btn pri" id="gnext2">Next step ▶</button></div></div><div id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>

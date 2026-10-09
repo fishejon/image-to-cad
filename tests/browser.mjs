@@ -8,5 +8,5 @@ page.on('request', r => { const u = r.url(); const nm = path.join(root, 'node_mo
 await page.goto('file://' + path.join(root, 'dist/image-to-cad.html')); await page.waitForFunction(() => window.__cad && document.getElementById('loading').style.display === 'none', { timeout: 120000 }); await new Promise(r => setTimeout(r, 1200));
 const ids = await page.evaluate(() => Object.keys(window.EXAMPLES)); const results = [];
 for (const id of ids) { await page.evaluate(id => __cad.loadExample(id), id); await new Promise(r => setTimeout(r, 900)); await page.screenshot({ path: path.join(out, id + '.png') });
-  results.push(await page.evaluate(() => ({ id: document.getElementById('exsel').value, pieces: __cad.S.R.length, errors: __cad.S.lastErrors.length, kin: Object.keys(__cad.S.M.kinematics).length, params: __cad.S.M.paramDefs.length }))); }
+  results.push(await page.evaluate((id) => ({ id, pieces: __cad.S.R.length, errors: __cad.S.lastErrors.length, kin: Object.keys(__cad.S.M.kinematics).length, params: __cad.S.M.paramDefs.length }), id)); }
 console.table(results); console.log('console errors:', errs); await browser.close(); if (errs.length || results.some(r => r.errors)) process.exit(1);

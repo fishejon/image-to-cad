@@ -11,7 +11,81 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const gname = id => (CAD.GROUPS.find(g => g.id === id) || { name: id }).name;
 const S = { M: null, spec: null, ov: {}, R: [], kin: {}, sel: new Set(), hiddenDef: new Set(), hiddenGrp: new Set(), iso: null, mode: 'real', exF: 0, stepCur: 0, stepping: false,
   sec: { on: false, axis: 'y', off: 0, inv: false }, edges: true, meas: { on: false, pts: [], objs: [] }, q: '', need: true, hov: null, collapsed: new Set(), mv: {},
-  ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null }, examples: {}, nav: 'orbit', movePlane: 'xy', leftOn: true, rightOn: true };
+  ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null }, examples: {}, nav: 'orbit', movePlane: 'xy', leftOn: true, rightOn: true,
+  docs: {}, docId: null };
+const WS_KEY = 'image-to-cad.workspace';
+const uid = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+function blankSpec(name) {
+  return {
+    name: name || 'Untitled', units: 'mm', description: 'Empty board — use AI design or edit the Spec tab to build something.', assumptions: [],
+    params: { W: { value: 400, min: 100, max: 1200, step: 10, label: 'Width' }, D: { value: 300, min: 100, max: 800, step: 10, label: 'Depth' }, T: { value: 20, min: 6, max: 50, step: 1, label: 'Thickness' } },
+    groups: [{ id: 'board', name: 'Board' }], steps: ['Start here'],
+    parts: [{ id: 'board', name: 'Board', group: 'board', material: 'oak', grain: 'x', spec: 'W × D × T',
+      ops: [{ add: ['-W/2', '-D/2', 0, 'W/2', 'D/2', 'T'] }], instances: [{ pos: [0, 0, 0], step: 0 }] }]
+  };
+}
+function readWS() { try { return JSON.parse(localStorage.getItem(WS_KEY)); } catch (e) { return null; } }
+function writeWS() {
+  try {
+    const docs = {};
+    Object.values(S.docs).forEach(d => { docs[d.id] = { id: d.id, name: d.name, source: d.source || null, updated: d.updated || 0, spec: d.spec, ov: d.ov || {} }; });
+    localStorage.setItem(WS_KEY, JSON.stringify({ activeId: S.docId, docs }));
+  } catch (e) { /* quota / private mode */ }
+}
+function refreshDocSel() {
+  const sel = $('#docsel'); if (!sel) return;
+  const docs = Object.values(S.docs).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  sel.innerHTML = docs.map(d => `<option value="${esc(d.id)}">${esc(d.name || 'Untitled')}</option>`).join('');
+  if (S.docId && S.docs[S.docId]) sel.value = S.docId;
+}
+function persistActive() {
+  if (!S.docId || !S.docs[S.docId] || !S.spec) return;
+  const d = S.docs[S.docId], clone = JSON.parse(JSON.stringify(S.spec));
+  d.spec = clone; d.ov = Object.assign({}, S.ov); d.name = clone.name || d.name || 'Untitled'; d.updated = Date.now();
+  writeWS(); refreshDocSel();
+}
+function addDoc(spec, opts) {
+  opts = opts || {}; const id = uid(), s = JSON.parse(JSON.stringify(spec)), name = opts.name || s.name || 'Untitled';
+  s.name = name; S.docs[id] = { id, name, source: opts.source || null, spec: s, ov: Object.assign({}, opts.ov || {}), updated: Date.now() };
+  return id;
+}
+function openDoc(id, opts) {
+  opts = opts || {}; const d = S.docs[id]; if (!d) return false;
+  if (S.docId && S.docId !== id && S.spec) persistActive();
+  const prev = S.docId; S.docId = id;
+  const ok = loadSpec(JSON.parse(JSON.stringify(d.spec)), Object.assign({}, d.ov || {}), !!opts.quiet);
+  if (ok) { setSpecText(); if (opts.view !== false) viewNow('iso'); writeWS(); refreshDocSel(); }
+  else { S.docId = prev; refreshDocSel(); }
+  return ok;
+}
+function nextUntitled() {
+  const names = new Set(Object.values(S.docs).map(d => d.name)); let i = 1; while (names.has('Untitled ' + i)) i++; return 'Untitled ' + i;
+}
+function newDesign() {
+  const name = nextUntitled(), id = addDoc(blankSpec(name), { name });
+  openDoc(id); toast('New design — previous files are unchanged');
+}
+function duplicateDesign() {
+  if (!S.docId || !S.spec) return; persistActive();
+  const base = (S.docs[S.docId].name || 'Design').replace(/ copy( \d+)?$/, ''), names = new Set(Object.values(S.docs).map(d => d.name));
+  let name = base + ' copy', i = 2; while (names.has(name)) name = base + ' copy ' + i++;
+  const id = addDoc(S.spec, { name, ov: S.ov }); openDoc(id); toast('Duplicated as ' + name);
+}
+function renameDesign() {
+  if (!S.docId || !S.docs[S.docId]) return;
+  const cur = S.docs[S.docId], name = prompt('Rename design', cur.name || '');
+  if (name == null) return; const n = name.trim(); if (!n) return;
+  cur.name = n; if (S.spec) S.spec.name = n; persistActive(); refreshAll(); toast('Renamed');
+}
+function deleteDesign() {
+  if (!S.docId || !S.docs[S.docId]) return;
+  if (Object.keys(S.docs).length <= 1) { toast('Keep at least one design'); return; }
+  const cur = S.docs[S.docId];
+  if (!confirm('Delete "' + (cur.name || 'Untitled') + '"? Your other designs stay.')) return;
+  delete S.docs[S.docId]; S.docId = null;
+  const next = Object.values(S.docs).sort((a, b) => (b.updated || 0) - (a.updated || 0))[0];
+  openDoc(next.id); toast('Deleted');
+}
 
 
 /* ---------------- renderer / scene ---------------- */
@@ -94,7 +168,7 @@ function disposeScene() { while (root.children.length) root.remove(root.children
 function loadSpec(spec, ov, quiet) {
   const M = CAD.buildSpec(spec, ov || {});
   if (!M.insts.length) { if (prevM) { CAD.GROUPS = prevM.groups; CAD.STEPS = prevM.steps.map(s => s.title); CAD.MATS = prevM.materials; } S.lastErrors = M.errors; S.lastWarnings = M.warnings; renderSpecErrors(); if (!quiet) toast('The spec has errors: see the Spec tab'); return false; }
-  S.spec = spec; S.ov = ov || {}; build(M); return true;
+  S.spec = spec; S.ov = ov || {}; build(M); persistActive(); return true;
 }
 function build(M) {
   disposeScene(); Object.keys(mc).forEach(k => delete mc[k]); prevM = S.M = M; S.lastErrors = M.errors; S.lastWarnings = M.warnings; fillRows = null; S.mv = {}; S.hiddenDef.clear(); S.hiddenGrp.clear(); root.position.set(0, 0, 0);
@@ -488,24 +562,35 @@ async function runAI(task) {
   const focusIds = (task === 'revise' && $('#aiFocusOnly') && $('#aiFocusOnly').checked) ? selectedPartIds() : [];
   const focusParts = focusIds.map(id => ({ id, name: (S.M.defs.get(id) || {}).name || id }));
   if ($('#aiRem').checked) { try { localStorage.setItem('image-to-cad.key', key); } catch (e) { } }
+  let aiDocId = null;
+  if (task === 'design') { persistActive(); aiDocId = addDoc(blankSpec('AI design'), { name: 'AI design' }); refreshDocSel(); }
+  const adoptAIDoc = () => { if (aiDocId) { S.docId = aiDocId; aiDocId = null; refreshDocSel(); } };
   S.ai.busy = true; S.ai.log = []; $('#aiGo').disabled = true; $('#aiRev').disabled = true; $('#aiStop').disabled = false; const ac = new AbortController(); S.ai.abort = ac;
   aiLog('Using ' + model + ' (' + (kind === 'proxy' ? 'server proxy' : kind === 'anthropic' ? 'browser API key' : 'this page') + ')' + (focusParts.length ? ' · focused on ' + focusParts.map(p => p.name).join(', ') : ''));
   try {
     const res = await CAD.vision.run({ image: S.ai.img, hints, task, focusParts, prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model }, maxRounds: +$('#aiRounds').value, visual: $('#aiVis').checked, signal: ac.signal, onLog: aiLog,
-      onSpec: (spec) => { if (loadSpec(spec, {}, true)) { viewNow('iso'); setSpecText(); } }, render: async (spec) => { loadSpec(spec, {}, true); viewNow('iso'); await frames(4); return renderer.domElement.toDataURL('image/jpeg', .85); } });
-    res.spec.__ai = true; loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText(); toast(res.rep.ok ? 'Design ready: passes every check' : 'Design loaded with remaining issues, see the log'); closeAI(); setTab('insp');
-  } catch (e) { aiLog('Error: ' + (e.name === 'AbortError' ? 'stopped' : e.message)); toast('AI run failed: see the log'); }
+      onSpec: (spec) => { adoptAIDoc(); if (loadSpec(spec, {}, true)) { viewNow('iso'); setSpecText(); } }, render: async (spec) => { adoptAIDoc(); loadSpec(spec, {}, true); viewNow('iso'); await frames(4); return renderer.domElement.toDataURL('image/jpeg', .85); } });
+    res.spec.__ai = true; adoptAIDoc(); loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText();
+    toast(res.rep.ok ? 'Design ready: passes every check' : 'Design loaded with remaining issues, see the log'); closeAI(); setTab('insp');
+  } catch (e) {
+    aiLog('Error: ' + (e.name === 'AbortError' ? 'stopped' : e.message)); toast('AI run failed: see the log');
+    if (aiDocId) { delete S.docs[aiDocId]; writeWS(); refreshDocSel(); }
+  }
   finally { S.ai.busy = false; $('#aiGo').disabled = false; $('#aiRev').disabled = false; $('#aiStop').disabled = true; }
 }
 
 
 /* ---------------- UI wiring ---------------- */
 function toast(t) { const e = $('#toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 2600); }
-$$('#views button').forEach(b => b.onclick = () => viewTo(b.dataset.v)); $('#bFit').onclick = () => viewTo('iso'); $('#exs').oninput = e => { S.exF = +e.target.value; applyTransforms(); };
-$('#cmode').onchange = e => { S.mode = e.target.value; updateVisuals(); }; $('#bEdge').classList.add('on'); $('#bEdge').onclick = e => { S.edges = !S.edges; e.target.classList.toggle('on', S.edges); updateVisuals(); };
-$('#bSec').onclick = e => { S.sec.on = !S.sec.on; e.target.classList.toggle('on', S.sec.on); if (S.sec.on && !S.sec.off) S.sec.off = Math.round(sceneBox().getCenter(V(0, 0, 0))[S.sec.axis]); applySection(); setTab('motion'); };
-$('#bMeas').onclick = e => { S.meas.on = !S.meas.on; e.target.classList.toggle('on', S.meas.on); applyNavMode(); if (!S.meas.on) clearMeasure(); toast(S.meas.on ? 'Measure: click two points (snaps to vertices)' : 'Measure off'); };
+$$('#views button[data-v]').forEach(b => b.onclick = () => viewTo(b.dataset.v)); $('#bFit').onclick = () => viewTo('iso'); $('#exs').oninput = e => { S.exF = +e.target.value; applyTransforms(); };
+$('#cmode').onchange = e => { S.mode = e.target.value; updateVisuals(); };
+$('#bEdge').classList.add('on');
+$('#bEdge').onclick = e => { const btn = e.currentTarget; S.edges = !S.edges; btn.classList.toggle('on', S.edges); updateVisuals(); };
+$('#bSec').onclick = e => { const btn = e.currentTarget; S.sec.on = !S.sec.on; btn.classList.toggle('on', S.sec.on); if (S.sec.on && !S.sec.off) S.sec.off = Math.round(sceneBox().getCenter(V(0, 0, 0))[S.sec.axis]); applySection(); setTab('motion'); };
+$('#bMeas').onclick = e => { const btn = e.currentTarget; S.meas.on = !S.meas.on; btn.classList.toggle('on', S.meas.on); applyNavMode(); if (!S.meas.on) clearMeasure(); toast(S.meas.on ? 'Measure: click two points (snaps to vertices)' : 'Measure off'); };
 $('#bBom').onclick = showCut; $('#bExp').onclick = () => setTab('export'); $('#tq').oninput = e => { S.q = e.target.value; buildTree(); }; $('#bShowAll').onclick = showAll;
+$('#bNew').onclick = newDesign; $('#bDup').onclick = duplicateDesign; $('#bRename').onclick = renameDesign; $('#bDel').onclick = deleteDesign;
+$('#docsel').onchange = e => { if (e.target.value && e.target.value !== S.docId) openDoc(e.target.value); };
 function setPanels() {
   const m = $('main'); m.classList.toggle('left-off', !S.leftOn); m.classList.toggle('right-off', !S.rightOn);
   $('#edgeL').textContent = S.leftOn ? '‹' : '›'; $('#edgeR').textContent = S.rightOn ? '›' : '‹';
@@ -562,17 +647,44 @@ async function loadExamples() {
   try { const idx = await (await fetch('examples/index.json')).json(); for (const e of idx) S.examples[e.id] = await (await fetch('examples/' + e.file)).json(); } catch (e) { /* file:// or offline: fall back to the built-in example */ }
   if (!Object.keys(S.examples).length) S.examples = { 'plant-stand': CAD.vision.EXAMPLE };
 }
-function loadExample(id) { const spec = JSON.parse(JSON.stringify(S.examples[id])); spec.__trusted = true; if (loadSpec(spec, {})) { setSpecText(); viewNow('iso'); const sel = $('#exsel'); if (sel) sel.value = id; } }
+function loadExample(id) {
+  const ex = S.examples[id]; if (!ex) return false;
+  const source = 'example:' + id;
+  let doc = Object.values(S.docs).find(d => d.source === source);
+  const spec = JSON.parse(JSON.stringify(ex)); spec.__trusted = true;
+  if (doc) { doc.spec = spec; doc.name = spec.name || id; doc.ov = {}; doc.updated = Date.now(); }
+  else doc = S.docs[addDoc(spec, { name: spec.name || id, source })];
+  return openDoc(doc.id);
+}
+function seedWorkspace() {
+  Object.entries(S.examples).forEach(([id, ex]) => {
+    const spec = JSON.parse(JSON.stringify(ex)); spec.__trusted = true;
+    addDoc(spec, { name: spec.name || id, source: 'example:' + id });
+  });
+}
 function boot() {
   const lb = $('#lbar'); lb.style.width = '35%';
   setTimeout(async () => {
-    await loadExamples(); const sel = $('#exsel'); sel.innerHTML = Object.entries(S.examples).map(([id, s]) => `<option value="${esc(id)}">${esc(s.name || id)}</option>`).join(''); sel.onchange = () => loadExample(sel.value);
-    renderSpecPane(); renderAI(); const want = new URLSearchParams(location.search).get('example'), id = S.examples[want] ? want : (S.examples.sideboard ? 'sideboard' : Object.keys(S.examples)[0]); sel.value = id; lb.style.width = '70%'; resize(); loadExample(id);
+    await loadExamples();
+    const ws = readWS();
+    if (ws && ws.docs && Object.keys(ws.docs).length) {
+      S.docs = ws.docs;
+      Object.values(S.docs).forEach(d => { if (!d.id) d.id = uid(); });
+    } else seedWorkspace();
+    renderSpecPane(); renderAI();
+    const want = new URLSearchParams(location.search).get('example');
+    lb.style.width = '70%'; resize();
+    if (want && S.examples[want]) loadExample(want);
+    else {
+      const prefer = (ws && ws.activeId && S.docs[ws.activeId]) ? ws.activeId
+        : (Object.values(S.docs).find(d => d.source === 'example:sideboard') || Object.values(S.docs)[0] || {}).id;
+      if (prefer) openDoc(prefer); else { seedWorkspace(); openDoc(Object.keys(S.docs)[0]); }
+    }
     if (CAD.makeGuide) window.__guide = CAD.makeGuide({ T, S, CAD, renderer, scene, camera, getMat, geomOf, TEX, toast, deliver, safe });
     lb.style.width = '100%'; setTimeout(() => { $('#loading').style.display = 'none'; S.need = true; }, 150);
   }, 30);
 }
 $('#bGuide').onclick = () => window.__guide && window.__guide.open();
-window.__cad = { S, T, CAD, loadSpec, loadExample, viewTo, viewNow, applyMotion, applySection, setSel, selectDef, exportSelected, exportAll, exportAssembly, exportPlates, exportGroup, runChecks, gotoStep, showAll, camera, controls, renderer, scene, root, sceneBox, updateVisuals, showCut, setTab, deliver, runAI, setImage, aiLog };
+window.__cad = { S, T, CAD, loadSpec, loadExample, newDesign, duplicateDesign, renameDesign, deleteDesign, openDoc, viewTo, viewNow, applyMotion, applySection, setSel, selectDef, exportSelected, exportAll, exportAssembly, exportPlates, exportGroup, runChecks, gotoStep, showAll, camera, controls, renderer, scene, root, sceneBox, updateVisuals, showCut, setTab, deliver, runAI, setImage, aiLog };
 boot();
 })();
