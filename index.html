@@ -21,13 +21,18 @@
     <button class="btn" data-nav="pan">Pan view</button>
     <button class="btn" data-nav="move">Move model</button>
   </div>
+  <div class="seg" id="movePlane" title="Plane to slide the model on" style="display:none">
+    <button class="btn on" data-plane="xy">Floor XY</button>
+    <button class="btn" data-plane="xz">Front XZ</button>
+    <button class="btn" data-plane="yz">Side YZ</button>
+  </div>
   <label style="display:flex;gap:6px;align-items:center;margin-left:6px">Explode <input type="range" id="exs" min="0" max="1" step="0.01" value="0" style="width:110px"></label>
   <select id="cmode" class="btn" title="Colour mode"><option value="real">Realistic wood</option><option value="group">By subassembly</option><option value="xray">X-ray</option></select>
   <button class="btn" id="bEdge">Edges</button>
   <button class="btn" id="bSec">Section</button>
   <button class="btn" id="bMeas">Measure</button>
   <div class="sp"></div>
-  <button class="btn pri" id="bAI">AI</button>
+  <button class="btn pri" id="bAI" title="Generate from a picture or revise with a prompt">AI design</button>
   <button class="btn" id="bBom">Cut list</button><button class="btn" id="bGuide">Build guide</button>
   <button class="btn" id="bExp">Export STL</button>
   <button class="btn mob" id="bRight">Panel</button>
@@ -63,7 +68,7 @@
 </div>
 <div id="modal"><div class="box"><div class="mh"><b id="mtitle"></b><div class="sp"></div><span id="mextra"></span><button class="btn sm" id="mcsv">Download CSV</button><button class="btn sm" id="mclose">Close</button></div><div class="mb" id="mbody"></div></div></div>
 <div id="aiBox"><div class="aih"><b>AI</b><span id="aiConn" class="aiConn">Checking connection…</span><div class="sp"></div><button class="btn sm" id="aiClose">Close</button></div><div class="aib" id="p-ai"></div></div>
-<div id="guide"><div class="gh"><button class="btn pri" id="gclose">← Back to model</button><b>Build guide</b><span id="gprog" style="color:#6b7788"></span><div class="sp"></div><select id="gsel" class="btn"></select><button class="btn sm" id="gprev">◀ Prev</button><button class="btn sm" id="gnext">Next ▶</button><button class="btn sm" id="gall">All pages</button><button class="btn sm" id="gsave">Save guide (HTML)</button><button class="btn sm" id="gprint">Print / PDF</button></div><div class="gb" id="gbody"></div></div><div id="toast"></div>
+<div id="guide"><div class="gh"><button class="btn pri" id="gclose">← Back to model</button><b>Build guide</b><span id="gprog" style="color:#6b7788"></span><div class="sp"></div><select id="gsel" class="btn"></select><button class="btn sm" id="gprev">◀ Previous step</button><button class="btn pri sm" id="gnext">Next step ▶</button><button class="btn sm" id="gall">All pages</button><button class="btn sm" id="gsave">Save guide (HTML)</button><button class="btn sm" id="gprint">Print / PDF</button></div><div class="gb" id="gbody"></div><div class="gstep"><button class="btn" id="gprev2">◀ Previous</button><button class="btn pri" id="gnext2">Next step ▶</button></div></div><div id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="src/core/geo.js"></script>

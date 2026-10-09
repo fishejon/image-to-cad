@@ -58,5 +58,5 @@ E.plateFiles = function (M, mult, bed, split) {
     files.push({ name: nm + '.stl', data: CAD.stlBinary(parts), tris: parts.reduce((s, a) => s + a.length / 9, 0) }); });
   if (over.length) man += '\nDid NOT fit: ' + [...new Set(over.map(o => o.p.name))].join(', ') + '\n'; files.push({ name: 'MANIFEST.txt', data: man }); return { files, plates, over };
 };
-E.cutCSV = function (M) { const esc = s => '"' + String(s).replace(/"/g, '""') + '"', g = id => (CAD.GROUPS.find(x => x.id === id) || { name: id }).name; let c = 'ID,Part,Group,Qty,Thickness,Width,Length,Material,Spec\n'; CAD.cutList(M).sort((a, b) => a.grp.localeCompare(b.grp)).forEach(r => c += [r.id, esc(r.name), esc(g(r.grp)), r.qty, esc(CAD.fmtInch(r.T)), esc(CAD.fmtInch(r.W)), esc(CAD.fmtInch(r.L)), esc(r.mat), esc(r.spec)].join(',') + '\n'); return c; };
+E.cutCSV = function (M) { const esc = s => '"' + String(s).replace(/"/g, '""') + '"', g = id => (CAD.GROUPS.find(x => x.id === id) || { name: id }).name; let c = 'ID,Part,Group,Qty,Thickness,Width,Length,Material,Spec\n'; CAD.cutList(M).sort((a, b) => a.grp.localeCompare(b.grp)).forEach(r => c += [r.id, esc(r.name), esc(g(r.grp)), r.qty, esc(CAD.fmtInch(r.T)), esc(CAD.fmtInch(r.W)), esc(CAD.fmtInch(r.L)), esc(r.mat), esc(CAD.inchifyText(r.spec || ''))].join(',') + '\n'); return c; };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

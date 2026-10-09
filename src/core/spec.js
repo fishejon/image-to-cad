@@ -41,14 +41,26 @@ CAD.expr = { parse, ev };
 /* ---------- defaults ---------- */
 const hex = c => typeof c === 'string' ? parseInt(c.replace('#', ''), 16) : c;
 CAD.DEFAULT_MATS = {
-  wood: { name: 'Walnut', color: 0xb88457, metal: 0, rough: .62, rho: 650, tex: 'wood', tint: 0xffffff }, oak: { name: 'Oak', color: 0xd9b27a, metal: 0, rough: .6, rho: 720, tex: 'wood', tint: 0xf2d9b0 },
-  pine: { name: 'Pine', color: 0xe6c690, metal: 0, rough: .6, rho: 520, tex: 'wood', tint: 0xfff0d0 }, ply: { name: 'Plywood', color: 0xd9b88c, metal: 0, rough: .65, rho: 680, tex: 'wood', tint: 0xf0d8b8 },
+  wood: { name: 'Walnut', color: 0xb88457, metal: 0, rough: .62, rho: 650, tex: 'wood', tint: 0xffffff },
+  walnut: { name: 'Walnut', color: 0xb88457, metal: 0, rough: .62, rho: 650, tex: 'wood', tint: 0xffffff },
+  oak: { name: 'White oak', color: 0xd9b27a, metal: 0, rough: .6, rho: 720, tex: 'wood', tint: 0xf2d9b0 },
+  redoak: { name: 'Red oak', color: 0xc9956a, metal: 0, rough: .6, rho: 700, tex: 'wood', tint: 0xe8b890 },
+  maple: { name: 'Hard maple', color: 0xe8d4b0, metal: 0, rough: .55, rho: 700, tex: 'wood', tint: 0xfff4dc },
+  cherry: { name: 'Cherry', color: 0xb06a45, metal: 0, rough: .58, rho: 580, tex: 'wood', tint: 0xd99060 },
+  ash: { name: 'Ash', color: 0xd8c29a, metal: 0, rough: .6, rho: 670, tex: 'wood', tint: 0xf0e0c0 },
+  mahogany: { name: 'Mahogany', color: 0x8a4a32, metal: 0, rough: .55, rho: 590, tex: 'wood', tint: 0xb86848 },
+  teak: { name: 'Teak', color: 0xb8975a, metal: 0, rough: .5, rho: 650, tex: 'wood', tint: 0xd4b878 },
+  birch: { name: 'Birch', color: 0xe0c9a0, metal: 0, rough: .58, rho: 670, tex: 'wood', tint: 0xf8e8c8 },
+  cedar: { name: 'Cedar', color: 0xc4a070, metal: 0, rough: .65, rho: 380, tex: 'wood', tint: 0xe8c898 },
+  pine: { name: 'Pine', color: 0xe6c690, metal: 0, rough: .6, rho: 520, tex: 'wood', tint: 0xfff0d0 },
+  ply: { name: 'Plywood', color: 0xd9b88c, metal: 0, rough: .65, rho: 680, tex: 'wood', tint: 0xf0d8b8 },
   marble: { name: 'Marble', color: 0xe7e3dc, metal: 0, rough: .35, rho: 2700, tex: 'marble' }, steel: { name: 'Steel', color: 0x9aa3ad, metal: .85, rough: .4, rho: 7850 },
   aluminium: { name: 'Aluminium', color: 0xc4cad1, metal: .8, rough: .4, rho: 2700 }, brass: { name: 'Brass', color: 0xc9a43a, metal: .9, rough: .3, rho: 8500 },
   plastic: { name: 'Plastic', color: 0xe8eaec, metal: 0, rough: .5, rho: 1050 }, glass: { name: 'Glass', color: 0x9fd2e8, metal: 0, rough: .08, rho: 2500, alpha: .35 },
   rubber: { name: 'Rubber', color: 0x1b1d20, metal: 0, rough: .9, rho: 1200 }, fabric: { name: 'Fabric', color: 0x8d8f9a, metal: 0, rough: .95, rho: 300 },
   concrete: { name: 'Concrete', color: 0xb9b8b4, metal: 0, rough: .95, rho: 2400 }, paint: { name: 'Painted', color: 0xf2f2ee, metal: 0, rough: .5, rho: 700 },
 };
+CAD.WOOD_KEYS = ['wood', 'walnut', 'oak', 'redoak', 'maple', 'cherry', 'ash', 'mahogany', 'teak', 'birch', 'cedar', 'pine', 'ply'];
 const PALETTE = [0x6aa6ff, 0x7bd88f, 0xffb454, 0xc792ea, 0xf5d547, 0xe0a458, 0x5ad4e6, 0xff7a90, 0x9aa5b1];
 
 /* ---------- mesh-kind parts (cylinders, revolves, extrusions: exact only for display/export, not for joint checks) ---------- */

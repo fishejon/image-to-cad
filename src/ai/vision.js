@@ -40,6 +40,7 @@ V.buildPrompt = function (o) {
     parts.push('You are revising an existing CAD design spec. Apply the user\'s requested changes and return the COMPLETE updated spec as ONE JSON object (no commentary, no markdown fences). Keep everything that is not mentioned. Preserve joinery: if you move or resize a part, update its mating mortises/tenons so they still fill.');
     parts.push(V.SPEC_DOC); parts.push('CURRENT SPEC:\n' + JSON.stringify(o.prevSpec));
     parts.push('REQUESTED CHANGES: ' + (o.hints || '(none)'));
+    if (o.focusParts && o.focusParts.length) parts.push('FOCUS: Prefer changing only these parts (and any joints that mate with them). Leave unrelated parts alone unless the change requires it: ' + o.focusParts.map(p => p.id + ' ("' + p.name + '")').join(', ') + '.');
   } else if (o.round === 1 || !o.prevSpec) {
     parts.push('You are an expert CAD engineer and furniture/product designer. Study the attached picture and write a design spec for a 3D model of the object in it, as ONE JSON object that follows the DESIGN SPEC below. Reproduce the real proportions, parts, joinery and details you can see (drawers, doors, slats, legs, stretchers, round parts...). Where something is hidden, choose the most plausible construction and list it in "assumptions". Return ONLY the JSON object: no commentary, no markdown fences.');
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
@@ -102,7 +103,7 @@ V.run = async function (o) {
     const first = o.task === 'revise' ? 'asking the model to apply your changes…' : 'asking the model to design from the picture…';
     log('Round ' + round + '/' + max + ': ' + (round === 1 ? first : mode === 'visual' ? 'visual critique against the reference…' : 'sending critic findings back to the model…'));
     const images = refs.slice(); if (mode === 'visual' && o.render) { const png = await o.render(prev); if (png) images.push(typeof png === 'string' ? V.dataUrlToImage(png) : png); }
-    const text = V.buildPrompt({ round, prevSpec: prev, report, hints: o.hints, mode, task: o.task });
+    const text = V.buildPrompt({ round, prevSpec: prev, report, hints: o.hints, mode, task: o.task, focusParts: o.focusParts });
     let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
     let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object.' }; mode = 'fix'; continue; }
     const rep = V.evaluate(spec); log('Critic: ' + (rep.ok ? 'all geometry checks passed' : rep.errors.length + ' errors, ' + rep.interference.length + ' interferences, ' + rep.underfilled.length + ' unfilled joints') + (rep.size ? ' · ' + rep.size.join('×') + ' mm' : ''));
