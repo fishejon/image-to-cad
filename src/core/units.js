@@ -89,7 +89,6 @@ function fitThickness(Tmm, list) {
 CAD.stockForPart = function (T, W, L, matName) {
   const name = String(matName || '').toLowerCase();
   const isSheet = /ply|veneer|mdf|osb|sheet|marble|stone|steel|aluminium|aluminum|glass/.test(name);
-  const isHard = /walnut|oak|maple|cherry|ash|mahogany|teak|birch|cedar|wood|pine/.test(name) || !isSheet;
   if (isSheet) {
     const th = fitThickness(T, CAD.SHEET_STOCK) || fitThickness(T, CAD.HARDWOOD_THICK);
     return { kind: 'sheet', stock: th ? th.nom : CAD.fmtInch(T) + ' sheet', T: th ? th.t : T / CAD.MM_PER_IN, W: W / CAD.MM_PER_IN, L: L / CAD.MM_PER_IN, note: 'sheet good' };
@@ -100,28 +99,122 @@ CAD.stockForPart = function (T, W, L, matName) {
   }
   const ht = fitThickness(Math.min(T, W), CAD.HARDWOOD_THICK);
   const face = Math.max(T, W) / CAD.MM_PER_IN;
-  return { kind: 'hardwood', stock: (ht ? ht.nom : CAD.fmtInch(Math.min(T, W))) + ' × ~' + CAD.fmtInch(face).replace(/"$/, '') + '"+', T: ht ? ht.t : Math.min(T, W) / CAD.MM_PER_IN, W: face, L: L / CAD.MM_PER_IN, note: 'hardwood / random width' };
+  return { kind: 'hardwood', stock: (ht ? ht.nom : CAD.fmtInch(Math.min(T, W))) + ' × ≥' + CAD.fmtInch(face).replace(/"$/, '') + '"', T: ht ? ht.t : Math.min(T, W) / CAD.MM_PER_IN, W: face, L: L / CAD.MM_PER_IN, note: 'hardwood / random width' };
 };
 
-/** Aggregate shopping list: dimensional lumber + hardwood + sheet. Lengths include ~15% waste, rounded up to the next foot. */
-CAD.lumberList = function (M) {
-  const rows = CAD.cutList(M), bags = {};
-  rows.forEach(r => {
-    const st = CAD.stockForPart(r.T, r.W, r.L, r.mat);
-    const key = st.kind + '|' + st.stock + '|' + (r.mat || '');
-    if (!bags[key]) bags[key] = { kind: st.kind, stock: st.stock, mat: r.mat, note: st.note, inches: 0, pieces: 0, parts: [] };
-    bags[key].inches += st.L * r.qty;
-    bags[key].pieces += r.qty;
-    bags[key].parts.push({ name: r.name, qty: r.qty, finished: CAD.fmtInch3([r.T, r.W, r.L]) });
+const BOARD_LENS = [96, 120, 144]; /* 8′, 10′, 12′ */
+const KERF = 1 / 8;
+const fmtFt = in_ => { const f = Math.round(in_ / 12); return f + '′'; };
+const roundUpBoard = used => {
+  for (let i = 0; i < BOARD_LENS.length; i++) if (used <= BOARD_LENS[i] + 1e-6) return BOARD_LENS[i];
+  return Math.ceil(used / 12) * 12;
+};
+
+/** First-fit decreasing: pack cut lengths (inches) onto boards, then round each board up to 8′/10′/12′. */
+function packBoards(cuts) {
+  const items = cuts.slice().sort((a, b) => b.len - a.len);
+  const bins = [];
+  items.forEach(it => {
+    let placed = false;
+    for (let i = 0; i < bins.length; i++) {
+      const need = it.len + (bins[i].cuts.length ? KERF : 0);
+      if (bins[i].used + need <= 144 + 1e-6) { bins[i].cuts.push(it); bins[i].used += need; placed = true; break; }
+    }
+    if (!placed) bins.push({ cuts: [it], used: it.len });
   });
-  return Object.values(bags).map(b => {
-    const withWaste = b.inches * 1.15;
-    const feet = Math.max(1, Math.ceil(withWaste / 12));
-    return Object.assign(b, {
-      lengthIn: withWaste,
-      buy: b.kind === 'sheet' ? (feet <= 8 ? 'one ~4×8 sheet (cut list below)' : feet + ' linear ft of sheet stock') : feet + ' ft',
-      buyFeet: feet
+  return bins.map((b, i) => {
+    const bought = roundUpBoard(b.used);
+    return { n: i + 1, usedIn: b.used, buyIn: bought, buy: fmtFt(bought), cuts: b.cuts };
+  });
+}
+
+function expandBlanks(M) {
+  const out = [];
+  CAD.cutList(M).forEach(r => {
+    const st = CAD.stockForPart(r.T, r.W, r.L, r.mat);
+    for (let q = 0; q < r.qty; q++) {
+      out.push({
+        id: r.id, name: r.name, mat: r.mat, grp: r.grp,
+        T: r.T, W: r.W, L: r.L,
+        finished: CAD.fmtInch3([r.T, r.W, r.L]),
+        stock: st.stock, kind: st.kind, note: st.note,
+        stockT: st.T, stockW: st.W, len: st.L
+      });
+    }
+  });
+  return out;
+}
+
+/**
+ * Optimized buy plan: nest blanks onto shared boards of the same stock.
+ * Returns { boards: [...], summary: [...], blanks: [...] }.
+ * Each board has a cut list of the parts taken from it.
+ */
+CAD.lumberPlan = function (M) {
+  const blanks = expandBlanks(M), groups = {};
+  blanks.forEach(b => {
+    const key = b.kind + '|' + b.stock + '|' + (b.mat || '');
+    if (!groups[key]) groups[key] = { kind: b.kind, stock: b.stock, mat: b.mat, note: b.note, blanks: [] };
+    groups[key].blanks.push(b);
+  });
+  const boards = [];
+  Object.values(groups).forEach(g => {
+    if (g.kind === 'sheet') {
+      /* Pack onto 4×8 sheets by area (simple strip along long edge). */
+      const sheetL = 96, sheetW = 48, strips = [];
+      g.blanks.slice().sort((a, b) => Math.max(b.L, b.W) - Math.max(a.L, a.W)).forEach(b => {
+        const pl = Math.max(b.len, b.stockW), pw = Math.min(b.len, b.stockW) || b.stockW;
+        let placed = false;
+        for (let i = 0; i < strips.length; i++) {
+          if (strips[i].w + 1e-6 >= pw && strips[i].used + pl + KERF <= sheetL + 1e-6) {
+            strips[i].cuts.push(Object.assign({ len: pl }, b)); strips[i].used += pl + KERF; placed = true; break;
+          }
+        }
+        if (!placed) {
+          if (pl <= sheetL + 1e-6 && pw <= sheetW + 1e-6) strips.push({ w: pw, used: pl, cuts: [Object.assign({ len: pl }, b)] });
+          else strips.push({ w: pw, used: pl, cuts: [Object.assign({ len: pl }, b)], over: true });
+        }
+      });
+      strips.forEach((s, i) => {
+        boards.push({
+          id: boards.length + 1, kind: g.kind, stock: g.stock, mat: g.mat, note: g.note,
+          buy: s.over ? 'oversize — special order' : '4×8 sheet',
+          buyIn: sheetL, usedIn: s.used, label: g.stock + ' · sheet ' + (i + 1),
+          cuts: s.cuts.map(c => ({ name: c.name, id: c.id, finished: c.finished, len: CAD.fmtInch(c.len * CAD.MM_PER_IN), lenIn: c.len }))
+        });
+      });
+      return;
+    }
+    const packed = packBoards(g.blanks.map(b => Object.assign({ len: b.len }, b)));
+    packed.forEach(p => {
+      boards.push({
+        id: boards.length + 1, kind: g.kind, stock: g.stock, mat: g.mat, note: g.note,
+        buy: p.buy, buyIn: p.buyIn, usedIn: p.usedIn,
+        label: g.stock + ' × ' + p.buy,
+        cuts: p.cuts.map(c => ({ name: c.name, id: c.id, finished: c.finished, len: CAD.fmtInch(c.len * CAD.MM_PER_IN), lenIn: c.len }))
+      });
     });
-  }).sort((a, b) => a.kind.localeCompare(b.kind) || a.stock.localeCompare(b.stock));
+  });
+  boards.sort((a, b) => a.stock.localeCompare(b.stock) || a.id - b.id);
+  const summaryMap = {};
+  boards.forEach(b => {
+    const key = b.kind + '|' + b.stock + '|' + b.buy + '|' + (b.mat || '');
+    if (!summaryMap[key]) summaryMap[key] = { kind: b.kind, stock: b.stock, mat: b.mat, buy: b.buy, qty: 0, boards: [], pieces: 0, note: b.note };
+    summaryMap[key].qty++; summaryMap[key].boards.push(b); summaryMap[key].pieces += b.cuts.length;
+  });
+  const summary = Object.values(summaryMap).map(s => Object.assign(s, {
+    label: s.qty + '× ' + s.stock + (s.buy.indexOf('sheet') >= 0 ? '' : ' × ' + s.buy),
+    buyLine: s.qty + ' ' + (s.qty === 1 ? 'pc' : 'pcs') + ' · ' + s.stock + (s.buy.indexOf('sheet') >= 0 || s.buy.indexOf('oversize') >= 0 ? ' (' + s.buy + ')' : ' × ' + s.buy)
+  })).sort((a, b) => a.stock.localeCompare(b.stock));
+  return { boards, summary, blanks };
+};
+
+/** Back-compat aggregate list (one row per stock type). */
+CAD.lumberList = function (M) {
+  const plan = CAD.lumberPlan(M);
+  return plan.summary.map(s => ({
+    kind: s.kind, stock: s.stock, mat: s.mat, note: s.note || '',
+    pieces: s.pieces, buy: s.buyLine, buyFeet: s.qty, boards: s.boards, parts: s.boards.flatMap(b => b.cuts)
+  }));
 };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
