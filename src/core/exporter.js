@@ -60,13 +60,17 @@ E.plateFiles = function (M, mult, bed, split) {
 };
 E.cutCSV = function (M) {
   const esc = s => '"' + String(s).replace(/"/g, '""') + '"', g = id => (CAD.GROUPS.find(x => x.id === id) || { name: id }).name;
-  let c = 'ID,Part,Group,Qty,Thickness,Width,Length,Material,Buy stock,Spec\n';
+  const plan = CAD.lumberPlan(M);
+  let c = 'BUY LIST\nQty,Stock,Length,Material,Blanks on these boards\n';
+  plan.summary.forEach(s => { c += [s.qty, esc(s.stock), esc(s.buy), esc(s.mat), s.pieces].join(',') + '\n'; });
+  c += '\nCUT LIST PER BOARD\nBoard,Stock,Buy,Material,Part,Finished T×W×L,Cut length\n';
+  plan.boards.forEach(b => b.cuts.forEach(cut => {
+    c += [b.id, esc(b.stock), esc(b.buy), esc(b.mat), esc(cut.name), esc(cut.finished), esc(cut.len)].join(',') + '\n';
+  }));
+  c += '\nPARTS (finished sizes)\nID,Part,Group,Qty,Thickness,Width,Length,Material,Spec\n';
   CAD.cutList(M).sort((a, b) => a.grp.localeCompare(b.grp)).forEach(r => {
-    const st = CAD.stockForPart(r.T, r.W, r.L, r.mat);
-    c += [r.id, esc(r.name), esc(g(r.grp)), r.qty, esc(CAD.fmtInch(r.T)), esc(CAD.fmtInch(r.W)), esc(CAD.fmtInch(r.L)), esc(r.mat), esc(st.stock + (st.note ? ' (' + st.note + ')' : '')), esc(CAD.inchifyText(r.spec || ''))].join(',') + '\n';
+    c += [r.id, esc(r.name), esc(g(r.grp)), r.qty, esc(CAD.fmtInch(r.T)), esc(CAD.fmtInch(r.W)), esc(CAD.fmtInch(r.L)), esc(r.mat), esc(CAD.inchifyText(r.spec || ''))].join(',') + '\n';
   });
-  c += '\nBuy list (with ~15% waste)\nStock,Material,Pieces,Buy\n';
-  CAD.lumberList(M).forEach(b => { c += [esc(b.stock), esc(b.mat), b.pieces, esc(b.buy)].join(',') + '\n'; });
   return c;
 };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

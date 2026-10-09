@@ -523,12 +523,32 @@ function info() { try { let np = 0, ns = 0, mesh = 0; S.M.defs.forEach(d => { co
 
 /* ---------------- cut list modal ---------------- */
 function showCut() {
-  const rows = CAD.cutList(S.M).sort((a, b) => CAD.GROUPS.findIndex(g => g.id === a.grp) - CAD.GROUPS.findIndex(g => g.id === b.grp)); let last = '', i = 0, tw = 0; rows.forEach(r => tw += r.mass * r.qty);
-  const buy = CAD.lumberList(S.M);
-  $('#mtitle').textContent = 'Cut list & lumber to buy'; $('#mextra').textContent = rows.length + ' part types · ' + lb(tw);
-  $('#mbody').innerHTML = `<h3 style="margin-top:4px">Finished sizes (nearest 1/16″)</h3><table><tr><th class="n">#</th><th>Part</th><th class="n">Qty</th><th class="n">T</th><th class="n">W</th><th class="n">L</th><th>Buy stock</th><th>Material</th><th>Notes</th></tr>${rows.map(r => { const st = CAD.stockForPart(r.T, r.W, r.L, r.mat); let h = ''; if (r.grp !== last) { last = r.grp; h = `<tr><td colspan="9" style="background:var(--panel2);font-weight:600">${esc(gname(r.grp))}</td></tr>`; } return h + `<tr><td class="n">${++i}</td><td>${esc(r.name)}</td><td class="n">${r.qty}</td><td class="n">${inch(r.T)}</td><td class="n">${inch(r.W)}</td><td class="n">${inch(r.L)}</td><td>${esc(st.stock)}</td><td>${esc(r.mat)}</td><td>${esc(note(r.spec))}</td></tr>`; }).join('')}</table>
-    <h3>Dimensional lumber to buy</h3><p style="color:var(--dim);font-size:13px;margin:0 0 8px">Nominal sizes (1×4, 2×4, 5/4…). Lengths include ~15% waste, rounded up to the next foot.</p>
-    <table><tr><th>Stock</th><th>Material</th><th class="n">Pcs</th><th>Buy</th><th>Note</th></tr>${buy.map(b => `<tr><td><b>${esc(b.stock)}</b></td><td>${esc(b.mat)}</td><td class="n">${b.pieces}</td><td>${esc(b.buy)}</td><td>${esc(b.note || '')}</td></tr>`).join('')}</table>`;
+  const plan = CAD.lumberPlan(S.M), rows = CAD.cutList(S.M).sort((a, b) => CAD.GROUPS.findIndex(g => g.id === a.grp) - CAD.GROUPS.findIndex(g => g.id === b.grp));
+  let tw = 0; rows.forEach(r => tw += r.mass * r.qty);
+  const boardFrom = {};
+  plan.boards.forEach(b => b.cuts.forEach(c => { (boardFrom[c.id] = boardFrom[c.id] || new Set()).add(b.label); }));
+  $('#mtitle').textContent = 'Lumber & cut list'; $('#mextra').textContent = plan.boards.length + ' boards · ' + rows.length + ' part types · ' + lb(tw);
+  const buyHtml = `<p class="card" style="margin-top:8px">Parts are nested onto the fewest boards of each stock size (8′ / 10′ / 12′, ⅛″ kerf). Each board below has its own cut list — buy these, then cut the listed blanks from them.</p>
+    <h3>Shopping list</h3>
+    <table><tr><th>Buy</th><th>Material</th><th class="n">Blanks</th></tr>${plan.summary.map(s => `<tr><td><b>${esc(s.buyLine)}</b></td><td>${esc(s.mat)}</td><td class="n">${s.pieces}</td></tr>`).join('')}</table>
+    <h3>Cut list per board</h3>
+    ${plan.boards.map(b => `<div class="card" style="margin:10px 0"><b>Board ${b.id}: ${esc(b.label)}</b> · ${esc(b.mat)}${b.note ? ' · ' + esc(b.note) : ''}
+      <table style="margin-top:6px"><tr><th>Part blank</th><th>Finished T×W×L</th><th class="n">Cut length</th></tr>
+      ${b.cuts.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.finished)}</td><td class="n">${esc(c.len)}</td></tr>`).join('')}
+      </table></div>`).join('')}`;
+  let last = '', i = 0;
+  const partsHtml = `<p class="card" style="margin-top:8px">Finished part sizes (nearest 1/16″). The <b>From board</b> column links each part type to the shopping-list boards above.</p>
+    <table><tr><th class="n">#</th><th>Part</th><th class="n">Qty</th><th class="n">T</th><th class="n">W</th><th class="n">L</th><th>From board</th><th>Material</th><th>Notes</th></tr>${rows.map(r => {
+    let h = ''; if (r.grp !== last) { last = r.grp; h = `<tr><td colspan="9" style="background:var(--panel2);font-weight:600">${esc(gname(r.grp))}</td></tr>`; }
+    const from = boardFrom[r.id] ? [...boardFrom[r.id]].join('; ') : '—';
+    return h + `<tr><td class="n">${++i}</td><td>${esc(r.name)}</td><td class="n">${r.qty}</td><td class="n">${inch(r.T)}</td><td class="n">${inch(r.W)}</td><td class="n">${inch(r.L)}</td><td>${esc(from)}</td><td>${esc(r.mat)}</td><td>${esc(note(r.spec))}</td></tr>`;
+  }).join('')}</table>`;
+  $('#mbody').innerHTML = `<div class="mtabs"><button type="button" class="btn sm on" data-mtab="buy">1 · Buy list</button><button type="button" class="btn sm" data-mtab="parts">2 · Parts</button></div>
+    <div class="mtab on" id="mtab-buy">${buyHtml}</div><div class="mtab" id="mtab-parts">${partsHtml}</div>`;
+  $$('#mbody [data-mtab]').forEach(b => b.onclick = () => {
+    $$('#mbody [data-mtab]').forEach(x => x.classList.toggle('on', x === b));
+    $$('#mbody .mtab').forEach(p => p.classList.toggle('on', p.id === 'mtab-' + b.dataset.mtab));
+  });
   $('#modal').style.display = 'block'; $('#mcsv').onclick = () => deliver('cut_list', [{ name: safe(S.M.meta.name) + '_cut_list.csv', data: cutCSV() }]);
 }
 $('#mclose').onclick = () => $('#modal').style.display = 'none';

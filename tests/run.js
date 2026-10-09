@@ -19,7 +19,8 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     ok(/1\/2"/.test(CAD.inchifyText('Cut a 12.7 mm tenon'))); ok(!/mm/.test(CAD.inchifyText('40 × 40 mm, 15 mm tenon')));
     ok(/11\/16"/.test(CAD.inchifyText('Divider dado 18 x 8'))); ok(/1\/4"/.test(CAD.inchifyText('Back-panel groove 6 wide')));
     const st = CAD.stockForPart(19, 89, 1200, 'American walnut'); ok(/1×|5\/4|4\/4|2×/.test(st.stock), 'stock ' + st.stock);
-    const buy = CAD.lumberList(CAD.buildSpec(load('bookshelf'))); ok(buy.length > 0, 'lumber list');
+    const plan = CAD.lumberPlan(CAD.buildSpec(load('bookshelf'))); ok(plan.boards.length > 0 && plan.summary.length > 0, 'lumber plan');
+    ok(plan.boards.every(b => b.cuts.length > 0), 'each board has a cut list');
   });
   console.log('expressions');
   await t('arithmetic & precedence', () => { eq(ev('2+3*4'), 14); eq(ev('(2+3)*4'), 20); eq(ev('-2^2'), -4); eq(ev('2^3^2'), 512); eq(ev('10/4'), 2.5); eq(ev('7%4'), 3); });
