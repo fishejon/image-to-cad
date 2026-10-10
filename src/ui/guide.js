@@ -143,7 +143,7 @@ CAD.makeGuide = function (ctx) {
     const plan = CAD.lumberPlan(S.M);
     const buy = `<table><tr><th>Buy</th><th>Material</th><th>Blanks</th></tr>${plan.summary.map(s => `<tr><td><b>${esc(s.buyLine)}</b></td><td>${esc(s.mat)}</td><td>${s.pieces}</td></tr>`).join('')}</table>`;
     const per = plan.boards.map(b => `<div style="margin-top:8px"><b>Board ${b.id}: ${esc(b.label)}</b><table><tr><th>Part blank</th><th>Finished size</th><th>Cut length</th></tr>${b.cuts.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.finished)}</td><td>${esc(c.len)}</td></tr>`).join('')}</table></div>`).join('');
-    return `<div class="hero tb" style="background:var(--panel);display:block;padding:8px 14px;overflow:auto"><p style="margin:0 0 8px;font-size:12px;color:var(--dim)"><b>Buy list first</b> — parts are nested onto shared boards. Finished sizes are the blank for each part (T×W×L), not joinery pocket sizes.</p>${buy}${per}</div>`;
+    return `<div class="hero tb" style="background:var(--panel);display:block;padding:8px 14px;overflow:auto"><p style="margin:0 0 8px;font-size:12px;color:var(--dim)"><b>Buy list first</b> — parts are nested onto shared boards. Finished sizes are the blank for each part (T×W×L); T is in quarters (7/4″), not joinery pocket sizes.</p>${buy}${per}</div>`;
   }
   async function generate(cb) {
     steps = CAD.guideSteps(S.M); pages = []; thumbs = {}; const imgs = []; const tick = () => new Promise(r => setTimeout(r, 0));

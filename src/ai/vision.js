@@ -19,8 +19,9 @@ V.EXAMPLE = {
 };
 
 V.SPEC_DOC = `
-# DESIGN SPEC (JSON) — numeric geometry is millimetres (the engine's unit). Z is up, X is the long side, the FRONT faces -Y, origin is the centre of the footprint on the floor. User-facing text (name, description, spec, notes, labels, param labels) MUST use inches to the nearest 1/16, written as fractions under 1" (3/4\" not 0.75\") and mixed numbers above (12 3/16\"). Convert: 1 inch = 25.4 mm.
-Top-level keys: name, description, assumptions[], params{}, materials{}, groups[], steps[], kinematics{}, parts[] (required).
+# DESIGN SPEC (JSON) — numeric geometry is millimetres (the engine's unit). Z is up, X is the long side, the FRONT faces -Y, origin is the centre of the footprint on the floor. User-facing text (name, description, spec, notes, labels, param labels) MUST use inches to the nearest 1/16, written as fractions under 1" (3/4\" not 0.75\") and mixed numbers above (12 3/16\"). Lumber thickness in user-facing text uses quarters only (7/4\" not 1 3/4\"). Convert: 1 inch = 25.4 mm.
+Top-level keys: name, description, reasoning (string), assumptions[], params{}, materials{}, groups[], steps[], kinematics{}, parts[] (required).
+reasoning: 4–8 sentences explaining what you see in the picture (or what you changed on revise), key proportions, major parts counted, and joinery assumptions for hidden structure. Always include this field.
 Every NUMBER may be an arithmetic expression string using params, part "vars", and the repeat variable. Operators + - * / % ^ ( ) comparisons < > <= >= == != ; functions min max abs round floor ceil sqrt pow mod sin cos tan atan2 clamp if(c,a,b). Angles are in degrees.
 params: { "W": {"value":900,"min":600,"max":1400,"step":50,"label":"Width"}, "t": {"expr":"18"}, "Wi": {"expr":"W-2*t"} }  (objects with "value" become UI sliders; "expr" are derived values; params are evaluated in order, so define a name before using it).
 materials: { "oak": {"base":"oak"}, "paint": {"color":"#d9d9d4","metal":0,"rough":0.5,"rho":700} }. Built-in ids: wood(walnut) oak pine ply marble steel aluminium brass plastic glass rubber fabric concrete paint.
@@ -37,17 +38,18 @@ V.EXAMPLE_JSON = JSON.stringify(V.EXAMPLE);
 V.buildPrompt = function (o) {
   o = o || {}; const parts = [];
   if (o.task === 'revise' && o.prevSpec && (o.round === 1 || !o.report)) {
-    parts.push('You are revising an existing CAD design spec. Apply the user\'s requested changes and return the COMPLETE updated spec as ONE JSON object (no commentary, no markdown fences). Keep everything that is not mentioned. Preserve joinery: if you move or resize a part, update its mating mortises/tenons so they still fill.');
+    parts.push('You are revising an existing CAD design spec. Apply the user\'s requested changes and return the COMPLETE updated spec as ONE JSON object (no commentary, no markdown fences). Keep everything that is not mentioned. Preserve joinery: if you move or resize a part, update its mating mortises/tenons so they still fill. Include an updated "reasoning" field describing what you changed and why.');
     parts.push(V.SPEC_DOC); parts.push('CURRENT SPEC:\n' + JSON.stringify(o.prevSpec));
     parts.push('REQUESTED CHANGES: ' + (o.hints || '(none)'));
     if (o.focusParts && o.focusParts.length) parts.push('FOCUS: Prefer changing only these parts (and any joints that mate with them). Leave unrelated parts alone unless the change requires it: ' + o.focusParts.map(p => p.id + ' ("' + p.name + '")').join(', ') + '.');
   } else if (o.round === 1 || !o.prevSpec) {
-    parts.push('You are an expert CAD engineer and furniture/product designer. Study the attached picture and write a design spec for a 3D model of the object in it, as ONE JSON object that follows the DESIGN SPEC below. Reproduce the real proportions, parts, joinery and details you can see (drawers, doors, slats, legs, stretchers, round parts...). Where something is hidden, choose the most plausible construction and list it in "assumptions". Return ONLY the JSON object: no commentary, no markdown fences.');
+    parts.push('You are an expert CAD engineer and furniture/product designer. Study the attached picture carefully and write a design spec for a 3D model of THAT object, as ONE JSON object that follows the DESIGN SPEC below.');
+    parts.push('Match what you SEE — not a generic piece in the same category. Count drawers/doors/legs/shelves/slats; match overall width:depth:height proportions from the photo; match leg shape, top overhang, and visible joinery or hardware. Where something is hidden, choose the most plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what object you see, (2) proportions you read from the image, (3) major parts you identified, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
     if (o.hints) parts.push('USER HINTS (they override anything you guess from the picture): ' + o.hints);
     if (o.report) parts.push('YOUR PREVIOUS REPLY WAS REJECTED:\n' + o.report.text);
   } else {
-    parts.push('You are the BUILDER in a builder/critic loop. Below are your previous spec and the CRITIC report from an exact geometry checker' + (o.mode === 'visual' ? ' plus a render of your model next to the reference picture' : '') + '. Fix every issue and return the COMPLETE corrected spec as ONE JSON object (no commentary, no fences). Keep everything that was already correct.');
+    parts.push('You are the BUILDER in a builder/critic loop. Below are your previous spec and the CRITIC report from an exact geometry checker' + (o.mode === 'visual' ? ' plus a render of your model next to the reference picture' : '') + '. Fix every issue and return the COMPLETE corrected spec as ONE JSON object (no commentary, no fences). Keep everything that was already correct. Refresh "reasoning" if you change the design.');
     parts.push(V.SPEC_DOC); if (o.hints) parts.push('USER HINTS: ' + o.hints);
     parts.push('PREVIOUS SPEC:\n' + JSON.stringify(o.prevSpec)); parts.push('CRITIC REPORT:\n' + (o.report ? o.report.text : ''));
     if (o.mode === 'visual') parts.push('VISUAL CRITIQUE: image 1 is the reference picture, image 2 is the render of your spec. Compare proportions (width : depth : height), number and size of parts (legs, drawers, shelves, slats), leg/foot shape and any visible details. If they differ materially, correct the spec. If it already matches, return the spec unchanged.');
@@ -87,12 +89,12 @@ V.providers = {
       body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: 24000, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error('Anthropic API ' + r.status + ': ' + ((j.error && j.error.message) || r.statusText)); return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join(''); },
   proxy: async o => {
-    const maxTok = Math.min(+o.max_tokens || (o.task === 'revise' ? 12000 : 20000), 32000);
+    const maxTok = Math.min(+o.max_tokens || (o.task === 'revise' ? 10000 : 14000), 32000);
     const r = await fetch(o.proxyUrl || '/api/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: maxTok, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
       const msg = (j.error && (j.error.message || j.error)) || r.statusText;
-      if (r.status === 504 || r.status === 524) throw new Error('Proxy timed out (504). The model took too long — try fewer rounds, turn off visual critic, or use a browser API key. ' + msg);
+      if (r.status === 504 || r.status === 524) throw new Error('Proxy timed out (504). Vercel serverless caps long model calls (~60s on Hobby). Your API key on the server is fine — try Haiku, max rounds 1, turn off visual critic, or upgrade the Vercel plan for longer runs. ' + msg);
       throw new Error('Proxy ' + r.status + ': ' + msg);
     }
     return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
@@ -113,8 +115,9 @@ V.run = async function (o) {
     log('Round ' + round + '/' + max + ': ' + (round === 1 ? first : mode === 'visual' ? 'visual critique against the reference…' : 'sending critic findings back to the model…'));
     const images = refs.slice(); if (mode === 'visual' && o.render) { const png = await o.render(prev); if (png) images.push(typeof png === 'string' ? V.dataUrlToImage(png) : png); }
     const text = V.buildPrompt({ round, prevSpec: prev, report, hints: o.hints, mode, task: o.task, focusParts: o.focusParts });
-    let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal, task: o.task, max_tokens: o.task === 'revise' ? 12000 : 20000 })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
-    let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object.' }; mode = 'fix'; continue; }
+    let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal, task: o.task, max_tokens: o.task === 'revise' ? 10000 : 14000 })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
+    let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object with a "reasoning" field.' }; mode = 'fix'; continue; }
+    if (spec.reasoning) { log('Thought process:'); String(spec.reasoning).split(/\n+/).forEach(line => { if (line.trim()) log(line.trim()); }); }
     const rep = V.evaluate(spec); log('Critic: ' + (rep.ok ? 'all geometry checks passed' : rep.errors.length + ' errors, ' + rep.interference.length + ' interferences, ' + rep.underfilled.length + ' unfilled joints') + (rep.size ? ' · ' + rep.size.join('×') + ' mm' : ''));
     if (o.onSpec) o.onSpec(spec, rep, round); if (!best || rep.score < best.rep.score) best = { spec, rep, round }; if (rep.ok) lastOk = { spec, rep, round };
     if (rep.ok && o.visual && !visualDone && round < max && o.render) { visualDone = true; mode = 'visual'; prev = spec; report = rep; continue; }

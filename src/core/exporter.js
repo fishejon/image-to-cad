@@ -69,7 +69,7 @@ E.cutCSV = function (M) {
   }));
   c += '\nPARTS (finished sizes)\nID,Part,Group,Qty,Thickness,Width,Length,Material,Spec\n';
   CAD.cutList(M).sort((a, b) => a.grp.localeCompare(b.grp)).forEach(r => {
-    c += [r.id, esc(r.name), esc(g(r.grp)), r.qty, esc(CAD.fmtInch(r.T)), esc(CAD.fmtInch(r.W)), esc(CAD.fmtInch(r.L)), esc(r.mat), esc(CAD.inchifyText(r.spec || ''))].join(',') + '\n';
+    c += [r.id, esc(r.name), esc(g(r.grp)), r.qty, esc(CAD.fmtThick(r.T)), esc(CAD.fmtInch(r.W)), esc(CAD.fmtInch(r.L)), esc(r.mat), esc(CAD.inchifyText(r.spec || ''))].join(',') + '\n';
   });
   return c;
 };

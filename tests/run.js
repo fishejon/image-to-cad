@@ -14,6 +14,8 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
   await t('inches snap to 1/16 and print as fractions', () => {
     eq(CAD.fmtInch(0), '0"'); eq(CAD.fmtInch(25.4), '1"'); eq(CAD.fmtInch(12.7), '1/2"'); eq(CAD.fmtInch(19.05), '3/4"');
     eq(CAD.fmtInch(25.4 + 12.7), '1 1/2"'); eq(CAD.fmtInch(25.4 * 12 + 25.4 * 3 / 16), '12 3/16"');
+    eq(CAD.fmtThick(19.05), '3/4"'); eq(CAD.fmtThick(25.4 * 1.75), '7/4"'); eq(CAD.fmtThick(25.4), '4/4"');
+    eq(CAD.fmtBlank(25.4 * 1.75, 25.4 * 5.5, 25.4 * 24), '7/4" × 5 1/2" × 24"');
     ok(CAD.fmtInch3([25.4, 50.8, 76.2]).indexOf(' × ') > 0);
     ok(/lb$/.test(CAD.fmtLb(1))); near(parseFloat(CAD.fmtLb(1)), 2.2, .05);
     ok(/1\/2"/.test(CAD.inchifyText('Cut a 12.7 mm tenon'))); ok(!/mm/.test(CAD.inchifyText('40 × 40 mm, 15 mm tenon')));

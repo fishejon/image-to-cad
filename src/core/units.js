@@ -15,7 +15,15 @@ CAD.fmtInch = function (mm) {
   if (!s) s = '0';
   return (neg ? '−' : '') + s + '"';
 };
+/** Thickness in lumber quarters (always n/4″): 1.75″ → 7/4″, 0.75″ → 3/4″. */
+CAD.fmtThick = function (mm) {
+  const neg = mm < 0, q = Math.round(Math.abs(+mm || 0) / CAD.MM_PER_IN * 4);
+  if (!q) return '0"';
+  return (neg ? '−' : '') + q + '/4"';
+};
 CAD.fmtInch3 = function (arr) { return (arr || []).map(CAD.fmtInch).join(' × '); };
+/** Finished blank: thickness in quarters, width & length to 1/16″. */
+CAD.fmtBlank = function (T, W, L) { return CAD.fmtThick(T) + ' × ' + CAD.fmtInch(W) + ' × ' + CAD.fmtInch(L); };
 CAD.fmtLb = function (kg, d) {
   const n = (+kg || 0) * CAD.LB_PER_KG;
   return n.toLocaleString('en-US', { maximumFractionDigits: d === undefined ? 1 : d, minimumFractionDigits: d === undefined ? 1 : d }) + ' lb';
@@ -40,7 +48,8 @@ CAD.inchifyText = function (s) {
   });
   t = t.replace(new RegExp('(^|[^\\d/"′″])' + num + '\\s*(wide|thick|deep|tall|long)\\b', 'gi'), (m, pre, a, word) => {
     if (!bareOk(a)) return m;
-    return pre + CAD.fmtInch(+a) + ' ' + word;
+    const fmt = /^thick$/i.test(word) ? CAD.fmtThick : CAD.fmtInch;
+    return pre + fmt(+a) + ' ' + word;
   });
   return t;
 };
@@ -136,7 +145,7 @@ function expandBlanks(M) {
       out.push({
         id: r.id, name: r.name, mat: r.mat, grp: r.grp,
         T: r.T, W: r.W, L: r.L,
-        finished: CAD.fmtInch3([r.T, r.W, r.L]),
+        finished: CAD.fmtBlank(r.T, r.W, r.L),
         stock: st.stock, kind: st.kind, note: st.note,
         stockT: st.T, stockW: st.W, len: st.L
       });
