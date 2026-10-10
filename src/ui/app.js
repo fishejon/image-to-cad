@@ -5,13 +5,13 @@ const T = THREE, CAD = window.CAD;
 const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
 const V = (x, y, z) => new T.Vector3(x, y, z);
 const fmt = (n, d) => (+n).toLocaleString('en-US', { maximumFractionDigits: d === undefined ? 0 : d, minimumFractionDigits: d || 0 });
-const inch = v => CAD.fmtInch(v), inch3 = a => CAD.fmtInch3(a), lb = v => CAD.fmtLb(v), note = s => CAD.inchifyText(s);
+const inch = v => CAD.fmtInch(v), thick = v => CAD.fmtThick(v), inch3 = a => CAD.fmtInch3(a), blank = (T, W, L) => CAD.fmtBlank(T, W, L), lb = v => CAD.fmtLb(v), note = s => CAD.inchifyText(s);
 const outVal = (v, unit) => (!unit || unit === 'mm' || unit === 'in' || unit === '"') ? inch(v) : (v + (unit ? ' ' + unit : ''));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const gname = id => (CAD.GROUPS.find(g => g.id === id) || { name: id }).name;
 const S = { M: null, spec: null, ov: {}, R: [], kin: {}, sel: new Set(), hiddenDef: new Set(), hiddenGrp: new Set(), iso: null, mode: 'real', exF: 0, stepCur: 0, stepping: false,
   sec: { on: false, axis: 'y', off: 0, inv: false }, edges: true, meas: { on: false, pts: [], objs: [] }, q: '', need: true, hov: null, collapsed: new Set(), mv: {},
-  ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null }, examples: {}, nav: 'orbit', movePlane: 'xy', leftOn: true, rightOn: true,
+  ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null, reasoning: '' }, examples: {}, nav: 'orbit', movePlane: 'xy', leftOn: true, rightOn: true,
   docs: {}, docId: null };
 const WS_KEY = 'image-to-cad.workspace';
 const uid = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -379,8 +379,9 @@ function renderInspect() {
   if (!S.sel.size) {
     let mass = 0; const byMat = {}; M.insts.forEach(i => { const d = M.defs.get(i.def); mass += d.mass; const k = (CAD.MATS[d.solid.mat] || {}).name || d.solid.mat; byMat[k] = (byMat[k] || 0) + d.mass; });
     el.innerHTML = `<h3>${esc(M.meta.name)}</h3>${M.meta.description ? `<div class="card">${esc(M.meta.description)}</div>` : ''}<div class="kv"><span>Overall size</span><span>${inch3(M.size)}</span><span>Part types / pieces</span><span>${M.defs.size} / ${M.insts.length}</span><span>Weight (est.)</span><span>${lb(mass)}</span>${Object.entries(byMat).map(([k, v]) => `<span>${esc(k)}</span><span>${lb(v)}</span>`).join('')}</div>
+      ${S.ai.reasoning ? `<h3>AI thought process</h3><div class="card">${esc(S.ai.reasoning)}</div>` : ''}
       ${M.meta.assumptions.length ? `<h3>Assumptions</h3><div class="card">${M.meta.assumptions.map(a => '• ' + esc(a)).join('<br>')}</div>` : ''}${S.lastWarnings.length ? `<div class="card warn"><b>Warnings</b>${S.lastWarnings.slice(0, 6).map(esc).join('<br>')}</div>` : ''}
-      <div class="card"><b>How to use</b>Click a part (Shift-click or Shift-drag to multi-select). <b>AI design</b> opens picture upload and prompt-based revise. <i>Move model</i> + Floor/Front/Side slides on any plane. Collapse panels with ‹ ›.</div>`; return; }
+      <div class="card"><b>How to use</b>Click a part (Shift-click or Shift-drag to multi-select). Delete removes selected part types from the design. <b>AI design</b> opens picture upload and prompt-based revise. Collapse panels with ‹ ›.</div>`; return; }
   const first = [...S.sel][0], d = first.def, many = new Set([...S.sel].map(R => R.def.id)).size > 1;
   const matPicker = () => {
     const cur = [...new Set([...S.sel].map(R => R.def.solid.mat))];
@@ -399,9 +400,18 @@ function renderInspect() {
     ${d.spec || d.notes.length ? `<div class="card"><b>Spec</b>${esc(note(d.spec))}${d.notes.length ? '<br>' + d.notes.map(n => esc(note(n))).join('<br>') : ''}</div>` : ''}
     ${Object.keys(by).length ? `<h3>Joinery on this part</h3><table>${Object.entries(by).map(([tag, v]) => `<tr><td>${esc(note(lab[tag] || tag))}</td><td class="n">${v.n}×</td><td class="${v.ok ? 'pass' : 'fail'}">${v.ok ? '✓ ' + esc([...v.by].join(', ')) : '✗ not filled'}</td></tr>`).join('')}</table>` : ''}${acts()}`; bindActs();
 }
-const acts = () => `<h3>Actions</h3><div class="grid2"><button class="btn sm" data-a="focus">Focus</button><button class="btn sm" data-a="iso">Isolate</button><button class="btn sm" data-a="hide">Hide</button><button class="btn sm" data-a="showall">Show all</button><button class="btn sm" data-a="ai" style="grid-column:1/3">Revise selected with AI…</button><button class="btn sm" data-a="stlp" style="grid-column:1/3">STL · print-ready (${S.ex.scale === 1 ? '1:1' : '1:' + S.ex.scale})</button></div>`;
+const acts = () => `<h3>Actions</h3><div class="grid2"><button class="btn sm" data-a="focus">Focus</button><button class="btn sm" data-a="iso">Isolate</button><button class="btn sm" data-a="hide">Hide</button><button class="btn sm" data-a="showall">Show all</button><button class="btn sm" data-a="del" style="grid-column:1/3;color:var(--bad)">Delete from design</button><button class="btn sm" data-a="ai" style="grid-column:1/3">Revise selected with AI…</button><button class="btn sm" data-a="stlp" style="grid-column:1/3">STL · print-ready (${S.ex.scale === 1 ? '1:1' : '1:' + S.ex.scale})</button></div>`;
+function deleteSelected() {
+  const ids = selectedPartIds(); if (!ids.length) return toast('Select one or more parts to delete');
+  if ((S.spec.parts || []).filter(p => !ids.includes(p.id)).length < 1) return toast('Keep at least one part in the design');
+  const names = ids.map(id => (S.M.defs.get(id) || {}).name || id);
+  if (!confirm('Delete from the design?\n\n' + names.join('\n'))) return;
+  const drop = new Set(ids);
+  S.spec.parts = (S.spec.parts || []).filter(p => !drop.has(p.id));
+  if (loadSpec(S.spec, S.ov, true)) { setSpecText(); setSel([]); toast('Deleted ' + ids.length + ' part type(s)'); }
+}
 function bindActs() {
-  $$('#p-insp [data-a]').forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'focus') focusSel(); else if (a === 'iso') { S.iso = new Set(S.sel); updateVisuals(); } else if (a === 'hide') { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); setSel([]); updateVisuals(); buildTree(); } else if (a === 'showall') showAll(); else if (a === 'stlp') exportSelected(); else if (a === 'ai') { openAI(); const t = $('#aiRevise'); if (t) t.focus(); } });
+  $$('#p-insp [data-a]').forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'focus') focusSel(); else if (a === 'iso') { S.iso = new Set(S.sel); updateVisuals(); } else if (a === 'hide') { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); setSel([]); updateVisuals(); buildTree(); } else if (a === 'showall') showAll(); else if (a === 'del') deleteSelected(); else if (a === 'stlp') exportSelected(); else if (a === 'ai') { openAI(); const t = $('#aiRevise'); if (t) t.focus(); } });
   $$('#p-insp .matbtn').forEach(b => b.onclick = () => applyMaterial(b.dataset.mat));
 }
 function showAll() { S.hiddenDef.clear(); S.hiddenGrp.clear(); S.iso = null; S.stepCur = S.M.steps.length - 1; S.stepping = false; stopPlay(); S.R.forEach(R => R.anim = 1); updateVisuals(); applyTransforms(); buildTree(); buildSteps(); }
@@ -537,11 +547,11 @@ function showCut() {
       ${b.cuts.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.finished)}</td><td class="n">${esc(c.len)}</td></tr>`).join('')}
       </table></div>`).join('')}`;
   let last = '', i = 0;
-  const partsHtml = `<p class="card" style="margin-top:8px">Finished part sizes (nearest 1/16″). The <b>From board</b> column links each part type to the shopping-list boards above.</p>
+  const partsHtml = `<p class="card" style="margin-top:8px"><b>T</b> is thickness in lumber quarters (7/4″ not 1 3/4″); <b>W</b> and <b>L</b> are nearest 1/16″. The <b>From board</b> column links each part type to the shopping-list boards above.</p>
     <table><tr><th class="n">#</th><th>Part</th><th class="n">Qty</th><th class="n">T</th><th class="n">W</th><th class="n">L</th><th>From board</th><th>Material</th><th>Notes</th></tr>${rows.map(r => {
     let h = ''; if (r.grp !== last) { last = r.grp; h = `<tr><td colspan="9" style="background:var(--panel2);font-weight:600">${esc(gname(r.grp))}</td></tr>`; }
     const from = boardFrom[r.id] ? [...boardFrom[r.id]].join('; ') : '—';
-    return h + `<tr><td class="n">${++i}</td><td>${esc(r.name)}</td><td class="n">${r.qty}</td><td class="n">${inch(r.T)}</td><td class="n">${inch(r.W)}</td><td class="n">${inch(r.L)}</td><td>${esc(from)}</td><td>${esc(r.mat)}</td><td>${esc(note(r.spec))}</td></tr>`;
+    return h + `<tr><td class="n">${++i}</td><td>${esc(r.name)}</td><td class="n">${r.qty}</td><td class="n">${thick(r.T)}</td><td class="n">${inch(r.W)}</td><td class="n">${inch(r.L)}</td><td>${esc(from)}</td><td>${esc(r.mat)}</td><td>${esc(note(r.spec))}</td></tr>`;
   }).join('')}</table>`;
   $('#mbody').innerHTML = `<div class="mtabs"><button type="button" class="btn sm on" data-mtab="buy">1 · Buy list</button><button type="button" class="btn sm" data-mtab="parts">2 · Parts</button></div>
     <div class="mtab on" id="mtab-buy">${buyHtml}</div><div class="mtab" id="mtab-parts">${partsHtml}</div>`;
@@ -631,21 +641,31 @@ function renderAI() {
   <h3>From a picture</h3>
   <div id="aiDrop" style="border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;background:var(--panel2)"><div id="aiDropT" style="font-weight:600">Drop, paste or click to upload a photo</div><div style="color:var(--dim);margin-top:4px">Generates a new design from the image</div><input type="file" id="aiFile" accept="image/*" hidden><img id="aiPrev" style="display:none;max-width:100%;max-height:200px;margin:8px auto 0;border-radius:6px"></div>
   <textarea id="aiHints" rows="2" placeholder="Optional brief: e.g. overall height 33 1/2&quot;, solid oak, two drawers" style="width:100%;margin-top:8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
-  <div class="row"><label>Max rounds</label><select id="aiRounds" class="btn"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select><div class="chk" style="margin:0"><input type="checkbox" id="aiVis"><label for="aiVis">visual critic</label></div></div>
+  <div class="row"><label>Max rounds</label><select id="aiRounds" class="btn"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select><div class="chk" style="margin:0"><input type="checkbox" id="aiVis"><label for="aiVis">visual critic</label></div></div>
   <div class="grid2"><button class="btn pri" id="aiGo">Generate from picture</button><button class="btn" id="aiStop" disabled>Stop</button></div>
   <details style="margin-top:14px"><summary style="cursor:pointer;color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase">Connection &amp; model</summary>
-  <div class="row"><label>Provider</label><select id="aiProv" class="btn" style="flex:1"><option value="proxy"${hosted && !inClaude ? ' selected' : ''}>Server proxy (Vercel / npm run serve)</option><option value="anthropic"${!hosted && !inClaude ? ' selected' : ''}>Claude API key (browser)</option>${inClaude ? '<option value="artifact" selected>Claude (this page, your account)</option>' : ''}</select></div>
-  <div class="row" id="aiKeyRow"><label>API key</label><input id="aiKey" type="password" placeholder="sk-ant-…" value="${esc(remembered)}" style="flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
+  <div class="card" style="margin-top:8px"><b>Server proxy</b> is the normal path on Vercel: <code>ANTHROPIC_API_KEY</code> stays in project env — you never paste it into this app. <b>Browser API key</b> is optional (local file:// or when you want a personal key in this browser only).</div>
+  <div class="row"><label>Provider</label><select id="aiProv" class="btn" style="flex:1"><option value="proxy"${hosted && !inClaude ? ' selected' : ''}>Server proxy (Vercel key)</option><option value="anthropic"${!hosted && !inClaude ? ' selected' : ''}>Claude API key (browser)</option>${inClaude ? '<option value="artifact" selected>Claude (this page, your account)</option>' : ''}</select></div>
+  <div class="row" id="aiKeyRow"><label>API key</label><input id="aiKey" type="password" placeholder="sk-ant-… (browser only)" value="${esc(remembered)}" style="flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
   <div class="row"><label>Model</label><select id="aiModel" class="btn" style="flex:1">${AI_MODELS.map((m, i) => `<option value="${esc(m.id)}"${i === 0 ? ' selected' : ''}>${esc(m.label)} — ${esc(m.hint)}</option>`).join('')}</select></div>
-  <div class="chk"><input type="checkbox" id="aiRem"><label for="aiRem">remember key in this browser (localStorage)</label></div>
+  <div class="chk" id="aiRemRow"><input type="checkbox" id="aiRem"><label for="aiRem">remember browser key in localStorage</label></div>
   <button class="btn sm" id="aiPing" style="width:100%">Check connection</button></details>
   <div class="log" id="aiLog" style="max-height:220px;overflow:auto;margin-top:8px">${S.ai.log.map(esc).join('<br>')}</div>`;
   syncAIFocus(); if (S.ai.img) { const prev = $('#aiPrev'); prev.src = S.ai.img; prev.style.display = 'block'; $('#aiDropT').textContent = 'Picture ready'; }
   const drop = $('#aiDrop'); drop.onclick = () => $('#aiFile').click(); $('#aiFile').onchange = e => setImage(e.target.files[0]);
   drop.ondragover = e => { e.preventDefault(); drop.style.borderColor = 'var(--acc)'; }; drop.ondragleave = () => drop.style.borderColor = ''; drop.ondrop = e => { e.preventDefault(); drop.style.borderColor = ''; setImage(e.dataTransfer.files[0]); };
-  const sync = () => { $('#aiKeyRow').style.display = $('#aiProv').value === 'anthropic' ? 'flex' : 'none'; checkConnection(); };
+  const sync = () => {
+    const browser = $('#aiProv').value === 'anthropic';
+    $('#aiKeyRow').style.display = browser ? 'flex' : 'none';
+    const rem = $('#aiRemRow'); if (rem) rem.style.display = browser ? '' : 'none';
+    checkConnection();
+  };
   $('#aiProv').onchange = sync; $('#aiModel').onchange = checkConnection; $('#aiKey').onchange = checkConnection; $('#aiPing').onclick = checkConnection; sync();
   $('#aiGo').onclick = () => runAI('design'); $('#aiRev').onclick = () => runAI('revise'); $('#aiStop').onclick = () => S.ai.abort && S.ai.abort.abort();
+}
+function noteReasoning(spec) {
+  const r = spec && spec.reasoning; if (!r) return;
+  S.ai.reasoning = String(r).trim();
 }
 addEventListener('paste', e => { const f = [...(e.clipboardData ? e.clipboardData.files : [])].find(f => /^image\//.test(f.type)); if (f) { openAI(); setImage(f); } });
 function viewNow(name) { viewTo(name); if (tween) { camera.position.copy(tween.p1); controls.target.copy(tween.t1); tween = null; controls.update(); S.need = true; } }
@@ -663,13 +683,13 @@ async function runAI(task) {
   let aiDocId = null;
   if (task === 'design') { persistActive(); aiDocId = addDoc(blankSpec('AI design'), { name: 'AI design' }); refreshDocSel(); }
   const adoptAIDoc = () => { if (aiDocId) { S.docId = aiDocId; aiDocId = null; refreshDocSel(); } };
-  S.ai.busy = true; S.ai.log = []; $('#aiGo').disabled = true; $('#aiRev').disabled = true; $('#aiStop').disabled = false; const ac = new AbortController(); S.ai.abort = ac;
+  S.ai.busy = true; S.ai.log = []; S.ai.reasoning = ''; $('#aiGo').disabled = true; $('#aiRev').disabled = true; $('#aiStop').disabled = false; const ac = new AbortController(); S.ai.abort = ac;
   aiLog('Using ' + model + ' (' + (kind === 'proxy' ? 'server proxy' : kind === 'anthropic' ? 'browser API key' : 'this page') + ')' + (focusParts.length ? ' · focused on ' + focusParts.map(p => p.name).join(', ') : ''));
   try {
     const res = await CAD.vision.run({ image: S.ai.img, hints, task, focusParts, prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model }, maxRounds: +$('#aiRounds').value, visual: $('#aiVis').checked, signal: ac.signal, onLog: aiLog,
-      onSpec: (spec) => { adoptAIDoc(); if (loadSpec(spec, {}, true)) { viewNow('iso'); setSpecText(); } }, render: async (spec) => { adoptAIDoc(); loadSpec(spec, {}, true); viewNow('iso'); await frames(4); return renderer.domElement.toDataURL('image/jpeg', .85); } });
-    res.spec.__ai = true; adoptAIDoc(); loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText();
-    toast(res.rep.ok ? 'Design ready: passes every check' : 'Design loaded with remaining issues, see the log'); closeAI(); setTab('insp');
+      onSpec: (spec) => { noteReasoning(spec); adoptAIDoc(); if (loadSpec(spec, {}, true)) { viewNow('iso'); setSpecText(); renderInspect(); } }, render: async (spec) => { adoptAIDoc(); loadSpec(spec, {}, true); viewNow('iso'); await frames(4); return renderer.domElement.toDataURL('image/jpeg', .85); } });
+    res.spec.__ai = true; noteReasoning(res.spec); adoptAIDoc(); loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText();
+    toast(res.rep.ok ? 'Design ready: passes every check' : 'Design loaded with remaining issues, see the log'); closeAI(); setTab('insp'); renderInspect();
   } catch (e) {
     aiLog('Error: ' + (e.name === 'AbortError' ? 'stopped' : e.message)); toast('AI run failed: see the log');
     if (aiDocId) { delete S.docs[aiDocId]; writeWS(); refreshDocSel(); }
@@ -719,6 +739,7 @@ addEventListener('keydown', e => {
   if (k === 'f') focusSel(); else if (k === 'e') { const to = S.exF > .5 ? 0 : 1, from = S.exF, t0 = performance.now(); cancelAnimationFrame(exAnim); const st = () => { const t = Math.min(1, (performance.now() - t0) / 700); S.exF = from + (to - from) * (t * t * (3 - 2 * t)); $('#exs').value = S.exF; applyTransforms(); if (t < 1) exAnim = requestAnimationFrame(st); }; st(); }
   else if (k === 's') $('#bSec').click(); else if (k === 'm') $('#bMeas').click(); else if (k === 'escape') { setSel([]); clearMeasure(); S.iso = null; updateVisuals(); } else if (k === 'h') { if (e.altKey) showAll(); else { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); setSel([]); updateVisuals(); buildTree(); } }
   else if (k === 'i') { if (S.sel.size) { S.iso = new Set(S.sel); updateVisuals(); } } else if (k === ' ') { e.preventDefault(); playT ? stopPlay() : startPlay(); } else if ('12345'.includes(k) && k) viewTo(['iso', 'front', 'right', 'top', 'back'][+k - 1]);
+  else if (k === 'delete' || k === 'backspace') { if (S.sel.size) { e.preventDefault(); deleteSelected(); } }
   else if (k === '[') { S.leftOn = !S.leftOn; setPanels(); } else if (k === ']') { S.rightOn = !S.rightOn; setPanels(); }
 });
 
