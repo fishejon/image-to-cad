@@ -94,7 +94,7 @@ V.providers = {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
       const msg = (j.error && (j.error.message || j.error)) || r.statusText;
-      if (r.status === 504 || r.status === 524) throw new Error('Proxy timed out (504). Vercel serverless caps long model calls (~60s on Hobby). Your API key on the server is fine — try Haiku, max rounds 1, turn off visual critic, or upgrade the Vercel plan for longer runs. ' + msg);
+      if (r.status === 504 || r.status === 524) throw new Error('Proxy timed out (504). Vercel caps long model calls (~5 min on Hobby). Your API key on the server is fine — try Haiku, max rounds 1, turn off visual critic, or upgrade the Vercel plan for longer runs. ' + msg);
       throw new Error('Proxy ' + r.status + ': ' + msg);
     }
     return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
