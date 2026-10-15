@@ -99,6 +99,13 @@ main.left-off #left,main.right-off #right{overflow:hidden;pointer-events:none}
 .hud{position:absolute;pointer-events:none;font-size:12px;font-weight:500;color:var(--dim)}
 #hudTL{left:12px;top:10px}#hudBL{left:12px;bottom:10px}
 #hudTR{right:12px;top:10px;text-align:right}
+#refPane{position:absolute;left:12px;bottom:36px;z-index:7;width:min(220px,42vw);background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;pointer-events:auto}
+#refPane[hidden]{display:none!important}
+#refPane .refh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600}
+#refPane img{display:block;width:100%;max-height:180px;object-fit:contain;background:var(--panel2)}
+#refPane .refinv{padding:6px 8px;font-size:11px;color:var(--dim);line-height:1.35;max-height:72px;overflow:auto}
+#refShow{position:absolute;left:12px;bottom:12px;z-index:7;pointer-events:auto}
+#refShow[hidden]{display:none!important}
 #tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);padding:4px 8px;border-radius:var(--r);display:none;font-size:12px;z-index:5;max-width:280px}
 #mlabel{position:absolute;pointer-events:none;background:var(--acc);color:#fff;padding:2px 8px;border-radius:var(--r);font-size:12px;font-weight:600;display:none;z-index:6;white-space:nowrap}
 .tabs{display:flex;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}

@@ -69,27 +69,42 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     eq(list.length, files.length + 1); list.forEach((e, i) => { ok(e.crcOk, 'crc ' + e.name); if (i < files.length) { const tr = CAD.stlParse(e.data); eq(tr.length / 9, files[i].tris, 'triangle count ' + e.name); eq(CAD.manifoldPos(tr), 0, 'manifold ' + e.name); } }); });
   await t('cut list & CSV', () => { const M = CAD.buildSpec(load('bookshelf')), c = E.cutCSV(M); ok(c.split('\n').length > M.defs.size, 'rows'); ok(/Shelf/.test(c)); });
   console.log('AI module (mock provider)');
+  const INV = { object: 'Plant stand', aspect: { w: 1, d: 1, h: 1.4 }, counts: { legs: 4, drawers: 0, doors: 0, shelves: 0, slats: 0 }, parts: [{ role: 'leg', count: 4, shape: 'square' }, { role: 'top', count: 1, shape: 'panel' }] };
   await t('prompt example is itself a valid, clean spec (prompt cannot drift from the engine)', () => { const r = V.evaluate(V.EXAMPLE); ok(r.ok, r.text); ok(r.fillChecked >= 4); });
   await t('prompt documents every primitive, op and top-level key the engine accepts', () => { for (const w of ['box', 'cylinder', 'cone', 'tube', 'sphere', 'revolve', 'extrude', '"add"', '"cut"', '"fill"', 'params', 'materials', 'groups', 'steps', 'kinematics', 'instances', 'repeat', 'explode', 'if(c,a,b)']) ok(V.SPEC_DOC.includes(w), 'doc missing ' + w); });
   await t('extractJSON: fences, prose, braces inside strings, truncation', () => {
     eq(V.extractJSON('```json\n{"a":1}\n```').a, 1); eq(V.extractJSON('Here you go: {"a":{"b":"}{"}} thanks').a.b, '}{'); let threw = false; try { V.extractJSON('{"a":[1,2'); } catch (e) { threw = /truncated/.test(e.message); } ok(threw, 'truncation not detected'); threw = false; try { V.extractJSON('no json'); } catch (e) { threw = true; } ok(threw); });
   await t('evaluate flags overlap, unfilled joints and bad expressions with actionable text', () => {
     const bad = JSON.parse(JSON.stringify(V.EXAMPLE)); bad.parts[1].ops.pop(); bad.parts[0].instances[0].pos[2] = 5; const r = V.evaluate(bad); ok(!r.ok); ok(r.interference.length > 0, 'interference'); ok(/INTERFERENCE/.test(r.text)); const bad2 = JSON.parse(JSON.stringify(V.EXAMPLE)); bad2.parts[1].ops[1].cut[5] = 'H-2'; const r2 = V.evaluate(bad2); ok(r2.underfilled.length > 0, 'underfilled'); ok(/UNFILLED/.test(r2.text)); const r3 = V.evaluate({ parts: [{ id: 'x', ops: [{ add: [0, 0, 0, 1, 1, 'zz'] }] }] }); ok(/unknown variable "zz"/.test(r3.text)); });
+  await t('likeness scores aspect and role counts against inventory', () => {
+    const good = V.evaluate(V.EXAMPLE, { inventory: INV }); ok(good.ok); ok(good.likeness); ok(good.likeness.penalty < 20, 'good penalty ' + good.likeness.penalty);
+    const tall = JSON.parse(JSON.stringify(INV)); tall.aspect = { w: 1, d: 1, h: 4 }; const badAsp = V.evaluate(V.EXAMPLE, { inventory: tall }); ok(badAsp.likeness.penalty >= 20, 'aspect penalty'); ok(/LIKENESS aspect/.test(badAsp.text));
+    const many = JSON.parse(JSON.stringify(INV)); many.counts.legs = 8; const badCnt = V.evaluate(V.EXAMPLE, { inventory: many }); ok(badCnt.likeness.countMismatches.some(m => m.role === 'legs')); ok(/LIKENESS count/.test(badCnt.text));
+    eq(V.maskIoU([1, 1, 0, 0], [1, 0, 1, 0]), 1 / 3); eq(V.maskIoU([1, 1], [1, 1]), 1);
+  });
   await t('revise prompt sends the current spec and the requested changes', async () => {
     const mock = { responses: [JSON.stringify(V.EXAMPLE)] };
     const res = await V.run({ task: 'revise', prevSpec: V.EXAMPLE, hints: 'make it 4 inches taller', focusParts: [{ id: 'leg', name: 'Leg' }], provider: { kind: 'mock', mock }, maxRounds: 1 });
-    ok(res.rep.ok); ok(/REQUESTED CHANGES/.test(mock.calls[0].text) && /make it 4 inches taller/.test(mock.calls[0].text) && /CURRENT SPEC/.test(mock.calls[0].text) && /FOCUS/.test(mock.calls[0].text) && /leg/.test(mock.calls[0].text));
+    ok(res.rep.ok); eq(mock.calls.length, 1); ok(/REQUESTED CHANGES/.test(mock.calls[0].text) && /make it 4 inches taller/.test(mock.calls[0].text) && /CURRENT SPEC/.test(mock.calls[0].text) && /FOCUS/.test(mock.calls[0].text) && /leg/.test(mock.calls[0].text));
+  });
+  await t('inventory pass runs before design and seeds the builder prompt', async () => {
+    const mock = { responses: [JSON.stringify(INV), JSON.stringify(V.EXAMPLE)] }, logs = [];
+    const res = await V.run({ image: 'data:image/png;base64,AAAA', hints: 'oak', provider: { kind: 'mock', mock }, maxRounds: 1, onLog: m => logs.push(m) });
+    ok(res.rep.ok); ok(res.inventory); eq(mock.calls.length, 2);
+    ok(/visual inventory|INVENTORY_DOC|aspect/.test(mock.calls[0].text) || /Study the attached picture and return ONE JSON object/.test(mock.calls[0].text), 'inventory prompt');
+    ok(/INVENTORY/.test(mock.calls[1].text) && /Plant stand/.test(mock.calls[1].text), 'builder got inventory');
+    ok(logs.some(l => /Inventory/.test(l)));
   });
   await t('Gauntlet loop: bad first draft → critic feedback reaches the model → fixed draft accepted', async () => {
-    const bad = JSON.parse(JSON.stringify(V.EXAMPLE)); bad.parts[0].instances[0].pos[2] = 5; const mock = { responses: ['Sure!\n```json\n' + JSON.stringify(bad) + '\n```', JSON.stringify(V.EXAMPLE)] }, logs = [];
+    const bad = JSON.parse(JSON.stringify(V.EXAMPLE)); bad.parts[0].instances[0].pos[2] = 5; const mock = { responses: [JSON.stringify(INV), 'Sure!\n```json\n' + JSON.stringify(bad) + '\n```', JSON.stringify(V.EXAMPLE)] }, logs = [];
     const res = await V.run({ image: 'data:image/png;base64,AAAA', hints: 'height 420 mm', provider: { kind: 'mock', mock }, maxRounds: 3, onLog: m => logs.push(m) });
-    ok(res.rep.ok, 'final must pass'); eq(res.round, 2); eq(mock.calls.length, 2); ok(/CRITIC REPORT/.test(mock.calls[1].text) && /INTERFERENCE/.test(mock.calls[1].text), 'feedback missing'); ok(/PREVIOUS SPEC/.test(mock.calls[1].text)); ok(/height 420 mm/.test(mock.calls[0].text), 'hints missing'); eq(mock.calls[0].images, 1); ok(logs.some(l => /passes every check/.test(l))); });
+    ok(res.rep.ok, 'final must pass'); eq(res.round, 2); eq(mock.calls.length, 3); ok(/CRITIC REPORT/.test(mock.calls[2].text) && /INTERFERENCE/.test(mock.calls[2].text), 'feedback missing'); ok(/PREVIOUS SPEC/.test(mock.calls[2].text)); ok(/height 420 mm/.test(mock.calls[1].text), 'hints missing'); eq(mock.calls[0].images, 1); ok(logs.some(l => /passes every check/.test(l))); });
   await t('Gauntlet loop: unparsable reply is retried, loop gives best effort after max rounds', async () => {
-    const mock = { responses: ['{"parts": [ {"id":"x"', 'not json at all', JSON.stringify({ parts: [{ id: 'a', ops: [{ add: [0, 0, 0, 10, 10, 'q'] }] }] })] };
-    const res = await V.run({ image: 'data:image/png;base64,AAAA', provider: { kind: 'mock', mock }, maxRounds: 3 }); ok(!res.rep.ok); eq(mock.calls.length, 3); ok(/could not be parsed/.test(mock.calls[1].text), 'parse feedback'); });
+    const mock = { responses: [JSON.stringify(INV), '{"parts": [ {"id":"x"', 'not json at all', JSON.stringify({ parts: [{ id: 'a', ops: [{ add: [0, 0, 0, 10, 10, 'q'] }] }] })] };
+    const res = await V.run({ image: 'data:image/png;base64,AAAA', provider: { kind: 'mock', mock }, maxRounds: 3 }); ok(!res.rep.ok); eq(mock.calls.length, 4); ok(/could not be parsed/.test(mock.calls[2].text), 'parse feedback'); });
   await t('Visual critic round attaches the render as image 2 and keeps the last passing spec', async () => {
-    const mock = { responses: [JSON.stringify(V.EXAMPLE), JSON.stringify({ parts: [{ id: 'z', ops: [{ add: [0, 0, 0, 1, 1, 'nope'] }] }] })] }; let rendered = 0;
+    const mock = { responses: [JSON.stringify(INV), JSON.stringify(V.EXAMPLE), JSON.stringify({ parts: [{ id: 'z', ops: [{ add: [0, 0, 0, 1, 1, 'nope'] }] }] })] }; let rendered = 0;
     const res = await V.run({ image: 'data:image/png;base64,AAAA', provider: { kind: 'mock', mock }, maxRounds: 2, visual: true, render: async () => { rendered++; return 'data:image/png;base64,BBBB'; } });
-    eq(rendered, 1); eq(mock.calls.length, 2); eq(mock.calls[1].images, 2); ok(/VISUAL CRITIQUE/.test(mock.calls[1].text)); ok(res.rep.ok, 'must fall back to the passing spec'); eq(res.round, 1); });
+    eq(rendered, 1); eq(mock.calls.length, 3); eq(mock.calls[2].images, 2); ok(/VISUAL CRITIQUE/.test(mock.calls[2].text)); ok(res.rep.ok, 'must fall back to the passing spec'); eq(res.round, 1); });
   console.log('\n' + pass + ' passed, ' + fail + ' failed'); if (fail) { console.log('\nFAILURES:\n - ' + failures.join('\n - ')); process.exit(1); }
 })();
