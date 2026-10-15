@@ -1,5 +1,6 @@
 /* Shared Anthropic proxy used by the local server and the Vercel /api/messages function.
-   Only whitelisted fields are forwarded; the API key never leaves the server. */
+   Only whitelisted fields are forwarded; the API key never leaves the server.
+   Optional stream:true pipes Anthropic SSE so long generations keep the connection alive. */
 const MAX_BODY = 25 * 1024 * 1024;
 const hits = new Map();
 
@@ -24,7 +25,8 @@ async function handleMessagesRequest({ body, ip }) {
   if (limited(ip || 'unknown')) return { status: 429, json: { error: { message: 'rate limit: ' + rate() + ' requests per minute' } } };
   let b;
   try { b = parseBody(body); } catch (e) { return { status: 400, json: { error: { message: 'invalid JSON' } } }; }
-  const payload = { model: String(b.model || 'claude-sonnet-4-5'), max_tokens: Math.min(+b.max_tokens || 16000, 32000), messages: b.messages };
+  const wantStream = !!b.stream;
+  const payload = { model: String(b.model || 'claude-sonnet-4-5'), max_tokens: Math.min(+b.max_tokens || 16000, 32000), messages: b.messages, stream: wantStream };
   if (b.system) payload.system = String(b.system);
   if (!Array.isArray(payload.messages)) return { status: 400, json: { error: { message: 'messages must be an array' } } };
   const ctrl = new AbortController();
@@ -36,6 +38,9 @@ async function handleMessagesRequest({ body, ip }) {
       headers: { 'content-type': 'application/json', 'x-api-key': KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify(payload)
     });
+    if (wantStream && r.ok && r.body) {
+      return { status: r.status, stream: r.body, headers: { 'content-type': 'text/event-stream; charset=utf-8' } };
+    }
     return { status: r.status, text: await r.text() };
   } catch (e) {
     if (e && e.name === 'AbortError') return { status: 504, json: { error: { message: 'upstream timed out waiting for Anthropic — try fewer AI rounds or a shorter revise' } } };
@@ -43,4 +48,26 @@ async function handleMessagesRequest({ body, ip }) {
   } finally { clearTimeout(timer); }
 }
 
-module.exports = { handleMessagesRequest, limited, MAX_BODY, rate };
+async function pipeStream(res, result) {
+  const headers = Object.assign({ 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }, result.headers || {});
+  res.writeHead(result.status, headers);
+  const body = result.stream;
+  if (body && typeof body.getReader === 'function') {
+    const reader = body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(Buffer.from(value));
+      }
+    } finally { res.end(); }
+    return;
+  }
+  if (body && typeof body.pipe === 'function') {
+    body.pipe(res);
+    return;
+  }
+  res.end();
+}
+
+module.exports = { handleMessagesRequest, pipeStream, limited, MAX_BODY, rate };

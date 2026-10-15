@@ -94,6 +94,23 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     ok(/visual inventory|INVENTORY_DOC|aspect/.test(mock.calls[0].text) || /Study the attached picture and return ONE JSON object/.test(mock.calls[0].text), 'inventory prompt');
     ok(/INVENTORY/.test(mock.calls[1].text) && /Plant stand/.test(mock.calls[1].text), 'builder got inventory');
     ok(logs.some(l => /Inventory/.test(l)));
+    ok(!res.staged, 'simple inventory skips stages');
+  });
+  await t('mergeSpecs keeps base parts and overlays next by id', () => {
+    const a = { name: 'A', parts: [{ id: 'leg', name: 'Leg' }, { id: 'top', name: 'Top' }], materials: { oak: { base: 'oak' } } };
+    const b = { name: 'B', parts: [{ id: 'top', name: 'Top v2' }, { id: 'drawer', name: 'Drawer' }], materials: { pine: { base: 'pine' } } };
+    const m = V.mergeSpecs(a, b);
+    eq(m.name, 'B'); eq(m.parts.length, 3); ok(m.parts.some(p => p.id === 'leg')); ok(m.parts.find(p => p.id === 'top').name === 'Top v2'); ok(m.materials.oak && m.materials.pine);
+  });
+  await t('staged design runs carcass → interiors → refine for complex inventory', async () => {
+    const complex = { object: 'Sideboard', aspect: { w: 3, d: 1, h: 1.5 }, counts: { legs: 4, drawers: 2, doors: 0, shelves: 0, slats: 0 }, parts: [{ role: 'leg', count: 4 }, { role: 'drawer', count: 2 }, { role: 'top', count: 1 }, { role: 'side', count: 2 }, { role: 'bottom', count: 1 }, { role: 'back', count: 1 }] };
+    ok(V.needsStages(complex)); ok(!V.needsStages(INV));
+    const mock = { responses: [JSON.stringify(complex), JSON.stringify(V.EXAMPLE), JSON.stringify(V.EXAMPLE), JSON.stringify(V.EXAMPLE)] }, logs = [];
+    const res = await V.run({ image: 'data:image/png;base64,AAAA', provider: { kind: 'mock', mock }, maxRounds: 1, staged: true, inventory: complex, onLog: m => logs.push(m) });
+    ok(res.staged); ok(res.rep.ok);
+    ok(logs.some(l => /Staged design/.test(l)));
+    ok(mock.calls.some(c => /STAGE FOCUS/.test(c.text) && /carcass/i.test(c.text)));
+    ok(mock.calls.some(c => /STAGE FOCUS/.test(c.text) && /interior/i.test(c.text)));
   });
   await t('Gauntlet loop: bad first draft → critic feedback reaches the model → fixed draft accepted', async () => {
     const bad = JSON.parse(JSON.stringify(V.EXAMPLE)); bad.parts[0].instances[0].pos[2] = 5; const mock = { responses: [JSON.stringify(INV), 'Sure!\n```json\n' + JSON.stringify(bad) + '\n```', JSON.stringify(V.EXAMPLE)] }, logs = [];

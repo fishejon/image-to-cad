@@ -1,7 +1,7 @@
 /* Tiny zero-dependency dev server: serves the app and proxies POST /api/messages to Anthropic so your API key stays on the server.
    ANTHROPIC_API_KEY=sk-ant-... node server/proxy.js      →  http://localhost:8787   (choose "Server proxy" in the AI tab) */
 const http = require('http'), fs = require('fs'), path = require('path');
-const { handleMessagesRequest, MAX_BODY } = require('./messages');
+const { handleMessagesRequest, pipeStream, MAX_BODY } = require('./messages');
 const PORT = +process.env.PORT || 8787, ROOT = path.join(__dirname, '..');
 const ALLOW = new Set(['index.html', 'src', 'examples', 'dist', 'docs', 'favicon.ico']);
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.md': 'text/markdown; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
@@ -21,6 +21,7 @@ const server = http.createServer((req, res) => {
     req.on('end', async () => {
       if (dead) return;
       const result = await handleMessagesRequest({ body: Buffer.concat(chunks), ip: req.socket.remoteAddress });
+      if (result.stream) return pipeStream(res, result);
       send(res, result.status, result.json || result.text);
     }); return;
   }
