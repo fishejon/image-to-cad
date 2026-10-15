@@ -46,13 +46,101 @@ V.INVENTORY_DOC = `{
   "notes": "1–3 sentences on what stands out in the photo"
 }`;
 
+/** Parse a length string → mm. Bare numbers and inch marks are inches; explicit "mm" stays millimetres. */
+V.parseInch = function (s) {
+  s = String(s == null ? '' : s).trim();
+  if (!s) return NaN;
+  const mmPer = CAD.MM_PER_IN || 25.4;
+  const mmSuffix = /\bmm\b/i.test(s);
+  s = s.replace(/["″''′]/g, '').replace(/\b(mm|in|inch|inches)\b/gi, '').trim();
+  if (!s) return NaN;
+  let n;
+  const mixed = s.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
+  if (mixed) n = +mixed[1] + (+mixed[2] / +mixed[3]);
+  else {
+    const frac = s.match(/^(\d+)\s*\/\s*(\d+)$/);
+    if (frac) n = +frac[1] / +frac[2];
+    else n = parseFloat(s.replace(/,/g, ''));
+  }
+  if (!isFinite(n)) return NaN;
+  return mmSuffix ? n : n * mmPer;
+};
+/** Pull W×D×H (mm) from free-text hints and/or structured fields. */
+V.parseDims = function (hints, fields) {
+  const out = { wMm: 0, dMm: 0, hMm: 0, source: [] };
+  const take = (key, v) => {
+    const mm = typeof v === 'number' ? v : V.parseInch(v);
+    if (mm > 1 && isFinite(mm)) { out[key] = Math.round(mm * 100) / 100; return true; }
+    return false;
+  };
+  fields = fields || {};
+  if (fields.w != null && String(fields.w).trim()) take('wMm', fields.w);
+  if (fields.d != null && String(fields.d).trim()) take('dMm', fields.d);
+  if (fields.h != null && String(fields.h).trim()) take('hMm', fields.h);
+  const text = String(hints || '');
+  const labeled = [
+    [/overall\s*width\s*[:=]?\s*([\d\s./]+(?:\s*(?:mm|in|inch|inches|["″]))?)/i, 'wMm'],
+    [/overall\s*depth\s*[:=]?\s*([\d\s./]+(?:\s*(?:mm|in|inch|inches|["″]))?)/i, 'dMm'],
+    [/overall\s*height\s*[:=]?\s*([\d\s./]+(?:\s*(?:mm|in|inch|inches|["″]))?)/i, 'hMm'],
+    [/\bW\s*[:=]\s*([\d\s./]+(?:\s*(?:mm|in|inch|inches|["″]))?)/i, 'wMm'],
+    [/\bD\s*[:=]\s*([\d\s./]+(?:\s*(?:mm|in|inch|inches|["″]))?)/i, 'dMm'],
+    [/\bH\s*[:=]\s*([\d\s./]+(?:\s*(?:mm|in|inch|inches|["″]))?)/i, 'hMm'],
+    [/\bwidth\s*[:=]?\s*([\d\s./]+(?:\s*(?:mm|in|inch|inches|["″]))?)/i, 'wMm'],
+    [/\bdepth\s*[:=]?\s*([\d\s./]+(?:\s*(?:mm|in|inch|inches|["″]))?)/i, 'dMm'],
+    [/\bheight\s*[:=]?\s*([\d\s./]+(?:\s*(?:mm|in|inch|inches|["″]))?)/i, 'hMm']
+  ];
+  labeled.forEach(([re, key]) => {
+    if (out[key]) return;
+    const m = text.match(re);
+    if (m) take(key, m[1]);
+  });
+  if (!out.wMm || !out.dMm || !out.hMm) {
+    const trip = text.match(/([\d]+(?:\s+[\d]+\/[\d]+|\/[\d]+)?(?:\.\d+)?)\s*[×xX]\s*([\d]+(?:\s+[\d]+\/[\d]+|\/[\d]+)?(?:\.\d+)?)\s*[×xX]\s*([\d]+(?:\s+[\d]+\/[\d]+|\/[\d]+)?(?:\.\d+)?)(?:\s*(mm|in|inch|inches|["″]))?/i);
+    if (trip) {
+      const unit = trip[4] || '';
+      const wrap = u => unit ? u + ' ' + unit : u;
+      if (!out.wMm) take('wMm', wrap(trip[1]));
+      if (!out.dMm) take('dMm', wrap(trip[2]));
+      if (!out.hMm) take('hMm', wrap(trip[3]));
+      out.source.push('triplet');
+    }
+  }
+  if (out.wMm || out.dMm || out.hMm) out.source.push('parsed');
+  return out;
+};
+V.formatMetrics = function (m) {
+  if (!m) return '';
+  const bits = [];
+  const inch = CAD.fmtInch || (v => (Math.round(v / 25.4 * 16) / 16) + '"');
+  if (m.wMm > 0) bits.push('W=' + inch(m.wMm) + ' (' + Math.round(m.wMm) + ' mm)');
+  if (m.dMm > 0) bits.push('D=' + inch(m.dMm) + ' (' + Math.round(m.dMm) + ' mm)');
+  if (m.hMm > 0) bits.push('H=' + inch(m.hMm) + ' (' + Math.round(m.hMm) + ' mm)');
+  return bits.join(', ');
+};
+/** Merge free-text hints with structured W×D×H into one constraint string for prompts. */
+V.composeHints = function (hints, metrics) {
+  const t = String(hints || '').trim();
+  const m = V.formatMetrics(metrics);
+  if (!m) return t;
+  const block = 'TARGET OVERALL SIZE (authoritative millimetres; params W/D/H must match within ~2%): ' + m;
+  return t ? t + '\n' + block : block;
+};
+
 V.buildInventoryPrompt = function (o) {
   o = o || {};
+  const drawing = o.inputMode === 'drawing';
   const parts = [
-    'You are a careful visual inventory agent for furniture/product CAD. Study the attached picture and return ONE JSON object (no commentary, no markdown fences) with this shape:',
+    drawing
+      ? 'You are a careful inventory agent reading a TECHNICAL DRAWING or dimensioned sketch for furniture/product CAD. Prefer printed/handwritten dimensions and callouts over photographic guessing. Return ONE JSON object (no commentary, no markdown fences) with this shape:'
+      : 'You are a careful visual inventory agent for furniture/product CAD. Study the attached picture and return ONE JSON object (no commentary, no markdown fences) with this shape:',
     V.INVENTORY_DOC,
-    'Rules: (1) Match what you SEE — do not invent a generic piece of the same category. (2) aspect ratios must reflect the photo; normalize so the smallest of w/d/h is about 1. (3) counts are integers for visible or strongly implied features; prefer under-counting hidden structure over inventing parts. (4) overallGuessMm is optional; leave zeros if scale is unknown. (5) parts[].role should cover every distinct piece type you will need in a CAD model.'
+    drawing
+      ? 'Rules: (1) Prefer dimensions readable on the drawing; put them in overallGuessMm (millimetres). (2) aspect ratios should match the drawing proportions; normalize so the smallest of w/d/h is about 1. (3) counts are integers for labeled or clearly drawn features. (4) If USER METRICS are provided, copy them into overallGuessMm and treat them as ground truth. (5) parts[].role should cover every distinct piece type needed in a CAD model.'
+      : 'Rules: (1) Match what you SEE — do not invent a generic piece of the same category. (2) aspect ratios must reflect the photo; normalize so the smallest of w/d/h is about 1. (3) counts are integers for visible or strongly implied features; prefer under-counting hidden structure over inventing parts. (4) overallGuessMm is optional; leave zeros if scale is unknown — but if USER METRICS are provided, copy them into overallGuessMm. (5) parts[].role should cover every distinct piece type you will need in a CAD model.'
   ];
+  if (o.metrics && (o.metrics.wMm || o.metrics.dMm || o.metrics.hMm)) {
+    parts.push('USER METRICS (ground truth overall size): ' + V.formatMetrics(o.metrics));
+  }
   if (o.hints) parts.push('USER HINTS (they override guesses from the picture): ' + o.hints);
   return parts.join('\n\n');
 };
@@ -88,12 +176,20 @@ V.mergeSpecs = function (base, next) {
   return out;
 };
 
+V.metricsBlock = function (metrics) {
+  if (!metrics || !(metrics.wMm || metrics.dMm || metrics.hMm)) return '';
+  return 'USER METRICS (authoritative overall size in millimetres — set params so the finished model AABB is within ~2% of these): ' + V.formatMetrics(metrics) +
+    '. Prefer params named W, D, H (or Width/Depth/Height) with those values.';
+};
 V.buildPrompt = function (o) {
   o = o || {}; const parts = [];
+  const drawing = o.inputMode === 'drawing';
+  const pushMetrics = () => { const b = V.metricsBlock(o.metrics); if (b) parts.push(b); };
   if (o.task === 'revise' && o.prevSpec && (o.round === 1 || !o.report)) {
     parts.push('You are revising an existing CAD design spec. Apply the user\'s requested changes and return the COMPLETE updated spec as ONE JSON object (no commentary, no markdown fences). Keep everything that is not mentioned. Preserve joinery: if you move or resize a part, update its mating mortises/tenons so they still fill. Include an updated "reasoning" field describing what you changed and why.');
     parts.push(V.SPEC_DOC); parts.push('CURRENT SPEC:\n' + JSON.stringify(o.prevSpec));
     parts.push('REQUESTED CHANGES: ' + (o.hints || '(none)'));
+    pushMetrics();
     if (o.focusParts && o.focusParts.length) parts.push('FOCUS: Prefer changing only these parts (and any joints that mate with them). Leave unrelated parts alone unless the change requires it: ' + o.focusParts.map(p => p.id + ' ("' + p.name + '")').join(', ') + '.');
   } else if (o.stage) {
     parts.push('You are an expert CAD engineer building a furniture/product design in stages. Current stage: ' + o.stage.label.toUpperCase() + '.');
@@ -103,17 +199,25 @@ V.buildPrompt = function (o) {
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
     if (o.prevSpec) parts.push('SPEC SO FAR (build on this; keep correct parts):\n' + JSON.stringify(o.prevSpec));
     if (o.hints) parts.push('USER HINTS: ' + o.hints);
+    pushMetrics();
     if (o.report) parts.push('CRITIC REPORT from the previous attempt — fix these issues:\n' + o.report.text);
   } else if (o.round === 1 || !o.prevSpec) {
-    parts.push('You are an expert CAD engineer and furniture/product designer. Study the attached picture carefully and write a design spec for a 3D model of THAT object, as ONE JSON object that follows the DESIGN SPEC below.');
-    parts.push('Match what you SEE — not a generic piece in the same category. Count drawers/doors/legs/shelves/slats; match overall width:depth:height proportions from the photo; match leg shape, top overhang, and visible joinery or hardware. Where something is hidden, choose the most plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what object you see, (2) proportions you read from the image, (3) major parts you identified, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
+    if (drawing) {
+      parts.push('You are an expert CAD engineer. The attached image is a TECHNICAL DRAWING or dimensioned sketch (not a photo). Read dimensions, callouts, and part counts carefully and write a design spec for THAT object as ONE JSON object that follows the DESIGN SPEC below.');
+      parts.push('Prefer printed/handwritten sizes over guessed scale. Match labeled overall width×depth×height when present. Count drawers/doors/legs/shelves from the drawing. Where a dimension is missing, choose a plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what the drawing shows, (2) key dimensions you read, (3) major parts, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
+    } else {
+      parts.push('You are an expert CAD engineer and furniture/product designer. Study the attached picture carefully and write a design spec for a 3D model of THAT object, as ONE JSON object that follows the DESIGN SPEC below.');
+      parts.push('Match what you SEE — not a generic piece in the same category. Count drawers/doors/legs/shelves/slats; match overall width:depth:height proportions from the photo; match leg shape, top overhang, and visible joinery or hardware. Where something is hidden, choose the most plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what object you see, (2) proportions you read from the image, (3) major parts you identified, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
+    }
     if (o.inventory) parts.push('INVENTORY (authoritative for object identity, part counts, and proportions — your spec MUST match these counts and aspect ratios):\n' + JSON.stringify(o.inventory));
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
     if (o.hints) parts.push('USER HINTS (they override anything you guess from the picture): ' + o.hints);
+    pushMetrics();
     if (o.report) parts.push('YOUR PREVIOUS REPLY WAS REJECTED:\n' + o.report.text);
   } else {
     parts.push('You are the BUILDER in a builder/critic loop. Below are your previous spec and the CRITIC report from an exact geometry checker' + (o.mode === 'visual' ? ' plus a render of your model next to the reference picture' : '') + '. Fix every issue and return the COMPLETE corrected spec as ONE JSON object (no commentary, no fences). Keep everything that was already correct. Refresh "reasoning" if you change the design.');
     parts.push(V.SPEC_DOC); if (o.hints) parts.push('USER HINTS: ' + o.hints);
+    pushMetrics();
     if (o.inventory) parts.push('INVENTORY (still authoritative for counts and proportions):\n' + JSON.stringify(o.inventory));
     parts.push('PREVIOUS SPEC:\n' + JSON.stringify(o.prevSpec)); parts.push('CRITIC REPORT:\n' + (o.report ? o.report.text : ''));
     if (o.mode === 'visual') parts.push('VISUAL CRITIQUE: image 1 is the reference picture, image 2 is the render of your spec. Compare proportions (width : depth : height), number and size of parts (legs, drawers, shelves, slats), leg/foot shape and any visible details. If they differ materially, correct the spec. If it already matches, return the spec unchanged.');
@@ -210,6 +314,25 @@ V.likeness = function (M, inventory, o) {
       L.push('LIKENESS silhouette IoU ' + o.iou.toFixed(2) + ' is low — overall outline does not match the reference. Adjust proportions and major parts.');
     }
   }
+  const met = o.metrics;
+  if (met && M && M.size && (met.wMm > 0 || met.dMm > 0 || met.hMm > 0)) {
+    const targets = [met.wMm, met.dMm, met.hMm];
+    const labels = ['W', 'D', 'H'];
+    let sumRel = 0, n = 0;
+    const bits = [];
+    for (let i = 0; i < 3; i++) {
+      if (!(targets[i] > 0)) continue;
+      const rel = Math.abs(M.size[i] - targets[i]) / targets[i];
+      sumRel += rel; n++;
+      if (rel > 0.02) bits.push(labels[i] + ' target ' + Math.round(targets[i]) + ' mm but model ' + Math.round(M.size[i]) + ' mm');
+    }
+    out.metricErr = n ? sumRel / n : 0;
+    if (bits.length && out.metricErr > 0.02) {
+      const pen = Math.min(45, Math.round(out.metricErr * 120));
+      out.penalty += pen;
+      L.push('METRIC size: ' + bits.join('; ') + '. Set params so overall AABB matches USER METRICS within ~2%.');
+    }
+  }
   if (!L.length && inventory.object) L.push('LIKENESS: aspect/counts look consistent with inventory ("' + inventory.object + '").');
   out.text = L.join('\n');
   return out;
@@ -231,8 +354,8 @@ V.evaluate = function (spec, o) {
   if (r.interference.length) { L.push('INTERFERENCE: these part pairs physically overlap (volume mm³). Move/resize one, or make the overlap a proper joint (a "cut" void in one part exactly filled by an "add" tenon/tongue in the other):'); r.interference.slice(0, 15).forEach(x => L.push(' - ' + x.a + ' × ' + x.b + ': ' + Math.round(x.vol))); }
   if (r.underfilled.length) { L.push('UNFILLED JOINTS: these "fill":true cuts are not completely occupied by a mating part (ratio filled). Add/resize the mating tenon/tongue, or drop "fill" if the void is deliberate:'); r.underfilled.slice(0, 15).forEach(x => L.push(' - ' + x.part + ' / ' + x.tag + ': ' + Math.round(x.ratio * 100) + '%')); }
   if (r.size) L.push('Overall size: ' + r.size.join(' × ') + ' mm; ' + r.parts + ' part types, ' + r.pieces + ' pieces.');
-  if (o.inventory && !M.errors.length) {
-    r.likeness = V.likeness(M, o.inventory, { iou: o.iou });
+  if ((o.inventory || o.metrics) && !M.errors.length) {
+    r.likeness = V.likeness(M, o.inventory || {}, { iou: o.iou, metrics: o.metrics });
     r.score += r.likeness.penalty;
     if (r.likeness.text) L.push(r.likeness.text);
   }
@@ -322,8 +445,15 @@ V.run = async function (o) {
   const log = o.onLog || (() => {}), max = o.maxRounds || 3, call = V.providers[o.provider.kind]; if (!call) throw new Error('unknown provider ' + o.provider.kind);
   if (o.task === 'revise' && !o.prevSpec) throw new Error('no current design to revise');
   const refs = o.image ? [typeof o.image === 'string' ? V.dataUrlToImage(o.image) : o.image] : [];
+  const inputMode = o.inputMode === 'drawing' ? 'drawing' : 'photo';
+  const metrics = o.metrics || V.parseDims(o.hints, o.dimFields);
+  const hintText = V.composeHints(o.hints, metrics);
+  const critOpts = () => ({ inventory, metrics: (metrics.wMm || metrics.dMm || metrics.hMm) ? metrics : null });
   let best = null, prev = o.task === 'revise' ? o.prevSpec : null, report = null, mode = 'fix', visualDone = false, likenessRetryDone = false, lastOk = null;
   let inventory = o.inventory || null, roundCounter = 0;
+
+  if (metrics.wMm || metrics.dMm || metrics.hMm) log('Metrics: ' + V.formatMetrics(metrics));
+  if (inputMode === 'drawing') log('Input mode: drawing + dimensions');
 
   const noteCritic = (rep) => {
     const likeNote = rep.likeness && rep.likeness.penalty ? ', likeness −' + rep.likeness.penalty : '';
@@ -339,10 +469,19 @@ V.run = async function (o) {
   };
 
   if (o.task !== 'revise' && refs.length && !inventory) {
-    log('Inventory pass: reading the picture…');
+    log(inputMode === 'drawing' ? 'Inventory pass: reading the drawing…' : 'Inventory pass: reading the picture…');
     try {
-      const rawInv = await call(Object.assign({}, o.provider, { text: V.buildInventoryPrompt({ hints: o.hints }), images: refs.slice(), signal: o.signal, task: 'inventory', max_tokens: V.tokenBudget('inventory') }));
+      const rawInv = await call(Object.assign({}, o.provider, { text: V.buildInventoryPrompt({ hints: hintText, metrics, inputMode }), images: refs.slice(), signal: o.signal, task: 'inventory', max_tokens: V.tokenBudget('inventory') }));
       inventory = V.extractJSON(rawInv);
+      if (metrics.wMm || metrics.dMm || metrics.hMm) {
+        inventory.overallGuessMm = inventory.overallGuessMm || {};
+        if (metrics.wMm) inventory.overallGuessMm.w = Math.round(metrics.wMm);
+        if (metrics.dMm) inventory.overallGuessMm.d = Math.round(metrics.dMm);
+        if (metrics.hMm) inventory.overallGuessMm.h = Math.round(metrics.hMm);
+        if (!inventory.aspect && metrics.wMm && metrics.dMm && metrics.hMm) {
+          inventory.aspect = V.normalizeAspect(metrics.wMm, metrics.dMm, metrics.hMm);
+        }
+      }
       const sum = V.summarizeInventory(inventory);
       log(sum ? 'Inventory: ' + sum : 'Inventory captured');
       if (o.onInventory) o.onInventory(inventory);
@@ -360,7 +499,7 @@ V.run = async function (o) {
       let stageReport = null, stagePrev = prev;
       for (let attempt = 1; attempt <= 2; attempt++) {
         log('Stage ' + stage.label + ' (' + (si + 1) + '/' + V.STAGES.length + ')' + (attempt > 1 ? ' · fix' : '') + '…');
-        const text = V.buildPrompt({ stage, prevSpec: stagePrev, report: stageReport, hints: o.hints, inventory });
+        const text = V.buildPrompt({ stage, prevSpec: stagePrev, report: stageReport, hints: hintText, inventory, metrics, inputMode });
         let raw; try { raw = await call(Object.assign({}, o.provider, { text, images: refs.slice(), signal: o.signal, task: stage.id, max_tokens: V.tokenBudget(stage.id) })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
         let spec; try { spec = V.extractJSON(raw); } catch (e) {
           log('Could not read JSON: ' + e.message);
@@ -368,7 +507,7 @@ V.run = async function (o) {
           continue;
         }
         if (stagePrev) spec = V.mergeSpecs(stagePrev, spec);
-        const rep = V.evaluate(spec, { inventory });
+        const rep = V.evaluate(spec, critOpts());
         adopt(spec, rep);
         stagePrev = spec; prev = spec;
         if (rep.ok) break;
@@ -379,17 +518,17 @@ V.run = async function (o) {
 
   for (let round = 1; round <= max; round++) {
     if (wantStages && round === 1 && prev && !report) {
-      const seed = V.evaluate(prev, { inventory });
-      if (seed.ok && !(o.visual && !visualDone) && !(inventory && seed.likeness && seed.likeness.penalty >= 20)) {
+      const seed = V.evaluate(prev, critOpts());
+      if (seed.ok && !(o.visual && !visualDone) && !(seed.likeness && seed.likeness.penalty >= 20)) {
         if (!best) adopt(prev, seed);
         break;
       }
       if (!seed.ok || (seed.likeness && seed.likeness.penalty >= 20)) { report = seed; mode = 'fix'; }
     }
-    const first = o.task === 'revise' ? 'asking the model to apply your changes…' : (wantStages ? 'final critic pass…' : 'asking the model to design from the picture…');
+    const first = o.task === 'revise' ? 'asking the model to apply your changes…' : (wantStages ? 'final critic pass…' : (inputMode === 'drawing' ? 'asking the model to design from the drawing…' : 'asking the model to design from the picture…'));
     log('Round ' + round + '/' + max + ': ' + (round === 1 && !wantStages ? first : mode === 'visual' ? 'visual critique against the reference…' : wantStages && round === 1 ? first : 'sending critic findings back to the model…'));
     const images = refs.slice(); if (mode === 'visual' && o.render) { const png = await o.render(prev); if (png) images.push(typeof png === 'string' ? V.dataUrlToImage(png) : png); }
-    const text = V.buildPrompt({ round: wantStages ? round + 1 : round, prevSpec: prev, report, hints: o.hints, mode, task: o.task, focusParts: o.focusParts, inventory });
+    const text = V.buildPrompt({ round: wantStages ? round + 1 : round, prevSpec: prev, report, hints: hintText, mode, task: o.task, focusParts: o.focusParts, inventory, metrics, inputMode });
     let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal, task: o.task === 'revise' ? 'revise' : 'design', max_tokens: V.tokenBudget(o.task === 'revise' ? 'revise' : 'design') })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
     let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object with a "reasoning" field.' }; mode = 'fix'; continue; }
     if (prev && wantStages) spec = V.mergeSpecs(prev, spec);
@@ -397,9 +536,9 @@ V.run = async function (o) {
     if (mode === 'visual' && typeof o.silhouetteIoU === 'function' && images.length >= 2) {
       try { iou = await o.silhouetteIoU(images[0], images[1]); } catch (e) { /* optional */ }
     }
-    const rep = V.evaluate(spec, { inventory, iou });
+    const rep = V.evaluate(spec, Object.assign(critOpts(), { iou }));
     adopt(spec, rep);
-    if (rep.ok && inventory && !likenessRetryDone && rep.likeness && rep.likeness.penalty >= 20 && round < max) {
+    if (rep.ok && !likenessRetryDone && rep.likeness && rep.likeness.penalty >= 20 && round < max) {
       likenessRetryDone = true; mode = 'fix'; prev = spec; report = rep; continue;
     }
     if (rep.ok && o.visual && !visualDone && round < max && o.render) { visualDone = true; mode = 'visual'; prev = spec; report = rep; continue; }
@@ -408,6 +547,7 @@ V.run = async function (o) {
   if (!best) throw new Error('The model never returned a usable spec. See the log.');
   const final = lastOk || best;
   final.inventory = inventory;
+  final.metrics = metrics;
   final.staged = !!wantStages;
   log(final.rep.ok ? 'Done: design passes every check (round ' + final.round + ').' : 'Stopped after ' + max + ' rounds: best design still has issues. You can fix it in the Spec tab.');
   return final;
