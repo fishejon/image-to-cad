@@ -11,7 +11,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const gname = id => (CAD.GROUPS.find(g => g.id === id) || { name: id }).name;
 const S = { M: null, spec: null, ov: {}, R: [], kin: {}, sel: new Set(), hiddenDef: new Set(), hiddenGrp: new Set(), iso: null, mode: 'real', exF: 0, stepCur: 0, stepping: false,
   sec: { on: false, axis: 'y', off: 0, inv: false }, edges: true, meas: { on: false, pts: [], objs: [] }, q: '', need: true, hov: null, collapsed: new Set(), mv: {},
-  ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null, reasoning: '' }, examples: {}, nav: 'orbit', movePlane: 'xy', leftOn: true, rightOn: true,
+  ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null, reasoning: '', inventory: null, refOpen: true }, examples: {}, nav: 'orbit', movePlane: 'xy', leftOn: true, rightOn: true,
   docs: {}, docId: null };
 const WS_KEY = 'image-to-cad.workspace';
 const uid = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -394,6 +394,7 @@ function renderInspect() {
     }
     let mass = 0; const byMat = {}; M.insts.forEach(i => { const d = M.defs.get(i.def); mass += d.mass; const k = (CAD.MATS[d.solid.mat] || {}).name || d.solid.mat; byMat[k] = (byMat[k] || 0) + d.mass; });
     el.innerHTML = `<h3>${esc(M.meta.name)}</h3>${M.meta.description ? `<div class="card">${esc(M.meta.description)}</div>` : ''}<div class="kv"><span>Overall size</span><span>${inch3(M.size)}</span><span>Part types / pieces</span><span>${M.defs.size} / ${M.insts.length}</span><span>Weight (est.)</span><span>${lb(mass)}</span>${Object.entries(byMat).map(([k, v]) => `<span>${esc(k)}</span><span>${lb(v)}</span>`).join('')}</div>
+      ${S.ai.inventory ? `<h3>Picture inventory</h3><div class="card">${esc(CAD.vision.summarizeInventory(S.ai.inventory) || 'Captured')}${S.ai.inventory.notes ? '<br>' + esc(S.ai.inventory.notes) : ''}</div>` : ''}
       ${S.ai.reasoning ? `<h3>AI thought process</h3><div class="card">${esc(S.ai.reasoning)}</div>` : ''}
       ${M.meta.assumptions.length ? `<h3>Assumptions</h3><div class="card">${M.meta.assumptions.map(a => '• ' + esc(a)).join('<br>')}</div>` : ''}${S.lastWarnings.length ? `<div class="card warn"><b>Warnings</b>${S.lastWarnings.slice(0, 6).map(esc).join('<br>')}</div>` : ''}
       <div class="card"><b>How to use</b>Click a part (Shift-click or Shift-drag to multi-select). Delete removes selected part types from the design. <b>AI design</b> opens picture upload and prompt-based revise. Collapse panels with ‹ ›.</div>`; return; }
@@ -615,7 +616,41 @@ const AI_MODELS = [
 ];
 function aiLog(m) { S.ai.log.push(m); const el = $('#aiLog'); if (el) { el.innerHTML = S.ai.log.map(esc).join('<br>'); el.scrollTop = 1e9; } const r = $('#rLog'); if (r) r.innerHTML = S.ai.log.map(esc).join('<br>'); }
 function downscale(file, max) { return new Promise((res, rej) => { const img = new Image(), url = URL.createObjectURL(file); img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', .86)); }; img.onerror = () => rej(new Error('could not read the image')); img.src = url; }); }
-async function setImage(file) { if (!file || !/^image\//.test(file.type)) return toast('Please choose an image file'); try { const u = await downscale(file, 1568); S.ai.img = u; const prev = $('#aiPrev'); if (prev) { prev.src = u; prev.style.display = 'block'; } const t = $('#aiDropT'); if (t) t.textContent = file.name || 'pasted image'; } catch (e) { toast(e.message); } }
+async function setImage(file) { if (!file || !/^image\//.test(file.type)) return toast('Please choose an image file'); try { const u = await downscale(file, 1568); S.ai.img = u; S.ai.inventory = null; const prev = $('#aiPrev'); if (prev) { prev.src = u; prev.style.display = 'block'; } const t = $('#aiDropT'); if (t) t.textContent = file.name || 'pasted image'; syncRefPane(); } catch (e) { toast(e.message); } }
+function syncRefPane() {
+  const pane = $('#refPane'), img = $('#refImg'), show = $('#refShow'), inv = $('#refInv');
+  if (!pane || !img) return;
+  if (!S.ai.img) { pane.hidden = true; if (show) show.hidden = true; return; }
+  img.src = S.ai.img;
+  if (inv) inv.textContent = S.ai.inventory ? (CAD.vision.summarizeInventory(S.ai.inventory) || '') : '';
+  const open = S.ai.refOpen !== false;
+  pane.hidden = !open;
+  if (show) show.hidden = open;
+}
+function silhouetteMaskFromDataUrl(dataUrl, size) {
+  size = size || 96;
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement('canvas'); c.width = size; c.height = size;
+      const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, size, size);
+      const k = Math.min(size / im.width, size / im.height), w = Math.max(1, Math.round(im.width * k)), h = Math.max(1, Math.round(im.height * k));
+      x.drawImage(im, (size - w) / 2, (size - h) / 2, w, h);
+      const data = x.getImageData(0, 0, size, size).data, mask = new Uint8Array(size * size);
+      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+        const a = data[i + 3], lum = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+        mask[p] = (a > 20 && lum < 245) ? 1 : 0;
+      }
+      resolve(mask);
+    };
+    im.onerror = () => reject(new Error('silhouette image failed'));
+    im.src = typeof dataUrl === 'string' ? dataUrl : ('data:' + dataUrl.mediaType + ';base64,' + dataUrl.base64);
+  });
+}
+async function silhouetteIoU(refImg, modelImg) {
+  const a = await silhouetteMaskFromDataUrl(refImg, 96), b = await silhouetteMaskFromDataUrl(modelImg, 96);
+  return CAD.vision.maskIoU(a, b);
+}
 const frames = n => new Promise(r => { const f = () => --n <= 0 ? r() : requestAnimationFrame(f); requestAnimationFrame(f); });
 function setAIConn(text, ok) { const el = $('#aiConn'); if (!el) return; el.textContent = text; el.className = 'aiConn' + (ok === true ? ' ok' : ok === false ? ' bad' : ''); }
 async function checkConnection() {
@@ -697,12 +732,15 @@ async function runAI(task) {
   let aiDocId = null;
   if (task === 'design') { persistActive(); aiDocId = addDoc(blankSpec('AI design'), { name: 'AI design' }); refreshDocSel(); }
   const adoptAIDoc = () => { if (aiDocId) { S.docId = aiDocId; aiDocId = null; refreshDocSel(); } };
-  S.ai.busy = true; S.ai.log = []; S.ai.reasoning = ''; $('#aiGo').disabled = true; $('#aiRev').disabled = true; $('#aiStop').disabled = false; const ac = new AbortController(); S.ai.abort = ac;
+  S.ai.busy = true; S.ai.log = []; S.ai.reasoning = ''; if (task === 'design') S.ai.inventory = null; $('#aiGo').disabled = true; $('#aiRev').disabled = true; $('#aiStop').disabled = false; const ac = new AbortController(); S.ai.abort = ac;
   aiLog('Using ' + model + ' (' + (kind === 'proxy' ? 'server proxy' : kind === 'anthropic' ? 'browser API key' : 'this page') + ')' + (focusParts.length ? ' · focused on ' + focusParts.map(p => p.name).join(', ') : ''));
   try {
     const res = await CAD.vision.run({ image: S.ai.img, hints, task, focusParts, prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model }, maxRounds: +$('#aiRounds').value, visual: $('#aiVis').checked, signal: ac.signal, onLog: aiLog,
-      onSpec: (spec) => { noteReasoning(spec); adoptAIDoc(); if (loadSpec(spec, {}, true)) { viewNow('iso'); setSpecText(); renderInspect(); } }, render: async (spec) => { adoptAIDoc(); loadSpec(spec, {}, true); viewNow('iso'); await frames(4); return renderer.domElement.toDataURL('image/jpeg', .85); } });
-    res.spec.__ai = true; noteReasoning(res.spec); adoptAIDoc(); loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText();
+      onInventory: (inv) => { S.ai.inventory = inv; S.ai.refOpen = true; syncRefPane(); },
+      onSpec: (spec) => { noteReasoning(spec); adoptAIDoc(); if (loadSpec(spec, {}, true)) { viewNow('iso'); setSpecText(); renderInspect(); syncRefPane(); } },
+      silhouetteIoU, render: async (spec) => { adoptAIDoc(); loadSpec(spec, {}, true); viewNow('iso'); await frames(4); return renderer.domElement.toDataURL('image/jpeg', .85); } });
+    res.spec.__ai = true; if (res.inventory) S.ai.inventory = res.inventory; noteReasoning(res.spec); adoptAIDoc(); loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText();
+    S.ai.refOpen = true; syncRefPane();
     toast(res.rep.ok ? 'Design ready: passes every check' : 'Design loaded with remaining issues, see the log'); closeAI(); setTab('insp'); renderInspect();
   } catch (e) {
     aiLog('Error: ' + (e.name === 'AbortError' ? 'stopped' : e.message)); toast('AI run failed: see the log');
@@ -736,6 +774,9 @@ $$('#navMode button').forEach(b => b.onclick = () => { S.nav = b.dataset.nav; ap
 $$('#movePlane button').forEach(b => b.onclick = () => { S.movePlane = b.dataset.plane; applyNavMode(); });
 $('#bAI').onclick = () => { $('#aiBox').classList.contains('open') ? closeAI() : openAI(); };
 $('#aiClose').onclick = closeAI;
+$('#refHide').onclick = () => { S.ai.refOpen = false; syncRefPane(); };
+$('#refShow').onclick = () => { S.ai.refOpen = true; syncRefPane(); };
+syncRefPane();
 function setTab(t) {
   if (t === 'ai') { openAI(); return; }
   S.rightOn = true; setPanels();
@@ -821,6 +862,6 @@ function boot() {
   }, 30);
 }
 $('#bGuide').onclick = () => window.__guide && window.__guide.open();
-window.__cad = { S, T, CAD, loadSpec, loadExample, newDesign, duplicateDesign, renameDesign, deleteDesign, openDoc, viewTo, viewNow, fitView, undo, redo, applyMotion, applySection, setSel, selectDef, exportSelected, exportAll, exportAssembly, exportPlates, exportGroup, runChecks, gotoStep, showAll, camera, controls, renderer, scene, root, sceneBox, updateVisuals, showCut, setTab, deliver, runAI, setImage, aiLog };
+window.__cad = { S, T, CAD, loadSpec, loadExample, newDesign, duplicateDesign, renameDesign, deleteDesign, openDoc, viewTo, viewNow, fitView, undo, redo, applyMotion, applySection, setSel, selectDef, exportSelected, exportAll, exportAssembly, exportPlates, exportGroup, runChecks, gotoStep, showAll, camera, controls, renderer, scene, root, sceneBox, updateVisuals, showCut, setTab, deliver, runAI, setImage, aiLog, syncRefPane, silhouetteIoU };
 boot();
 })();

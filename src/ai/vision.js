@@ -1,5 +1,5 @@
 /* vision.js — picture → design spec, with the Gauntlet loop built in:
-   builder (the model writes a spec) ⇄ critic (exact geometry checks, optional visual comparison) until the critic is satisfied. */
+   inventory (structured vision) → builder (LLM writes a spec) ⇄ critic (geometry + likeness) until satisfied. */
 (function (root) {
 'use strict';
 const CAD = root.CAD, V = CAD.vision = {};
@@ -35,6 +35,28 @@ Modelling rules: (1) Parts must NOT overlap each other except where a tenon/tong
 `;
 V.EXAMPLE_JSON = JSON.stringify(V.EXAMPLE);
 
+V.INVENTORY_DOC = `{
+  "object": "short name of the object",
+  "aspect": {"w": <relative width>, "d": <relative depth>, "h": <relative height>},
+  "counts": {"legs": N, "drawers": N, "doors": N, "shelves": N, "slats": N, "other": N},
+  "parts": [{"role":"leg|top|side|drawer|door|shelf|rail|panel|stretcher|other","count":N,"shape":"square|rect|turned|panel","notes":"optional"}],
+  "materialsGuess": ["oak"],
+  "joineryGuess": ["mortise and tenon legs into top"],
+  "overallGuessMm": {"w":0,"d":0,"h":0},
+  "notes": "1–3 sentences on what stands out in the photo"
+}`;
+
+V.buildInventoryPrompt = function (o) {
+  o = o || {};
+  const parts = [
+    'You are a careful visual inventory agent for furniture/product CAD. Study the attached picture and return ONE JSON object (no commentary, no markdown fences) with this shape:',
+    V.INVENTORY_DOC,
+    'Rules: (1) Match what you SEE — do not invent a generic piece of the same category. (2) aspect ratios must reflect the photo; normalize so the smallest of w/d/h is about 1. (3) counts are integers for visible or strongly implied features; prefer under-counting hidden structure over inventing parts. (4) overallGuessMm is optional; leave zeros if scale is unknown. (5) parts[].role should cover every distinct piece type you will need in a CAD model.'
+  ];
+  if (o.hints) parts.push('USER HINTS (they override guesses from the picture): ' + o.hints);
+  return parts.join('\n\n');
+};
+
 V.buildPrompt = function (o) {
   o = o || {}; const parts = [];
   if (o.task === 'revise' && o.prevSpec && (o.round === 1 || !o.report)) {
@@ -45,12 +67,14 @@ V.buildPrompt = function (o) {
   } else if (o.round === 1 || !o.prevSpec) {
     parts.push('You are an expert CAD engineer and furniture/product designer. Study the attached picture carefully and write a design spec for a 3D model of THAT object, as ONE JSON object that follows the DESIGN SPEC below.');
     parts.push('Match what you SEE — not a generic piece in the same category. Count drawers/doors/legs/shelves/slats; match overall width:depth:height proportions from the photo; match leg shape, top overhang, and visible joinery or hardware. Where something is hidden, choose the most plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what object you see, (2) proportions you read from the image, (3) major parts you identified, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
+    if (o.inventory) parts.push('INVENTORY (authoritative for object identity, part counts, and proportions — your spec MUST match these counts and aspect ratios):\n' + JSON.stringify(o.inventory));
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
     if (o.hints) parts.push('USER HINTS (they override anything you guess from the picture): ' + o.hints);
     if (o.report) parts.push('YOUR PREVIOUS REPLY WAS REJECTED:\n' + o.report.text);
   } else {
     parts.push('You are the BUILDER in a builder/critic loop. Below are your previous spec and the CRITIC report from an exact geometry checker' + (o.mode === 'visual' ? ' plus a render of your model next to the reference picture' : '') + '. Fix every issue and return the COMPLETE corrected spec as ONE JSON object (no commentary, no fences). Keep everything that was already correct. Refresh "reasoning" if you change the design.');
     parts.push(V.SPEC_DOC); if (o.hints) parts.push('USER HINTS: ' + o.hints);
+    if (o.inventory) parts.push('INVENTORY (still authoritative for counts and proportions):\n' + JSON.stringify(o.inventory));
     parts.push('PREVIOUS SPEC:\n' + JSON.stringify(o.prevSpec)); parts.push('CRITIC REPORT:\n' + (o.report ? o.report.text : ''));
     if (o.mode === 'visual') parts.push('VISUAL CRITIQUE: image 1 is the reference picture, image 2 is the render of your spec. Compare proportions (width : depth : height), number and size of parts (legs, drawers, shelves, slats), leg/foot shape and any visible details. If they differ materially, correct the spec. If it already matches, return the spec unchanged.');
   }
@@ -62,6 +86,94 @@ V.extractJSON = function (text) {
   if (end < 0) throw new Error('JSON object is truncated (the model ran out of space). Ask for a smaller design.'); return JSON.parse(s.slice(a, end + 1));
 };
 V.dataUrlToImage = function (u) { const m = /^data:([^;]+);base64,(.*)$/.exec(u); if (!m) throw new Error('bad data URL'); return { mediaType: m[1], base64: m[2] }; };
+
+/* ---------- likeness: inventory + silhouette ---------- */
+V.normalizeAspect = function (w, d, h) {
+  const a = [Math.max(1e-6, +w || 0), Math.max(1e-6, +d || 0), Math.max(1e-6, +h || 0)];
+  const m = Math.min(a[0], a[1], a[2]);
+  return { w: a[0] / m, d: a[1] / m, h: a[2] / m };
+};
+V.maskIoU = function (a, b) {
+  if (!a || !b || a.length !== b.length || !a.length) return 1;
+  let inter = 0, uni = 0;
+  for (let i = 0; i < a.length; i++) {
+    const A = a[i] > 0, B = b[i] > 0;
+    if (A && B) inter++;
+    if (A || B) uni++;
+  }
+  return uni ? inter / uni : 1;
+};
+/** Infer instance counts by coarse role from part ids/names/groups. */
+V.countRoles = function (M) {
+  const roles = { legs: 0, drawers: 0, doors: 0, shelves: 0, slats: 0, other: 0 };
+  if (!M || !M.defs) return roles;
+  M.defs.forEach(d => {
+    const blob = ((d.id || '') + ' ' + (d.name || '') + ' ' + (d.grp || '')).toLowerCase();
+    const n = d.qty || 0;
+    if (/leg|foot|post/.test(blob)) roles.legs += n;
+    else if (/drawer/.test(blob)) roles.drawers += n;
+    else if (/door/.test(blob)) roles.doors += n;
+    else if (/shelf|shelve/.test(blob)) roles.shelves += n;
+    else if (/slat|spindle|dowel/.test(blob)) roles.slats += n;
+    else roles.other += n;
+  });
+  return roles;
+};
+V.likeness = function (M, inventory, o) {
+  o = o || {};
+  const out = { penalty: 0, aspectErr: 0, countMismatches: [], iou: null, text: '' };
+  if (!inventory || typeof inventory !== 'object') return out;
+  const L = [];
+  if (inventory.aspect && M && M.size && M.size[0] > 0) {
+    const want = V.normalizeAspect(inventory.aspect.w, inventory.aspect.d, inventory.aspect.h);
+    const got = V.normalizeAspect(M.size[0], M.size[1], M.size[2]);
+    const err = Math.abs(want.w - got.w) + Math.abs(want.d - got.d) + Math.abs(want.h - got.h);
+    out.aspectErr = err;
+    if (err > 0.45) {
+      const pen = Math.min(40, Math.round(err * 18));
+      out.penalty += pen;
+      L.push('LIKENESS aspect: inventory w:d:h ≈ ' + [want.w, want.d, want.h].map(x => x.toFixed(2)).join(':') +
+        ' but model is ' + [got.w, got.d, got.h].map(x => x.toFixed(2)).join(':') + ' (err ' + err.toFixed(2) + '). Resize params to match the photo proportions.');
+    }
+  }
+  const gotCounts = V.countRoles(M);
+  const wantCounts = inventory.counts || {};
+  ['legs', 'drawers', 'doors', 'shelves', 'slats'].forEach(k => {
+    const want = wantCounts[k];
+    if (want == null || !isFinite(+want)) return;
+    const got = gotCounts[k] || 0;
+    if (got !== +want) {
+      out.countMismatches.push({ role: k, expected: +want, got });
+      out.penalty += Math.min(25, Math.abs(got - want) * 8);
+      L.push('LIKENESS count: expected ' + want + ' ' + k + ' but model has ' + got + '.');
+    }
+  });
+  if (Array.isArray(inventory.parts)) {
+    inventory.parts.forEach(p => {
+      if (!p || p.count == null) return;
+      const role = String(p.role || '').toLowerCase();
+      if (!role || role === 'other' || role === 'top' || role === 'side' || role === 'panel' || role === 'rail' || role === 'stretcher') return;
+      const key = /leg|foot|post/.test(role) ? 'legs' : /drawer/.test(role) ? 'drawers' : /door/.test(role) ? 'doors' : /shelf/.test(role) ? 'shelves' : /slat|spindle/.test(role) ? 'slats' : null;
+      if (!key || wantCounts[key] != null) return;
+      const got = gotCounts[key] || 0;
+      if (got !== +p.count) {
+        out.countMismatches.push({ role: key, expected: +p.count, got });
+        out.penalty += Math.min(25, Math.abs(got - p.count) * 8);
+        L.push('LIKENESS count: inventory lists ' + p.count + '× ' + role + ' but model has ' + got + '.');
+      }
+    });
+  }
+  if (o.iou != null && isFinite(o.iou)) {
+    out.iou = o.iou;
+    if (o.iou < 0.45) {
+      out.penalty += Math.round((0.45 - o.iou) * 50);
+      L.push('LIKENESS silhouette IoU ' + o.iou.toFixed(2) + ' is low — overall outline does not match the reference. Adjust proportions and major parts.');
+    }
+  }
+  if (!L.length && inventory.object) L.push('LIKENESS: aspect/counts look consistent with inventory ("' + inventory.object + '").');
+  out.text = L.join('\n');
+  return out;
+};
 
 /* ---------- the critic ---------- */
 V.evaluate = function (spec, o) {
@@ -78,7 +190,13 @@ V.evaluate = function (spec, o) {
   if (r.nonmanifold.length) L.push('NON-WATERTIGHT parts (degenerate or self-overlapping geometry): ' + r.nonmanifold.join(', '));
   if (r.interference.length) { L.push('INTERFERENCE: these part pairs physically overlap (volume mm³). Move/resize one, or make the overlap a proper joint (a "cut" void in one part exactly filled by an "add" tenon/tongue in the other):'); r.interference.slice(0, 15).forEach(x => L.push(' - ' + x.a + ' × ' + x.b + ': ' + Math.round(x.vol))); }
   if (r.underfilled.length) { L.push('UNFILLED JOINTS: these "fill":true cuts are not completely occupied by a mating part (ratio filled). Add/resize the mating tenon/tongue, or drop "fill" if the void is deliberate:'); r.underfilled.slice(0, 15).forEach(x => L.push(' - ' + x.part + ' / ' + x.tag + ': ' + Math.round(x.ratio * 100) + '%')); }
-  if (r.size) L.push('Overall size: ' + r.size.join(' × ') + ' mm; ' + r.parts + ' part types, ' + r.pieces + ' pieces.'); if (r.ok) L.push('All geometry checks passed.');
+  if (r.size) L.push('Overall size: ' + r.size.join(' × ') + ' mm; ' + r.parts + ' part types, ' + r.pieces + ' pieces.');
+  if (o.inventory && !M.errors.length) {
+    r.likeness = V.likeness(M, o.inventory, { iou: o.iou });
+    r.score += r.likeness.penalty;
+    if (r.likeness.text) L.push(r.likeness.text);
+  }
+  if (r.ok) L.push('All geometry checks passed.');
   r.text = L.join('\n'); return r;
 };
 
@@ -105,24 +223,64 @@ V.providers = {
   mock: async o => { const p = o.mock; p.calls = p.calls || []; p.calls.push({ text: o.text, images: o.images.length }); const r = p.responses[Math.min(p.calls.length - 1, p.responses.length - 1)]; return typeof r === 'function' ? r(o) : r; },
 };
 
+V.summarizeInventory = function (inv) {
+  if (!inv || typeof inv !== 'object') return '';
+  const bits = [];
+  if (inv.object) bits.push(inv.object);
+  if (inv.aspect) bits.push('aspect ' + [inv.aspect.w, inv.aspect.d, inv.aspect.h].map(x => (+x || 0).toFixed(2)).join(':'));
+  const c = inv.counts || {};
+  ['legs', 'drawers', 'doors', 'shelves', 'slats'].forEach(k => { if (c[k]) bits.push(c[k] + ' ' + k); });
+  return bits.join(' · ');
+};
+
 /* ---------- the loop ---------- */
 V.run = async function (o) {
   const log = o.onLog || (() => {}), max = o.maxRounds || 3, call = V.providers[o.provider.kind]; if (!call) throw new Error('unknown provider ' + o.provider.kind);
   if (o.task === 'revise' && !o.prevSpec) throw new Error('no current design to revise');
-  const refs = o.image ? [typeof o.image === 'string' ? V.dataUrlToImage(o.image) : o.image] : []; let best = null, prev = o.task === 'revise' ? o.prevSpec : null, report = null, mode = 'fix', visualDone = false, lastOk = null;
+  const refs = o.image ? [typeof o.image === 'string' ? V.dataUrlToImage(o.image) : o.image] : [];
+  let best = null, prev = o.task === 'revise' ? o.prevSpec : null, report = null, mode = 'fix', visualDone = false, likenessRetryDone = false, lastOk = null;
+  let inventory = o.inventory || null;
+
+  if (o.task !== 'revise' && refs.length && !inventory) {
+    log('Inventory pass: reading the picture…');
+    try {
+      const rawInv = await call(Object.assign({}, o.provider, { text: V.buildInventoryPrompt({ hints: o.hints }), images: refs.slice(), signal: o.signal, task: 'inventory', max_tokens: 2500 }));
+      inventory = V.extractJSON(rawInv);
+      const sum = V.summarizeInventory(inventory);
+      log(sum ? 'Inventory: ' + sum : 'Inventory captured');
+      if (o.onInventory) o.onInventory(inventory);
+    } catch (e) {
+      log('Inventory pass skipped: ' + e.message);
+      inventory = null;
+    }
+  }
+
   for (let round = 1; round <= max; round++) {
     const first = o.task === 'revise' ? 'asking the model to apply your changes…' : 'asking the model to design from the picture…';
     log('Round ' + round + '/' + max + ': ' + (round === 1 ? first : mode === 'visual' ? 'visual critique against the reference…' : 'sending critic findings back to the model…'));
     const images = refs.slice(); if (mode === 'visual' && o.render) { const png = await o.render(prev); if (png) images.push(typeof png === 'string' ? V.dataUrlToImage(png) : png); }
-    const text = V.buildPrompt({ round, prevSpec: prev, report, hints: o.hints, mode, task: o.task, focusParts: o.focusParts });
+    const text = V.buildPrompt({ round, prevSpec: prev, report, hints: o.hints, mode, task: o.task, focusParts: o.focusParts, inventory });
     let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal, task: o.task, max_tokens: o.task === 'revise' ? 10000 : 14000 })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
     let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object with a "reasoning" field.' }; mode = 'fix'; continue; }
     if (spec.reasoning) { log('Thought process:'); String(spec.reasoning).split(/\n+/).forEach(line => { if (line.trim()) log(line.trim()); }); }
-    const rep = V.evaluate(spec); log('Critic: ' + (rep.ok ? 'all geometry checks passed' : rep.errors.length + ' errors, ' + rep.interference.length + ' interferences, ' + rep.underfilled.length + ' unfilled joints') + (rep.size ? ' · ' + rep.size.join('×') + ' mm' : ''));
+    let iou = null;
+    if (mode === 'visual' && typeof o.silhouetteIoU === 'function' && images.length >= 2) {
+      try { iou = await o.silhouetteIoU(images[0], images[1]); } catch (e) { /* optional */ }
+    }
+    const rep = V.evaluate(spec, { inventory, iou });
+    const likeNote = rep.likeness && rep.likeness.penalty ? ', likeness −' + rep.likeness.penalty : '';
+    log('Critic: ' + (rep.ok ? 'all geometry checks passed' : rep.errors.length + ' errors, ' + rep.interference.length + ' interferences, ' + rep.underfilled.length + ' unfilled joints') + (rep.size ? ' · ' + rep.size.join('×') + ' mm' : '') + likeNote);
     if (o.onSpec) o.onSpec(spec, rep, round); if (!best || rep.score < best.rep.score) best = { spec, rep, round }; if (rep.ok) lastOk = { spec, rep, round };
+    if (rep.ok && inventory && !likenessRetryDone && rep.likeness && rep.likeness.penalty >= 20 && round < max) {
+      likenessRetryDone = true; mode = 'fix'; prev = spec; report = rep; continue;
+    }
     if (rep.ok && o.visual && !visualDone && round < max && o.render) { visualDone = true; mode = 'visual'; prev = spec; report = rep; continue; }
     if (rep.ok) break; prev = spec; report = rep; mode = 'fix';
   }
-  if (!best) throw new Error('The model never returned a usable spec. See the log.'); const final = lastOk || best; log(final.rep.ok ? 'Done: design passes every check (round ' + final.round + ').' : 'Stopped after ' + max + ' rounds: best design still has issues. You can fix it in the Spec tab.'); return final;
+  if (!best) throw new Error('The model never returned a usable spec. See the log.');
+  const final = lastOk || best;
+  final.inventory = inventory;
+  log(final.rep.ok ? 'Done: design passes every check (round ' + final.round + ').' : 'Stopped after ' + max + ' rounds: best design still has issues. You can fix it in the Spec tab.');
+  return final;
 };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
