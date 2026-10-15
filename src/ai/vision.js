@@ -29,9 +29,9 @@ groups: [{"id":"carcass","name":"Carcass","color":"#6aa6ff"}]. steps: ["Glue the
 kinematics: { "drawer": {"label":"Drawer","axis":[0,-1,0],"range":[0,300],"unit":"mm"} }  or rotation: {"unit":"deg","axis":[0,0,1],"pivot":[x,y,z],"range":[0,110]}. Instances with "kin":"drawer" move with it.
 parts[]: each part is ONE physical piece type: { "id","name","group","material","kind":"solid"|"mesh","grain":"x"|"y"|"z","spec":"size text","notes":[...],"tools":[...], "vars":{...}, "instances":[...] }.
   kind "solid" (default; rectilinear parts, EXACT boolean geometry): "ops":[ {"add":[x0,y0,z0,x1,y1,z1]}, {"cut":[x0,y0,z0,x1,y1,z1],"tag":"mortise","label":"Mortise 24 × 8 × 40","fill":true} ]. Boxes are axis-aligned in the part's LOCAL frame. All "add" boxes are united, then all "cut" boxes removed. "fill":true means a mating part MUST completely occupy that void (mortise, dado, groove, rabbet). "tag"+"label" document a joint so the build guide can show it. Leave "fill" off for deliberate voids (finger pulls, door tracks).
-  kind "mesh" (round / turned / non-rectilinear parts): "prims":[ {"type":"box","min":[..],"max":[..]}, {"type":"cylinder","base":[x,y,z],"axis":"+z","length":L,"r":R,"seg":32}, {"type":"cone","base","axis","length","r0","r1"}, {"type":"tube","base","axis","length","ro","ri"}, {"type":"sphere","r":R,"center":[..]}, {"type":"revolve","at":[x,y,z],"axis":"+z","profile":[[radius,height],...],"seg":48}, {"type":"extrude","plane":"xy"|"xz"|"yz","profile":[[u,v],...],"range":[w0,w1],"holes":[{"c":[u,v],"r":R}]} ]. One material per part.
+  kind "mesh" (round / turned / angled / non-rectilinear parts): "prims":[ {"type":"box","min":[..],"max":[..],"rot":[rx,ry,rz]}, {"type":"wedge","min":[..],"max":[..],"tip":"+x","angle":45}, {"type":"cylinder","base":[x,y,z],"axis":"+z","length":L,"r":R,"seg":32}, {"type":"cone","base","axis","length","r0","r1"}, {"type":"tube","base","axis","length","ro","ri"}, {"type":"sphere","r":R,"center":[..]}, {"type":"revolve","at":[x,y,z],"axis":"+z","profile":[[radius,height],...],"seg":48}, {"type":"extrude","plane":"xy"|"xz"|"yz","profile":[[u,v],...],"range":[w0,w1],"holes":[{"c":[u,v],"r":R}]} ]. Optional box "rot" is Euler degrees about the box centre. "wedge" is a mitred board (AABB with one end bevelled in the XY plane; tip +x|-x|+y|-y; angle from square, default 45). One material per part. Prefer kind "solid" for rectilinear carcass; use mesh for turned parts and mitres/angles.
   instances: [{"pos":[x,y,z],"rot":[rx,ry,rz],"step":0,"explode":[dx,dy,dz],"kin":"name","repeat":{"var":"i","count":4}}]. Placement = translate(pos) · Rz · Ry · Rx. Solid parts should be rotated only by multiples of 90°. "repeat" also works on ops and prims. Omit "explode" to get an automatic exploded view.
-Modelling rules: (1) Parts must NOT overlap each other except where a tenon/tongue fills a "fill":true void exactly. (2) Joint voids and the tenon that fills them must have identical dimensions. (3) Model the object as separate real-world parts joined the way the real object is built (mortise & tenon, dados, rabbets, box joints, bolted flanges...). (4) Use params for the main dimensions so the user can resize. (5) Prefer "solid" parts; use "mesh" only for round/turned/sloped shapes. (6) Put the object on the floor (min z = 0). (7) Give each part a short real-world "spec" and, when there is a joint to cut, "notes" saying how.
+Modelling rules: (1) Parts must NOT overlap each other except where a tenon/tongue fills a "fill":true void exactly. (2) Joint voids and the tenon that fills them must have identical dimensions. (3) Model the object as separate real-world parts joined the way the real object is built (mortise & tenon, dados, rabbets, box joints, mitres, bolted flanges...). (4) Use params for the main dimensions so the user can resize. (5) Prefer "solid" parts; use "mesh" for round/turned/sloped/mitred shapes. (6) Put the object on the floor (min z = 0). (7) Give each part a short real-world "spec" and, when there is a joint to cut, "notes" saying how.
 `;
 V.EXAMPLE_JSON = JSON.stringify(V.EXAMPLE);
 
@@ -340,18 +340,34 @@ V.likeness = function (M, inventory, o) {
 
 /* ---------- the critic ---------- */
 V.evaluate = function (spec, o) {
-  o = o || {}; const M = CAD.buildSpec(spec, o.overrides), r = { M, errors: M.errors.slice(), warnings: M.warnings.slice(), nonmanifold: [], interference: [], underfilled: [], fillChecked: 0 };
+  o = o || {};
+  const schema = CAD.validateSpec ? CAD.validateSpec(spec) : { ok: true, errors: [] };
+  const M = CAD.buildSpec(spec, o.overrides);
+  const r = { M, errors: M.errors.slice(), warnings: M.warnings.slice(), nonmanifold: [], interference: [], underfilled: [], fillChecked: 0, schemaErrors: schema.errors.slice() };
+  if (schema.errors.length) {
+    schema.errors.forEach(e => { if (r.errors.indexOf(e) < 0) r.errors.push(e); });
+  }
   if (!M.errors.length) {
-    r.nonmanifold = CAD.manifoldReport(M).filter(x => x.bad).map(x => x.id); r.interference = CAD.interference(M);
+    r.nonmanifold = CAD.manifoldReport(M).filter(x => x.bad).map(x => x.id);
+    const allHit = CAD.interference(M);
+    r.interference = allHit.filter(x => !x.coarse || x.severe);
+    r.coarseInterference = allHit.filter(x => x.coarse && !x.severe);
     const fl = CAD.jointFill(M); r.fillChecked = fl.length; r.underfilled = fl.filter(x => x.ratio < .999).map(x => ({ part: x.part, tag: x.tag, ratio: x.ratio, by: x.by }));
     r.size = M.size.map(Math.round); r.parts = M.defs.size; r.pieces = M.insts.length;
   }
   r.ok = !r.errors.length && !r.nonmanifold.length && !r.interference.length && !r.underfilled.length;
-  r.score = r.errors.length * 1000 + r.nonmanifold.length * 100 + r.interference.length * 50 + r.underfilled.length * 20 + r.warnings.length;
+  r.score = r.errors.length * 1000 + r.nonmanifold.length * 100 + r.interference.length * 50 + r.underfilled.length * 20 + r.warnings.length + (r.coarseInterference ? r.coarseInterference.length * 2 : 0);
   const L = []; if (r.errors.length) { L.push('ERRORS (fix first):'); r.errors.slice(0, 20).forEach(e => L.push(' - ' + e)); }
   if (r.warnings.length) { L.push('WARNINGS:'); r.warnings.slice(0, 10).forEach(e => L.push(' - ' + e)); }
   if (r.nonmanifold.length) L.push('NON-WATERTIGHT parts (degenerate or self-overlapping geometry): ' + r.nonmanifold.join(', '));
-  if (r.interference.length) { L.push('INTERFERENCE: these part pairs physically overlap (volume mm³). Move/resize one, or make the overlap a proper joint (a "cut" void in one part exactly filled by an "add" tenon/tongue in the other):'); r.interference.slice(0, 15).forEach(x => L.push(' - ' + x.a + ' × ' + x.b + ': ' + Math.round(x.vol))); }
+  if (r.interference.length) {
+    L.push('INTERFERENCE: these part pairs physically overlap (volume mm³). Move/resize one, or make the overlap a proper joint (a "cut" void in one part exactly filled by an "add" tenon/tongue in the other). Coarse entries are severe AABB overlaps involving a mesh part:');
+    r.interference.slice(0, 15).forEach(x => L.push(' - ' + x.a + ' × ' + x.b + ': ' + Math.round(x.vol) + (x.coarse ? ' (coarse AABB, severe)' : '')));
+  }
+  if (r.coarseInterference && r.coarseInterference.length) {
+    L.push('COARSE MESH OVERLAP (review; often intentional assembly contact such as a stretcher through a ring):');
+    r.coarseInterference.slice(0, 10).forEach(x => L.push(' - ' + x.a + ' × ' + x.b + ': ~' + Math.round(x.vol) + ' mm³ AABB'));
+  }
   if (r.underfilled.length) { L.push('UNFILLED JOINTS: these "fill":true cuts are not completely occupied by a mating part (ratio filled). Add/resize the mating tenon/tongue, or drop "fill" if the void is deliberate:'); r.underfilled.slice(0, 15).forEach(x => L.push(' - ' + x.part + ' / ' + x.tag + ': ' + Math.round(x.ratio * 100) + '%')); }
   if (r.size) L.push('Overall size: ' + r.size.join(' × ') + ' mm; ' + r.parts + ' part types, ' + r.pieces + ' pieces.');
   if ((o.inventory || o.metrics) && !M.errors.length) {

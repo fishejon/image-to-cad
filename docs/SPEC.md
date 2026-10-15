@@ -84,7 +84,7 @@ One entry per **physical part type**; place it many times with `instances`.
 * Solid parts should only be rotated by multiples of 90° (so their boxes stay axis-aligned for the exact checks).
 * Only solid parts can be **auto-split** for 3D printing.
 
-### kind "mesh" (round, turned, sloped parts)
+### kind "mesh" (round, turned, angled / mitred parts)
 ```json
 "prims": [
   { "type": "cylinder", "base": [0,0,0], "axis": "+z", "length": 400, "r": 15, "seg": 28 },
@@ -93,10 +93,12 @@ One entry per **physical part type**; place it many times with `instances`.
   { "type": "sphere", "r": 30, "center": [0,0,200] },
   { "type": "revolve", "at": [0,0,0], "axis": "+z", "profile": [[0,0],[80,0],[80,6],[0,48]] },
   { "type": "extrude", "plane": "xy", "profile": [[0,0],[100,0],[100,50]], "range": [0,20], "holes": [{ "c": [30,10], "r": 4 }] },
-  { "type": "box", "min": [0,0,0], "max": [10,10,10] }
+  { "type": "box", "min": [0,0,0], "max": [10,10,10], "rot": [0,0,45] },
+  { "type": "wedge", "min": [0,0,0], "max": [200,40,18], "tip": "+x", "angle": 45 }
 ]
 ```
-`axis` is one of `+x -x +y -y +z -z`. `revolve` profiles are `[radius, height-along-axis]` pairs. One material per part. Mesh parts render, export to STL (whole) and count in mass, but are **excluded from interference and joint-fill checks** (they are approximated by their bounding box for explode and clash display).
+`axis` is one of `+x -x +y -y +z -z`. `revolve` profiles are `[radius, height-along-axis]` pairs. Optional box `rot` is Euler degrees about the box centre. `wedge` is a mitred board (AABB with one end bevelled in the XY plane; `tip` `+x`|`-x`|`+y`|`-y`; `angle` from square, default 45°). One material per part. Mesh parts render, export to STL (whole) and count in mass. They participate in **coarse AABB interference** (flagged `coarse` in reports) but are still **excluded from exact joint-fill** (only solid↔solid fill checks). Keep rectilinear carcass as `kind: "solid"` for exact boolean checks.
+
 
 ### instances
 ```json
