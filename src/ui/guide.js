@@ -51,6 +51,7 @@ CAD.makeGuide = function (ctx) {
   }
   const SZ3 = [1000, 1150], SZF = [1400, 1230], SZD = [680, 540];
   function frame(cam_, box, dir, fill, aspect) {
+    if (!box || box.isEmpty()) box = new T.Box3(V(-400, -200, 0), V(400, 200, 400));
     fill = fill || .86; cam_.aspect = aspect; cam_.updateProjectionMatrix(); const dv = V(...dir).normalize(), c = box.getCenter(V(0, 0, 0)), r = Math.max(40, box.getSize(V(0, 0, 0)).length() / 2);
     const cs = []; for (let i = 0; i < 8; i++) cs.push(V(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z));
     const solve = (tg) => { let lo = r * .3, hi = r * 40; for (let k = 0; k < 40; k++) { const d = (lo + hi) / 2; cam_.position.copy(tg).addScaledVector(dv, d); cam_.up.set(0, 0, 1); cam_.lookAt(tg); cam_.updateMatrixWorld(); let m = 0; cs.forEach(p => { const q = p.clone().project(cam_); m = Math.max(m, Math.abs(q.x), Math.abs(q.y)); }); if (m > fill) lo = d; else hi = d; } return hi; };
@@ -80,6 +81,7 @@ CAD.makeGuide = function (ctx) {
   const exVec = (i, f) => V(...(i.ex || [0, 0, 0])).multiplyScalar(f);
   const instMat = (i, off) => new T.Matrix4().makeTranslation(off.x, off.y, off.z).multiply(i.m);
   function shadowDisc(box) {
+    if (!box || box.isEmpty()) return;
     const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'), g = x.createRadialGradient(128, 128, 10, 128, 128, 126); g.addColorStop(0, 'rgba(40,30,20,.34)'); g.addColorStop(.55, 'rgba(40,30,20,.14)'); g.addColorStop(1, 'rgba(40,30,20,0)'); x.fillStyle = g; x.fillRect(0, 0, 256, 256);
     const sz = box.getSize(V(0, 0, 0)), m = new T.Mesh(new T.PlaneGeometry(sz.x * 1.5, sz.y * 2.1), new T.MeshBasicMaterial({ map: new T.CanvasTexture(c), transparent: true, depthWrite: false })); m.position.set((box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, Math.max(0, box.min.z) + .3); gs.add(m);
   }

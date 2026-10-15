@@ -17,11 +17,9 @@ const WS_KEY = 'image-to-cad.workspace';
 const uid = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function blankSpec(name) {
   return {
-    name: name || 'Untitled', units: 'mm', description: 'Empty board — use AI design or edit the Spec tab to build something.', assumptions: [],
-    params: { W: { value: 400, min: 100, max: 1200, step: 10, label: 'Width' }, D: { value: 300, min: 100, max: 800, step: 10, label: 'Depth' }, T: { value: 20, min: 6, max: 50, step: 1, label: 'Thickness' } },
-    groups: [{ id: 'board', name: 'Board' }], steps: ['Start here'],
-    parts: [{ id: 'board', name: 'Board', group: 'board', material: 'oak', grain: 'x', spec: 'W × D × T',
-      ops: [{ add: ['-W/2', '-D/2', 0, 'W/2', 'D/2', 'T'] }], instances: [{ pos: [0, 0, 0], step: 0 }] }]
+    name: name || 'Untitled', units: 'mm',
+    description: 'Empty design — generate from a picture or edit the Spec tab to build something.',
+    assumptions: [], params: {}, groups: [], steps: [], parts: []
   };
 }
 function readWS() { try { return JSON.parse(localStorage.getItem(WS_KEY)); } catch (e) { return null; } }
@@ -185,7 +183,12 @@ function undo() { if (hist.i <= 0) return toast('Nothing to undo'); hist.i--; re
 function redo() { if (hist.i >= hist.stack.length - 1) return toast('Nothing to redo'); hist.i++; restoreHist(); toast('Redo'); }
 function loadSpec(spec, ov, quiet) {
   const M = CAD.buildSpec(spec, ov || {});
-  if (!M.insts.length) { if (prevM) { CAD.GROUPS = prevM.groups; CAD.STEPS = prevM.steps.map(s => s.title); CAD.MATS = prevM.materials; } S.lastErrors = M.errors; S.lastWarnings = M.warnings; renderSpecErrors(); if (!quiet) toast('The spec has errors: see the Spec tab'); return false; }
+  if (M.errors.length) {
+    if (prevM) { CAD.GROUPS = prevM.groups; CAD.STEPS = prevM.steps.map(s => s.title); CAD.MATS = prevM.materials; }
+    S.lastErrors = M.errors; S.lastWarnings = M.warnings; renderSpecErrors();
+    if (!quiet) toast('The spec has errors: see the Spec tab');
+    return false;
+  }
   S.spec = spec; S.ov = ov || {}; build(M); if (!hist.lock) pushHist(); persistActive(); return true;
 }
 function build(M) {
@@ -368,7 +371,13 @@ function buildTree() {
       r.addEventListener('click', e => { if (e.target.classList.contains('eye')) { S.hiddenDef.has(d.id) ? S.hiddenDef.delete(d.id) : S.hiddenDef.add(d.id); updateVisuals(); e.target.classList.toggle('off'); return; } selectDef(d.id, e.ctrlKey || e.metaKey || e.shiftKey); });
       r.addEventListener('dblclick', focusSel); wg.appendChild(r); });
     tree.appendChild(wg);
-  }); syncTreeSel();
+  });
+  if (!tree.children.length) {
+    const empty = document.createElement('div'); empty.className = 'card'; empty.style.margin = '8px';
+    empty.textContent = 'Empty design — generate from a picture or edit the Spec tab.';
+    tree.appendChild(empty);
+  }
+  syncTreeSel();
 }
 function syncTreeSel() { const ids = new Set([...S.sel].map(R => R.def.id)); $$('.pr').forEach(r => r.classList.toggle('sel', ids.has(r.dataset.id))); }
 
@@ -377,6 +386,12 @@ function syncTreeSel() { const ids = new Set([...S.sel].map(R => R.def.id)); $$(
 function renderInspect() {
   const el = $('#p-insp'), M = S.M; if (!M) return;
   if (!S.sel.size) {
+    if (!M.insts.length) {
+      el.innerHTML = `<h3>${esc(M.meta.name)}</h3>
+        <div class="card">${esc(M.meta.description || 'Empty design — generate from a picture or edit the Spec tab to build something.')}</div>
+        <div class="card"><b>Get started</b>Open <b>AI design</b> to generate from a picture, paste an image, or load an example. You can also edit the Spec tab directly.</div>`;
+      return;
+    }
     let mass = 0; const byMat = {}; M.insts.forEach(i => { const d = M.defs.get(i.def); mass += d.mass; const k = (CAD.MATS[d.solid.mat] || {}).name || d.solid.mat; byMat[k] = (byMat[k] || 0) + d.mass; });
     el.innerHTML = `<h3>${esc(M.meta.name)}</h3>${M.meta.description ? `<div class="card">${esc(M.meta.description)}</div>` : ''}<div class="kv"><span>Overall size</span><span>${inch3(M.size)}</span><span>Part types / pieces</span><span>${M.defs.size} / ${M.insts.length}</span><span>Weight (est.)</span><span>${lb(mass)}</span>${Object.entries(byMat).map(([k, v]) => `<span>${esc(k)}</span><span>${lb(v)}</span>`).join('')}</div>
       ${S.ai.reasoning ? `<h3>AI thought process</h3><div class="card">${esc(S.ai.reasoning)}</div>` : ''}
@@ -403,12 +418,11 @@ function renderInspect() {
 const acts = () => `<h3>Actions</h3><div class="grid2"><button class="btn sm" data-a="focus">Focus</button><button class="btn sm" data-a="iso">Isolate</button><button class="btn sm" data-a="hide">Hide</button><button class="btn sm" data-a="showall">Show all</button><button class="btn sm" data-a="del" style="grid-column:1/3;color:var(--bad)">Delete from design</button><button class="btn sm" data-a="ai" style="grid-column:1/3">Revise selected with AI…</button><button class="btn sm" data-a="stlp" style="grid-column:1/3">STL · print-ready (${S.ex.scale === 1 ? '1:1' : '1:' + S.ex.scale})</button></div>`;
 function deleteSelected() {
   const ids = selectedPartIds(); if (!ids.length) return toast('Select one or more parts to delete');
-  if ((S.spec.parts || []).filter(p => !ids.includes(p.id)).length < 1) return toast('Keep at least one part in the design');
   const names = ids.map(id => (S.M.defs.get(id) || {}).name || id);
   if (!confirm('Delete from the design?\n\n' + names.join('\n'))) return;
   const drop = new Set(ids);
   S.spec.parts = (S.spec.parts || []).filter(p => !drop.has(p.id));
-  if (loadSpec(S.spec, S.ov, true)) { setSpecText(); setSel([]); toast('Deleted ' + ids.length + ' part type(s)'); }
+  if (loadSpec(S.spec, S.ov, true)) { setSpecText(); setSel([]); toast(ids.length === 1 ? 'Deleted part' : 'Deleted ' + ids.length + ' part type(s)'); }
 }
 function bindActs() {
   $$('#p-insp [data-a]').forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'focus') focusSel(); else if (a === 'iso') { S.iso = new Set(S.sel); updateVisuals(); } else if (a === 'hide') { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); setSel([]); updateVisuals(); buildTree(); } else if (a === 'showall') showAll(); else if (a === 'del') deleteSelected(); else if (a === 'stlp') exportSelected(); else if (a === 'ai') { openAI(); const t = $('#aiRevise'); if (t) t.focus(); } });
