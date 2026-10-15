@@ -57,6 +57,37 @@ V.buildInventoryPrompt = function (o) {
   return parts.join('\n\n');
 };
 
+V.STAGES = [
+  { id: 'carcass', label: 'carcass', focus: 'Build ONLY the primary structure: sides, top, bottom, back, legs, stretchers, rails, and fixed panels. Do NOT add drawers, doors, shelves, slats, or hardware yet. Match inventory aspect ratios.' },
+  { id: 'interiors', label: 'interiors', focus: 'ADD drawers, doors, shelves, dividers, and other interior/movable parts from the inventory. Keep every carcass part that is still correct. Update mating joinery (dados, runners, hinges). Return the COMPLETE updated spec.' },
+  { id: 'refine', label: 'refine', focus: 'Polish the COMPLETE design: fix joinery fill, interference, and inventory count/aspect mismatches. Do not remove correct parts. Return the COMPLETE corrected spec.' }
+];
+V.needsStages = function (inventory) {
+  if (!inventory || typeof inventory !== 'object') return false;
+  const c = inventory.counts || {};
+  const complex = (+c.drawers || 0) + (+c.doors || 0) + (+c.shelves || 0) + (+c.slats || 0);
+  const nParts = Array.isArray(inventory.parts) ? inventory.parts.length : 0;
+  return complex >= 1 || nParts >= 6;
+};
+/** Merge next into base by part id (next wins). Keeps base parts the next draft omitted. */
+V.mergeSpecs = function (base, next) {
+  if (!next) return base; if (!base) return next;
+  const out = Object.assign({}, base, next);
+  const map = new Map();
+  (base.parts || []).forEach(p => { if (p && p.id != null) map.set(p.id, p); });
+  (next.parts || []).forEach(p => { if (p && p.id != null) map.set(p.id, p); });
+  out.parts = [...map.values()];
+  out.materials = Object.assign({}, base.materials || {}, next.materials || {});
+  out.params = Object.assign({}, base.params || {}, next.params || {});
+  out.kinematics = Object.assign({}, base.kinematics || {}, next.kinematics || {});
+  const gmap = new Map();
+  [].concat(base.groups || [], next.groups || []).forEach(g => { if (g && g.id != null) gmap.set(g.id, Object.assign({}, gmap.get(g.id) || {}, g)); });
+  if (gmap.size) out.groups = [...gmap.values()];
+  if (Array.isArray(next.assumptions) && next.assumptions.length) out.assumptions = next.assumptions;
+  if (Array.isArray(next.steps) && next.steps.length) out.steps = next.steps;
+  return out;
+};
+
 V.buildPrompt = function (o) {
   o = o || {}; const parts = [];
   if (o.task === 'revise' && o.prevSpec && (o.round === 1 || !o.report)) {
@@ -64,6 +95,15 @@ V.buildPrompt = function (o) {
     parts.push(V.SPEC_DOC); parts.push('CURRENT SPEC:\n' + JSON.stringify(o.prevSpec));
     parts.push('REQUESTED CHANGES: ' + (o.hints || '(none)'));
     if (o.focusParts && o.focusParts.length) parts.push('FOCUS: Prefer changing only these parts (and any joints that mate with them). Leave unrelated parts alone unless the change requires it: ' + o.focusParts.map(p => p.id + ' ("' + p.name + '")').join(', ') + '.');
+  } else if (o.stage) {
+    parts.push('You are an expert CAD engineer building a furniture/product design in stages. Current stage: ' + o.stage.label.toUpperCase() + '.');
+    parts.push('STAGE FOCUS: ' + o.stage.focus);
+    parts.push('Return ONE COMPLETE JSON design spec for this stage (no commentary, no markdown fences). Include "reasoning" describing what you added or changed in this stage.');
+    if (o.inventory) parts.push('INVENTORY (authoritative for counts and proportions):\n' + JSON.stringify(o.inventory));
+    parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
+    if (o.prevSpec) parts.push('SPEC SO FAR (build on this; keep correct parts):\n' + JSON.stringify(o.prevSpec));
+    if (o.hints) parts.push('USER HINTS: ' + o.hints);
+    if (o.report) parts.push('CRITIC REPORT from the previous attempt — fix these issues:\n' + o.report.text);
   } else if (o.round === 1 || !o.prevSpec) {
     parts.push('You are an expert CAD engineer and furniture/product designer. Study the attached picture carefully and write a design spec for a 3D model of THAT object, as ONE JSON object that follows the DESIGN SPEC below.');
     parts.push('Match what you SEE — not a generic piece in the same category. Count drawers/doors/legs/shelves/slats; match overall width:depth:height proportions from the photo; match leg shape, top overhang, and visible joinery or hardware. Where something is hidden, choose the most plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what object you see, (2) proportions you read from the image, (3) major parts you identified, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
@@ -202,25 +242,69 @@ V.evaluate = function (spec, o) {
 
 /* ---------- providers: async ({text, images:[{mediaType,base64}], model, apiKey, signal}) → string ---------- */
 const blocks = (text, images) => images.map(i => ({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.base64 } })).concat([{ type: 'text', text }]);
+V.readAnthropicSSE = async function (res) {
+  if (!res.body || typeof res.body.getReader !== 'function') {
+    const j = await res.json().catch(() => ({}));
+    return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
+  }
+  const reader = res.body.getReader(), dec = new TextDecoder();
+  let buf = '', text = '', errMsg = null;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop() || '';
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.startsWith('data:')) continue;
+      const raw = line.slice(5).trim();
+      if (!raw || raw === '[DONE]') continue;
+      let j; try { j = JSON.parse(raw); } catch (e) { continue; }
+      if (j.type === 'content_block_delta' && j.delta && j.delta.type === 'text_delta' && j.delta.text) text += j.delta.text;
+      if (j.type === 'error') errMsg = (j.error && j.error.message) || 'stream error';
+    }
+  }
+  if (errMsg) throw new Error(errMsg);
+  return text;
+};
+V.tokenBudget = function (task) {
+  if (task === 'inventory') return 2500;
+  if (task === 'revise') return 10000;
+  if (task === 'carcass') return 12000;
+  if (task === 'interiors') return 18000;
+  if (task === 'refine') return 14000;
+  return 16000;
+};
 V.providers = {
-  anthropic: async o => { const r = await fetch((o.baseUrl || 'https://api.anthropic.com') + '/v1/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json', 'x-api-key': o.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: 24000, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
-    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error('Anthropic API ' + r.status + ': ' + ((j.error && j.error.message) || r.statusText)); return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join(''); },
+  anthropic: async o => {
+    const maxTok = Math.min(+o.max_tokens || V.tokenBudget(o.task), 32000);
+    const stream = o.stream !== false;
+    const r = await fetch((o.baseUrl || 'https://api.anthropic.com') + '/v1/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json', 'x-api-key': o.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: maxTok, stream, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error('Anthropic API ' + r.status + ': ' + ((j.error && j.error.message) || r.statusText)); }
+    const ct = (r.headers.get('content-type') || '');
+    if (stream && /event-stream/i.test(ct)) return V.readAnthropicSSE(r);
+    const j = await r.json().catch(() => ({})); return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
+  },
   proxy: async o => {
-    const maxTok = Math.min(+o.max_tokens || (o.task === 'revise' ? 10000 : 14000), 32000);
-    const r = await fetch(o.proxyUrl || '/api/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: maxTok, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
-    const j = await r.json().catch(() => ({}));
+    const maxTok = Math.min(+o.max_tokens || V.tokenBudget(o.task), 32000);
+    const stream = o.stream !== false;
+    const r = await fetch(o.proxyUrl || '/api/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: maxTok, stream, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
     if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
       const msg = (j.error && (j.error.message || j.error)) || r.statusText;
       if (r.status === 504 || r.status === 524) throw new Error('Proxy timed out (504). Vercel caps long model calls (~5 min on Hobby). Your API key on the server is fine — try Haiku, max rounds 1, turn off visual critic, or upgrade the Vercel plan for longer runs. ' + msg);
       throw new Error('Proxy ' + r.status + ': ' + msg);
     }
+    const ct = (r.headers.get('content-type') || '');
+    if (stream && /event-stream|text\/plain/i.test(ct)) return V.readAnthropicSSE(r);
+    const j = await r.json().catch(() => ({}));
     return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
   },
   artifact: async o => { const c = root.claude; if (!c || !c.use) throw new Error('not running inside Claude'); const sample = await c.use('sample'); if (!sample) throw new Error('Claude sampling is not available here');
     const blobs = o.images.map(i => { const bin = atob(i.base64), u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k); return new Blob([u], { type: i.mediaType }); });
     const res = await sample(o.text, { images: blobs, modelTier: 'complex', signal: o.signal, cache: false }); return res.text; },
-  mock: async o => { const p = o.mock; p.calls = p.calls || []; p.calls.push({ text: o.text, images: o.images.length }); const r = p.responses[Math.min(p.calls.length - 1, p.responses.length - 1)]; return typeof r === 'function' ? r(o) : r; },
+  mock: async o => { const p = o.mock; p.calls = p.calls || []; p.calls.push({ text: o.text, images: o.images.length, task: o.task }); const r = p.responses[Math.min(p.calls.length - 1, p.responses.length - 1)]; return typeof r === 'function' ? r(o) : r; },
 };
 
 V.summarizeInventory = function (inv) {
@@ -239,12 +323,25 @@ V.run = async function (o) {
   if (o.task === 'revise' && !o.prevSpec) throw new Error('no current design to revise');
   const refs = o.image ? [typeof o.image === 'string' ? V.dataUrlToImage(o.image) : o.image] : [];
   let best = null, prev = o.task === 'revise' ? o.prevSpec : null, report = null, mode = 'fix', visualDone = false, likenessRetryDone = false, lastOk = null;
-  let inventory = o.inventory || null;
+  let inventory = o.inventory || null, roundCounter = 0;
+
+  const noteCritic = (rep) => {
+    const likeNote = rep.likeness && rep.likeness.penalty ? ', likeness −' + rep.likeness.penalty : '';
+    log('Critic: ' + (rep.ok ? 'all geometry checks passed' : rep.errors.length + ' errors, ' + rep.interference.length + ' interferences, ' + rep.underfilled.length + ' unfilled joints') + (rep.size ? ' · ' + rep.size.join('×') + ' mm' : '') + likeNote);
+  };
+  const adopt = (spec, rep) => {
+    roundCounter++;
+    if (spec.reasoning) { log('Thought process:'); String(spec.reasoning).split(/\n+/).forEach(line => { if (line.trim()) log(line.trim()); }); }
+    noteCritic(rep);
+    if (o.onSpec) o.onSpec(spec, rep, roundCounter);
+    if (!best || rep.score < best.rep.score) best = { spec, rep, round: roundCounter };
+    if (rep.ok) lastOk = { spec, rep, round: roundCounter };
+  };
 
   if (o.task !== 'revise' && refs.length && !inventory) {
     log('Inventory pass: reading the picture…');
     try {
-      const rawInv = await call(Object.assign({}, o.provider, { text: V.buildInventoryPrompt({ hints: o.hints }), images: refs.slice(), signal: o.signal, task: 'inventory', max_tokens: 2500 }));
+      const rawInv = await call(Object.assign({}, o.provider, { text: V.buildInventoryPrompt({ hints: o.hints }), images: refs.slice(), signal: o.signal, task: 'inventory', max_tokens: V.tokenBudget('inventory') }));
       inventory = V.extractJSON(rawInv);
       const sum = V.summarizeInventory(inventory);
       log(sum ? 'Inventory: ' + sum : 'Inventory captured');
@@ -255,22 +352,53 @@ V.run = async function (o) {
     }
   }
 
+  const wantStages = o.task !== 'revise' && (o.staged === true || (o.staged !== false && V.needsStages(inventory)));
+  if (wantStages) {
+    log('Staged design: carcass → interiors → refine');
+    for (let si = 0; si < V.STAGES.length; si++) {
+      const stage = V.STAGES[si];
+      let stageReport = null, stagePrev = prev;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        log('Stage ' + stage.label + ' (' + (si + 1) + '/' + V.STAGES.length + ')' + (attempt > 1 ? ' · fix' : '') + '…');
+        const text = V.buildPrompt({ stage, prevSpec: stagePrev, report: stageReport, hints: o.hints, inventory });
+        let raw; try { raw = await call(Object.assign({}, o.provider, { text, images: refs.slice(), signal: o.signal, task: stage.id, max_tokens: V.tokenBudget(stage.id) })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
+        let spec; try { spec = V.extractJSON(raw); } catch (e) {
+          log('Could not read JSON: ' + e.message);
+          stageReport = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object.' };
+          continue;
+        }
+        if (stagePrev) spec = V.mergeSpecs(stagePrev, spec);
+        const rep = V.evaluate(spec, { inventory });
+        adopt(spec, rep);
+        stagePrev = spec; prev = spec;
+        if (rep.ok) break;
+        stageReport = rep;
+      }
+    }
+  }
+
   for (let round = 1; round <= max; round++) {
-    const first = o.task === 'revise' ? 'asking the model to apply your changes…' : 'asking the model to design from the picture…';
-    log('Round ' + round + '/' + max + ': ' + (round === 1 ? first : mode === 'visual' ? 'visual critique against the reference…' : 'sending critic findings back to the model…'));
+    if (wantStages && round === 1 && prev && !report) {
+      const seed = V.evaluate(prev, { inventory });
+      if (seed.ok && !(o.visual && !visualDone) && !(inventory && seed.likeness && seed.likeness.penalty >= 20)) {
+        if (!best) adopt(prev, seed);
+        break;
+      }
+      if (!seed.ok || (seed.likeness && seed.likeness.penalty >= 20)) { report = seed; mode = 'fix'; }
+    }
+    const first = o.task === 'revise' ? 'asking the model to apply your changes…' : (wantStages ? 'final critic pass…' : 'asking the model to design from the picture…');
+    log('Round ' + round + '/' + max + ': ' + (round === 1 && !wantStages ? first : mode === 'visual' ? 'visual critique against the reference…' : wantStages && round === 1 ? first : 'sending critic findings back to the model…'));
     const images = refs.slice(); if (mode === 'visual' && o.render) { const png = await o.render(prev); if (png) images.push(typeof png === 'string' ? V.dataUrlToImage(png) : png); }
-    const text = V.buildPrompt({ round, prevSpec: prev, report, hints: o.hints, mode, task: o.task, focusParts: o.focusParts, inventory });
-    let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal, task: o.task, max_tokens: o.task === 'revise' ? 10000 : 14000 })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
+    const text = V.buildPrompt({ round: wantStages ? round + 1 : round, prevSpec: prev, report, hints: o.hints, mode, task: o.task, focusParts: o.focusParts, inventory });
+    let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal, task: o.task === 'revise' ? 'revise' : 'design', max_tokens: V.tokenBudget(o.task === 'revise' ? 'revise' : 'design') })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
     let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object with a "reasoning" field.' }; mode = 'fix'; continue; }
-    if (spec.reasoning) { log('Thought process:'); String(spec.reasoning).split(/\n+/).forEach(line => { if (line.trim()) log(line.trim()); }); }
+    if (prev && wantStages) spec = V.mergeSpecs(prev, spec);
     let iou = null;
     if (mode === 'visual' && typeof o.silhouetteIoU === 'function' && images.length >= 2) {
       try { iou = await o.silhouetteIoU(images[0], images[1]); } catch (e) { /* optional */ }
     }
     const rep = V.evaluate(spec, { inventory, iou });
-    const likeNote = rep.likeness && rep.likeness.penalty ? ', likeness −' + rep.likeness.penalty : '';
-    log('Critic: ' + (rep.ok ? 'all geometry checks passed' : rep.errors.length + ' errors, ' + rep.interference.length + ' interferences, ' + rep.underfilled.length + ' unfilled joints') + (rep.size ? ' · ' + rep.size.join('×') + ' mm' : '') + likeNote);
-    if (o.onSpec) o.onSpec(spec, rep, round); if (!best || rep.score < best.rep.score) best = { spec, rep, round }; if (rep.ok) lastOk = { spec, rep, round };
+    adopt(spec, rep);
     if (rep.ok && inventory && !likenessRetryDone && rep.likeness && rep.likeness.penalty >= 20 && round < max) {
       likenessRetryDone = true; mode = 'fix'; prev = spec; report = rep; continue;
     }
@@ -280,6 +408,7 @@ V.run = async function (o) {
   if (!best) throw new Error('The model never returned a usable spec. See the log.');
   const final = lastOk || best;
   final.inventory = inventory;
+  final.staged = !!wantStages;
   log(final.rep.ok ? 'Done: design passes every check (round ' + final.round + ').' : 'Stopped after ' + max + ' rounds: best design still has issues. You can fix it in the Spec tab.');
   return final;
 };
