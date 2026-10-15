@@ -34,7 +34,12 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
   await t('reports readable, path-qualified errors', () => {
     const M = CAD.buildSpec({ parts: [{ id: 'a', ops: [{ add: [0, 0, 0, 10, 10, 'bogus'] }] }, { id: 'a', ops: [{ add: [0, 0, 0, 1, 1, 1] }] }, { id: 'c', ops: [{ add: [0, 0, 0] }] }, { id: 'd', prims: [{ type: 'torus' }] }, { id: 'e', ops: [{ add: [0, 0, 0, 1, 1, 1], cut: [0, 0, 0, 1, 1, 1] }] }, { ops: [] }] });
     const e = M.errors.join('\n'); ok(/unknown variable "bogus"/.test(e), e); ok(/duplicate id/.test(e), e); ok(/box must be/.test(e), e); ok(/unknown prim type/.test(e), e); ok(/exactly one of/.test(e), e); ok(/missing string "id"/.test(e), e); ok(/parts\[0\]\.ops\[0\]/.test(e), 'path'); });
-  await t('empty / non-object specs fail cleanly', () => { ok(CAD.buildSpec(null).errors.length); ok(CAD.buildSpec({}).errors.length); ok(CAD.buildSpec({ parts: [] }).errors.length); });
+  await t('empty / non-object specs fail cleanly', () => {
+    ok(CAD.buildSpec(null).errors.length); ok(CAD.buildSpec({}).errors.length);
+    const empty = CAD.buildSpec({ name: 'Blank', parts: [] });
+    eq(empty.errors.length, 0, empty.errors.join('; ')); eq(empty.insts.length, 0); eq(empty.defs.size, 0);
+    ok(CAD.buildSpec({ parts: [{ id: 'x', ops: [{ add: [0, 0, 0, 1, 1, 1] }], instances: [] }] }).errors.some(e => /no parts were placed/.test(e)));
+  });
   await t('repeat guard', () => ok(/too large/.test(CAD.buildSpec({ parts: [{ id: 'x', ops: [{ add: [0, 0, 0, 1, 1, 1], repeat: { count: 100000 } }] }] }).errors.join())));
   console.log('examples');
   for (const n of examples()) await t(n + ': builds, watertight, no interference, every joint filled', () => {

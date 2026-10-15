@@ -102,7 +102,7 @@ class SpecModel {
     try { this.build(overrides || {}); } catch (e) { this.errors.push(e.message); } }
   at(path, fn) { try { return fn(); } catch (e) { this.errors.push(path + ': ' + e.message); return undefined; } }
   build(ov) {
-    const sp = this.spec, scope = {}; if (!sp || typeof sp !== 'object') throw new Error('spec must be a JSON object'); if (!Array.isArray(sp.parts) || !sp.parts.length) throw new Error('spec.parts must be a non-empty array');
+    const sp = this.spec, scope = {}; if (!sp || typeof sp !== 'object') throw new Error('spec must be a JSON object'); if (!Array.isArray(sp.parts)) throw new Error('spec.parts must be an array');
     Object.entries(sp.params || {}).forEach(([k, v]) => this.at('params.' + k, () => {
       if (typeof v === 'number') { scope[k] = ov[k] !== undefined ? ov[k] : v; this.paramDefs.push({ key: k, label: k, value: scope[k], min: Math.round(v * .5), max: Math.round(v * 1.5), step: v >= 100 ? 10 : 1 }); }
       else if (typeof v === 'string') scope[k] = ev(v, scope);
@@ -140,8 +140,11 @@ class SpecModel {
         if (it.explode) inst.ex = ev(it.explode, sc); this.insts.push(inst); })); }); });
     Object.entries(sp.kinematics || {}).forEach(([k, v]) => this.at('kinematics.' + k, () => { this.kinematics[k] = { label: v.label || k, axis: ev(v.axis, scope), range: ev(v.range, scope), unit: v.unit || 'mm', pivot: v.pivot ? ev(v.pivot, scope) : null }; }));
     this.finalize();
-    const maxStep = Math.max(0, ...this.insts.map(i => i.step)), st = sp.steps || [];
-    this.steps = Array.from({ length: maxStep + 1 }, (_, i) => { const s = st[i]; return typeof s === 'string' ? { title: s } : Object.assign({ title: 'Assembly step ' + (i + 1) }, s || {}); });
+    const st = sp.steps || [], stepNums = this.insts.map(i => i.step);
+    const maxStep = stepNums.length ? Math.max(0, ...stepNums) : -1;
+    this.steps = maxStep < 0
+      ? st.map((s, i) => typeof s === 'string' ? { title: s } : Object.assign({ title: 'Assembly step ' + (i + 1) }, s || {}))
+      : Array.from({ length: maxStep + 1 }, (_, i) => { const s = st[i]; return typeof s === 'string' ? { title: s } : Object.assign({ title: 'Assembly step ' + (i + 1) }, s || {}); });
     CAD.GROUPS = this.groups; CAD.STEPS = this.steps.map(s => s.title);
     this.meta = { name: sp.name || 'Untitled object', description: sp.description || '', assumptions: sp.assumptions || [], units: sp.units || 'mm' };
     this.sanity();
@@ -150,12 +153,16 @@ class SpecModel {
     const cnt = {}; this.insts.forEach(i => { cnt[i.def] = (cnt[i.def] || 0) + 1; i.qtyIdx = cnt[i.def]; });
     this.defs.forEach(d => { d.qty = cnt[d.id] || 0; d.vol = d.solid.volume(); d.box = d.solid.bbox(); d.boxes = d.solid.boxes(); d.mass = d.vol * 1e-9 * (this.materials[d.solid.mat].rho || 800); d.size = [d.box[3] - d.box[0], d.box[4] - d.box[1], d.box[5] - d.box[2]]; });
     this.defs.forEach((d, id) => { if (!d.qty) this.warnings.push(id + ': part is never placed (no instances)'); });
-    if (!this.insts.length) return;
+    if (!this.insts.length) { this.bounds = [0, 0, 0, 0, 0, 0]; this.size = [0, 0, 0]; return; }
     const bb = CAD.bounds(this), c = [(bb[0] + bb[3]) / 2, (bb[1] + bb[4]) / 2, (bb[2] + bb[5]) / 2], diag = Math.hypot(bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2]);
     this.insts.forEach(i => { if (i.ex) return; const a = CAD.instAABB(this, i), p = [(a[0] + a[3]) / 2 - c[0], (a[1] + a[4]) / 2 - c[1], ((a[2] + a[5]) / 2 - c[2]) * 1.4 + 30], l = Math.hypot(...p) || 1, k = diag * (.12 + .03 * i.step) / l; i.ex = [p[0] * k, p[1] * k, p[2] * k]; });
   }
   sanity() {
-    if (!this.insts.length) { this.errors.push('no parts were placed'); return; }
+    if (!this.insts.length) {
+      if ((this.spec.parts || []).length) this.errors.push('no parts were placed');
+      this.bounds = this.bounds || [0, 0, 0, 0, 0, 0]; this.size = this.size || [0, 0, 0];
+      return;
+    }
     const bb = CAD.bounds(this); if (bb[2] < -2) this.warnings.push('model extends ' + Math.round(-bb[2]) + ' mm below the floor (z<0)');
     const big = Math.max(bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2]); if (big > 20000) this.warnings.push('object is ' + Math.round(big) + ' mm long: check units (mm expected)'); if (big < 20) this.warnings.push('object is tiny (' + Math.round(big) + ' mm): check units (mm expected)');
     this.bounds = bb; this.size = [bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2]];
