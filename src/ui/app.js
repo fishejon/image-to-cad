@@ -12,8 +12,7 @@ const gname = id => (CAD.GROUPS.find(g => g.id === id) || { name: id }).name;
 const S = { M: null, spec: null, ov: {}, R: [], kin: {}, sel: new Set(), hiddenDef: new Set(), hiddenGrp: new Set(), iso: null, mode: 'real', exF: 0, stepCur: 0, stepping: false,
   sec: { on: false, axis: 'y', off: 0, inv: false }, edges: true, meas: { on: false, pts: [], objs: [] }, q: '', need: true, hov: null, collapsed: new Set(), mv: {},
   ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null, reasoning: '', inventory: null, refOpen: true }, examples: {}, nav: 'orbit', movePlane: 'xy', leftOn: true, rightOn: true,
-  docs: {}, docId: null };
-const WS_KEY = 'image-to-cad.workspace';
+  docs: {}, docId: null, aiMode: 'photo' };
 const uid = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function blankSpec(name) {
   return {
@@ -22,13 +21,21 @@ function blankSpec(name) {
     assumptions: [], params: {}, groups: [], steps: [], parts: []
   };
 }
-function readWS() { try { return JSON.parse(localStorage.getItem(WS_KEY)); } catch (e) { return null; } }
+function wsPayload() {
+  const docs = {};
+  Object.values(S.docs).forEach(d => { docs[d.id] = { id: d.id, name: d.name, source: d.source || null, updated: d.updated || 0, spec: d.spec, ov: d.ov || {} }; });
+  return { activeId: S.docId, docs, version: 1, updated: Date.now() };
+}
 function writeWS() {
-  try {
-    const docs = {};
-    Object.values(S.docs).forEach(d => { docs[d.id] = { id: d.id, name: d.name, source: d.source || null, updated: d.updated || 0, spec: d.spec, ov: d.ov || {} }; });
-    localStorage.setItem(WS_KEY, JSON.stringify({ activeId: S.docId, docs }));
-  } catch (e) { /* quota / private mode */ }
+  const payload = wsPayload();
+  if (CAD.store && CAD.store.write) CAD.store.write(payload).catch(() => {});
+  else {
+    try { localStorage.setItem((CAD.store && CAD.store.LS_KEY) || 'image-to-cad.workspace', JSON.stringify(payload)); } catch (e) { /* quota */ }
+  }
+}
+async function readWS() {
+  if (CAD.store && CAD.store.read) return CAD.store.read();
+  try { return JSON.parse(localStorage.getItem('image-to-cad.workspace')); } catch (e) { return null; }
 }
 function refreshDocSel() {
   const sel = $('#docsel'); if (!sel) return;
@@ -682,16 +689,26 @@ function syncAIFocus() {
 function renderAI() {
   const inClaude = !!window.claude, remembered = (() => { try { return localStorage.getItem('image-to-cad.key') || ''; } catch (e) { return ''; } })();
   const hosted = location.protocol !== 'file:';
+  const drawing = S.aiMode === 'drawing';
   $('#p-ai').innerHTML = `
   <h3>Revise this design</h3>
   <div id="aiFocus"></div>
   <textarea id="aiRevise" rows="4" placeholder="e.g. make it 4&quot; taller, add a third drawer, change the selected legs to 1 1/2&quot; square maple" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
   <button class="btn pri" id="aiRev" style="width:100%;margin-top:6px">Apply changes</button>
-  <h3>From a picture</h3>
-  <div id="aiDrop" style="border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;background:var(--panel2)"><div id="aiDropT" style="font-weight:600">Drop, paste or click to upload a photo</div><div style="color:var(--dim);margin-top:4px">Generates a new design from the image</div><input type="file" id="aiFile" accept="image/*" hidden><img id="aiPrev" style="display:none;max-width:100%;max-height:200px;margin:8px auto 0;border-radius:6px"></div>
-  <textarea id="aiHints" rows="2" placeholder="Optional brief: e.g. overall height 33 1/2&quot;, solid oak, two drawers" style="width:100%;margin-top:8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
+  <h3>New design from image</h3>
+  <div class="row" style="margin-bottom:8px"><label>Mode</label>
+    <select id="aiMode" class="btn" style="flex:1"><option value="photo"${!drawing ? ' selected' : ''}>Photo</option><option value="drawing"${drawing ? ' selected' : ''}>Drawing + dimensions</option></select>
+  </div>
+  <div id="aiDrop" style="border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;background:var(--panel2)"><div id="aiDropT" style="font-weight:600">${drawing ? 'Drop, paste or click to upload a drawing' : 'Drop, paste or click to upload a photo'}</div><div id="aiDropSub" style="color:var(--dim);margin-top:4px">${drawing ? 'Reads dimensions and callouts from the sketch' : 'Generates a new design from the photo'}</div><input type="file" id="aiFile" accept="image/*" hidden><img id="aiPrev" style="display:none;max-width:100%;max-height:200px;margin:8px auto 0;border-radius:6px"></div>
+  <div class="row" id="aiDims" style="margin-top:8px;flex-wrap:wrap;gap:6px">
+    <label style="width:100%;margin:0;color:var(--dim);font-size:11px;letter-spacing:.04em;text-transform:uppercase">Overall size (inches)</label>
+    <input id="aiW" type="text" placeholder="W" title="Width" style="flex:1;min-width:4em;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
+    <input id="aiD" type="text" placeholder="D" title="Depth" style="flex:1;min-width:4em;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
+    <input id="aiH" type="text" placeholder="H" title="Height" style="flex:1;min-width:4em;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
+  </div>
+  <textarea id="aiHints" rows="2" placeholder="${drawing ? 'Optional notes + dims already on the drawing, e.g. oak, two drawers' : 'Optional brief: e.g. overall height 33 1/2&quot;, solid oak, two drawers'}" style="width:100%;margin-top:8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
   <div class="row"><label>Max rounds</label><select id="aiRounds" class="btn"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select><div class="chk" style="margin:0"><input type="checkbox" id="aiVis"><label for="aiVis">visual critic</label></div></div>
-  <div class="grid2"><button class="btn pri" id="aiGo">Generate from picture</button><button class="btn" id="aiStop" disabled>Stop</button></div>
+  <div class="grid2"><button class="btn pri" id="aiGo">${drawing ? 'Generate from drawing' : 'Generate from picture'}</button><button class="btn" id="aiStop" disabled>Stop</button></div>
   <details style="margin-top:14px"><summary style="cursor:pointer;color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase">Connection &amp; model</summary>
   <div class="card" style="margin-top:8px"><b>Server proxy</b> is the normal path on Vercel: <code>ANTHROPIC_API_KEY</code> stays in project env — you never paste it into this app. <b>Browser API key</b> is optional (local file:// or when you want a personal key in this browser only).</div>
   <div class="row"><label>Provider</label><select id="aiProv" class="btn" style="flex:1"><option value="proxy"${hosted && !inClaude ? ' selected' : ''}>Server proxy (Vercel key)</option><option value="anthropic"${!hosted && !inClaude ? ' selected' : ''}>Claude API key (browser)</option>${inClaude ? '<option value="artifact" selected>Claude (this page, your account)</option>' : ''}</select></div>
@@ -700,9 +717,18 @@ function renderAI() {
   <div class="chk" id="aiRemRow"><input type="checkbox" id="aiRem"><label for="aiRem">remember browser key in localStorage</label></div>
   <button class="btn sm" id="aiPing" style="width:100%">Check connection</button></details>
   <div class="log" id="aiLog" style="max-height:220px;overflow:auto;margin-top:8px">${S.ai.log.map(esc).join('<br>')}</div>`;
-  syncAIFocus(); if (S.ai.img) { const prev = $('#aiPrev'); prev.src = S.ai.img; prev.style.display = 'block'; $('#aiDropT').textContent = 'Picture ready'; }
+  syncAIFocus(); if (S.ai.img) { const prev = $('#aiPrev'); prev.src = S.ai.img; prev.style.display = 'block'; $('#aiDropT').textContent = drawing ? 'Drawing ready' : 'Picture ready'; }
   const drop = $('#aiDrop'); drop.onclick = () => $('#aiFile').click(); $('#aiFile').onchange = e => setImage(e.target.files[0]);
   drop.ondragover = e => { e.preventDefault(); drop.style.borderColor = 'var(--acc)'; }; drop.ondragleave = () => drop.style.borderColor = ''; drop.ondrop = e => { e.preventDefault(); drop.style.borderColor = ''; setImage(e.dataTransfer.files[0]); };
+  const syncMode = () => {
+    S.aiMode = $('#aiMode').value === 'drawing' ? 'drawing' : 'photo';
+    const d = S.aiMode === 'drawing';
+    $('#aiDropT').textContent = S.ai.img ? (d ? 'Drawing ready' : 'Picture ready') : (d ? 'Drop, paste or click to upload a drawing' : 'Drop, paste or click to upload a photo');
+    $('#aiDropSub').textContent = d ? 'Reads dimensions and callouts from the sketch' : 'Generates a new design from the photo';
+    $('#aiGo').textContent = d ? 'Generate from drawing' : 'Generate from picture';
+    const dims = $('#aiDims'); if (dims) dims.style.opacity = d ? '1' : '.85';
+  };
+  $('#aiMode').onchange = syncMode; syncMode();
   const sync = () => {
     const browser = $('#aiProv').value === 'anthropic';
     $('#aiKeyRow').style.display = browser ? 'flex' : 'none';
@@ -722,10 +748,17 @@ async function runAI(task) {
   if (S.ai.busy) return; task = task || 'design';
   const kind = $('#aiProv').value, key = $('#aiKey').value.trim(), model = $('#aiModel').value;
   if (kind === 'anthropic' && !key) return toast('Paste your Anthropic API key');
-  if (task === 'design' && !S.ai.img) return toast('Choose a picture first');
+  if (task === 'design' && !S.ai.img) return toast(S.aiMode === 'drawing' ? 'Choose a drawing first' : 'Choose a picture first');
   if (task === 'revise' && !S.spec) return toast('Load a design first');
   const hints = task === 'revise' ? $('#aiRevise').value.trim() : $('#aiHints').value.trim();
   if (task === 'revise' && !hints) return toast('Describe the changes you want');
+  const inputMode = (task === 'design' && $('#aiMode') && $('#aiMode').value === 'drawing') ? 'drawing' : 'photo';
+  S.aiMode = inputMode;
+  const dimFields = task === 'design' ? { w: ($('#aiW') || {}).value, d: ($('#aiD') || {}).value, h: ($('#aiH') || {}).value } : {};
+  const metrics = CAD.vision.parseDims(hints, dimFields);
+  if (task === 'design' && inputMode === 'drawing' && !(metrics.wMm || metrics.dMm || metrics.hMm)) {
+    /* drawing mode still works from OCR on the image; dims fields are strongly recommended */
+  }
   const focusIds = (task === 'revise' && $('#aiFocusOnly') && $('#aiFocusOnly').checked) ? selectedPartIds() : [];
   const focusParts = focusIds.map(id => ({ id, name: (S.M.defs.get(id) || {}).name || id }));
   if ($('#aiRem').checked) { try { localStorage.setItem('image-to-cad.key', key); } catch (e) { } }
@@ -733,9 +766,9 @@ async function runAI(task) {
   if (task === 'design') { persistActive(); aiDocId = addDoc(blankSpec('AI design'), { name: 'AI design' }); refreshDocSel(); }
   const adoptAIDoc = () => { if (aiDocId) { S.docId = aiDocId; aiDocId = null; refreshDocSel(); } };
   S.ai.busy = true; S.ai.log = []; S.ai.reasoning = ''; if (task === 'design') S.ai.inventory = null; $('#aiGo').disabled = true; $('#aiRev').disabled = true; $('#aiStop').disabled = false; const ac = new AbortController(); S.ai.abort = ac;
-  aiLog('Using ' + model + ' (' + (kind === 'proxy' ? 'server proxy' : kind === 'anthropic' ? 'browser API key' : 'this page') + ')' + (focusParts.length ? ' · focused on ' + focusParts.map(p => p.name).join(', ') : ''));
+  aiLog('Using ' + model + ' (' + (kind === 'proxy' ? 'server proxy' : kind === 'anthropic' ? 'browser API key' : 'this page') + ')' + (inputMode === 'drawing' ? ' · drawing mode' : '') + (focusParts.length ? ' · focused on ' + focusParts.map(p => p.name).join(', ') : ''));
   try {
-    const res = await CAD.vision.run({ image: S.ai.img, hints, task, focusParts, prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model }, maxRounds: +$('#aiRounds').value, visual: $('#aiVis').checked, signal: ac.signal, onLog: aiLog,
+    const res = await CAD.vision.run({ image: S.ai.img, hints, metrics, dimFields, inputMode, task, focusParts, prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model }, maxRounds: +$('#aiRounds').value, visual: $('#aiVis').checked, signal: ac.signal, onLog: aiLog,
       onInventory: (inv) => { S.ai.inventory = inv; S.ai.refOpen = true; syncRefPane(); },
       onSpec: (spec) => { noteReasoning(spec); adoptAIDoc(); if (loadSpec(spec, {}, true)) { viewNow('iso'); setSpecText(); renderInspect(); syncRefPane(); } },
       silhouetteIoU, render: async (spec) => { adoptAIDoc(); loadSpec(spec, {}, true); viewNow('iso'); await frames(4); return renderer.domElement.toDataURL('image/jpeg', .85); } });
@@ -839,11 +872,34 @@ function seedWorkspace() {
     addDoc(spec, { name: spec.name || id, source: 'example:' + id });
   });
 }
+async function exportWorkspace() {
+  persistActive();
+  const pack = CAD.store.pack(S.docs, S.docId);
+  const name = 'image-to-cad-workspace.json';
+  const data = JSON.stringify(pack, null, 2);
+  await deliver('workspace', [{ name, data }]);
+  toast('Workspace exported (' + Object.keys(pack.docs).length + ' design' + (Object.keys(pack.docs).length === 1 ? '' : 's') + ')');
+}
+async function importWorkspaceFile(file) {
+  if (!file) return;
+  let text; try { text = await file.text(); } catch (e) { return toast('Could not read file'); }
+  let pack; try { pack = CAD.store.unpack(text); } catch (e) { return toast(e.message || 'Invalid workspace pack'); }
+  const n = Object.keys(pack.docs).length;
+  if (!confirm('Replace your current workspace with ' + n + ' design' + (n === 1 ? '' : 's') + ' from this file?')) return;
+  persistActive();
+  S.docs = pack.docs;
+  Object.values(S.docs).forEach(d => { if (!d.id) d.id = uid(); });
+  S.docId = null;
+  writeWS(); refreshDocSel();
+  const prefer = (pack.activeId && S.docs[pack.activeId]) ? pack.activeId : Object.keys(S.docs)[0];
+  if (prefer) openDoc(prefer);
+  toast('Imported ' + n + ' design' + (n === 1 ? '' : 's'));
+}
 function boot() {
   const lb = $('#lbar'); lb.style.width = '35%';
   setTimeout(async () => {
     await loadExamples();
-    const ws = readWS();
+    const ws = await readWS();
     if (ws && ws.docs && Object.keys(ws.docs).length) {
       S.docs = ws.docs;
       Object.values(S.docs).forEach(d => { if (!d.id) d.id = uid(); });
@@ -862,6 +918,9 @@ function boot() {
   }, 30);
 }
 $('#bGuide').onclick = () => window.__guide && window.__guide.open();
-window.__cad = { S, T, CAD, loadSpec, loadExample, newDesign, duplicateDesign, renameDesign, deleteDesign, openDoc, viewTo, viewNow, fitView, undo, redo, applyMotion, applySection, setSel, selectDef, exportSelected, exportAll, exportAssembly, exportPlates, exportGroup, runChecks, gotoStep, showAll, camera, controls, renderer, scene, root, sceneBox, updateVisuals, showCut, setTab, deliver, runAI, setImage, aiLog, syncRefPane, silhouetteIoU };
+$('#bWsExport').onclick = () => exportWorkspace();
+$('#bWsImport').onclick = () => $('#wsFile').click();
+$('#wsFile').onchange = e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; importWorkspaceFile(f); };
+window.__cad = { S, T, CAD, loadSpec, loadExample, newDesign, duplicateDesign, renameDesign, deleteDesign, openDoc, viewTo, viewNow, fitView, undo, redo, applyMotion, applySection, setSel, selectDef, exportSelected, exportAll, exportAssembly, exportPlates, exportGroup, runChecks, gotoStep, showAll, camera, controls, renderer, scene, root, sceneBox, updateVisuals, showCut, setTab, deliver, runAI, setImage, aiLog, syncRefPane, silhouetteIoU, exportWorkspace, importWorkspaceFile };
 boot();
 })();

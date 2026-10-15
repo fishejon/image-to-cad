@@ -82,6 +82,48 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     const many = JSON.parse(JSON.stringify(INV)); many.counts.legs = 8; const badCnt = V.evaluate(V.EXAMPLE, { inventory: many }); ok(badCnt.likeness.countMismatches.some(m => m.role === 'legs')); ok(/LIKENESS count/.test(badCnt.text));
     eq(V.maskIoU([1, 1, 0, 0], [1, 0, 1, 0]), 1 / 3); eq(V.maskIoU([1, 1], [1, 1]), 1);
   });
+  await t('parseDims reads fractions, triplets, and structured fields', () => {
+    near(V.parseInch('12 3/16'), (12 + 3 / 16) * 25.4, .01);
+    near(V.parseInch('3/4'), 19.05, .01);
+    const a = V.parseDims('overall height 33 1/2", oak'); ok(a.hMm > 800 && a.hMm < 860, 'h from labeled ' + a.hMm);
+    near(V.parseDims('height 420 mm').hMm, 420, .5); near(V.parseInch('420 mm'), 420, .01);
+    const b = V.parseDims('36 × 18 × 30'); near(b.wMm, 36 * 25.4, .5); near(b.dMm, 18 * 25.4, .5); near(b.hMm, 30 * 25.4, .5);
+    const c = V.parseDims('', { w: '24', d: '12', h: '36' }); near(c.wMm, 24 * 25.4, .5); near(c.hMm, 36 * 25.4, .5);
+    ok(/TARGET OVERALL SIZE/.test(V.composeHints('oak', c)));
+  });
+  await t('drawing mode prompts mention technical drawing and USER METRICS', () => {
+    const metrics = { wMm: 900, dMm: 400, hMm: 750 };
+    const inv = V.buildInventoryPrompt({ inputMode: 'drawing', metrics, hints: 'oak' });
+    ok(/TECHNICAL DRAWING|dimensioned sketch/i.test(inv)); ok(/USER METRICS/.test(inv)); ok(/900/.test(inv));
+    const p = V.buildPrompt({ round: 1, inputMode: 'drawing', metrics, hints: 'oak', inventory: INV });
+    ok(/TECHNICAL DRAWING|dimensioned sketch/i.test(p)); ok(/USER METRICS/.test(p)); ok(/authoritative/i.test(p));
+  });
+  await t('metric size mismatch adds likeness penalty', () => {
+    const M0 = CAD.buildSpec(V.EXAMPLE);
+    const wrong = V.evaluate(V.EXAMPLE, { inventory: INV, metrics: { wMm: M0.size[0] * 2, dMm: M0.size[1], hMm: M0.size[2] } });
+    ok(wrong.likeness.penalty >= 20, 'metric penalty ' + wrong.likeness.penalty); ok(/METRIC size/.test(wrong.text));
+    const okM = V.evaluate(V.EXAMPLE, { inventory: INV, metrics: { wMm: M0.size[0], dMm: M0.size[1], hMm: M0.size[2] } });
+    ok(okM.likeness.penalty < 5, 'exact metrics ok ' + okM.likeness.penalty);
+  });
+  await t('workspace pack + unpack round-trips designs', () => {
+    const Store = CAD.store;
+    const docs = { d1: { id: 'd1', name: 'A', spec: { name: 'A', parts: [] }, ov: {}, updated: 1 } };
+    const pack = Store.pack(docs, 'd1');
+    eq(pack.kind, 'image-to-cad-workspace'); eq(pack.activeId, 'd1');
+    const back = Store.unpack(JSON.stringify(pack));
+    eq(Object.keys(back.docs).length, 1); eq(back.docs.d1.name, 'A');
+    let threw = false; try { Store.unpack({ kind: 'nope', docs: {} }); } catch (e) { threw = true; } ok(threw);
+    ok(Store.normalize({ docs: { d1: docs.d1 }, activeId: 'd1' }));
+  });
+  await t('drawing design run injects metrics into inventory and builder', async () => {
+    const mock = { responses: [JSON.stringify(INV), JSON.stringify(V.EXAMPLE)] }, logs = [];
+    const metrics = { wMm: 300, dMm: 300, hMm: 420 };
+    const res = await V.run({ image: 'data:image/png;base64,AAAA', hints: 'oak', metrics, inputMode: 'drawing', provider: { kind: 'mock', mock }, maxRounds: 1, onLog: m => logs.push(m) });
+    ok(res.rep.ok); ok(logs.some(l => /drawing/i.test(l)));
+    ok(/TECHNICAL DRAWING|dimensioned sketch|USER METRICS/i.test(mock.calls[0].text));
+    ok(/USER METRICS/.test(mock.calls[1].text) && /300/.test(mock.calls[1].text));
+    ok(res.inventory && res.inventory.overallGuessMm && res.inventory.overallGuessMm.w === 300);
+  });
   await t('revise prompt sends the current spec and the requested changes', async () => {
     const mock = { responses: [JSON.stringify(V.EXAMPLE)] };
     const res = await V.run({ task: 'revise', prevSpec: V.EXAMPLE, hints: 'make it 4 inches taller', focusParts: [{ id: 'leg', name: 'Leg' }], provider: { kind: 'mock', mock }, maxRounds: 1 });
