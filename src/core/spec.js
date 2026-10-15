@@ -79,17 +79,24 @@ class MeshSolid {
 }
 CAD.MeshSolid = MeshSolid;
 
+const PRIM_TYPES = ['box', 'cylinder', 'cone', 'tube', 'revolve', 'sphere', 'extrude', 'wedge'];
 function buildPrim(B, pr, sc, mat) {
   const e = k => ev(pr[k], sc), ax = pr.axis || '+z', seg = pr.seg || 32;
   switch (pr.type) {
-    case 'box': B.bb(e('min'), e('max'), mat); break;
+    case 'box': {
+      const lo = e('min'), hi = e('max');
+      if (pr.rot) B.bbRot(lo, hi, ev(pr.rot, sc), mat);
+      else B.bb(lo, hi, mat);
+      break;
+    }
+    case 'wedge': B.wedge(e('min'), e('max'), pr.tip || '+x', e('angle') !== undefined ? e('angle') : 45, mat); break;
     case 'cylinder': B.cyl(e('base'), ax, e('length'), e('r'), mat, seg); break;
     case 'cone': B.cone(e('base'), ax, e('length'), e('r0'), e('r1'), mat, seg); break;
     case 'tube': B.tube(e('base'), ax, e('length'), e('ro'), e('ri'), mat, seg); break;
     case 'revolve': B.rev(e('at') || [0, 0, 0], ax, e('profile'), mat, seg); break;
     case 'sphere': { const R = e('r'), c = e('center') || [0, 0, 0], pts = []; for (let i = 0; i <= 16; i++) { const a = (-90 + 180 * i / 16) * D2R; pts.push([Math.max(0, R * Math.cos(a)), R * Math.sin(a)]); } B.rev(c, '+z', pts, mat, seg); break; }
     case 'extrude': { const [w0, w1] = e('range'); B.ext(pr.plane || 'xy', e('profile'), w0, w1, mat, (pr.holes || []).map(h => h.poly ? { poly: ev(h.poly, sc) } : { c: ev(h.c, sc), r: ev(h.r, sc) }), seg); break; }
-    default: throw new Error('unknown prim type "' + pr.type + '" (box, cylinder, cone, tube, revolve, sphere, extrude)');
+    default: throw new Error('unknown prim type "' + pr.type + '" (box, cylinder, cone, tube, revolve, sphere, extrude, wedge)');
   }
 }
 /* placement: T(pos) · Rz · Ry · Rx, angles in degrees */
@@ -168,6 +175,48 @@ class SpecModel {
     this.bounds = bb; this.size = [bb[3] - bb[0], bb[4] - bb[1], bb[5] - bb[2]];
   }
 }
+/**
+ * Lightweight structural validation before / alongside build.
+ * Catches common LLM shape mistakes without evaluating expressions.
+ * Returns { ok, errors: string[] }.
+ */
+CAD.validateSpec = function (spec) {
+  const errors = [];
+  if (!spec || typeof spec !== 'object') { errors.push('spec must be a JSON object'); return { ok: false, errors }; }
+  if (!Array.isArray(spec.parts)) { errors.push('spec.parts must be an array'); return { ok: false, errors }; }
+  const ids = new Set();
+  spec.parts.forEach((p, pi) => {
+    const path = 'parts[' + pi + ']';
+    if (!p || typeof p !== 'object') { errors.push(path + ': must be an object'); return; }
+    if (!p.id || typeof p.id !== 'string') errors.push(path + ': missing string "id"');
+    else if (ids.has(p.id)) errors.push(path + ': duplicate id "' + p.id + '"');
+    else ids.add(p.id);
+    const kind = p.kind || (p.prims ? 'mesh' : 'solid');
+    if (kind === 'solid') {
+      if (!Array.isArray(p.ops) || !p.ops.length) errors.push(path + ' (' + (p.id || '?') + '): solid part needs a non-empty "ops" array');
+      else (p.ops || []).forEach((op, oi) => {
+        if (!op || typeof op !== 'object') { errors.push(path + '.ops[' + oi + ']: must be an object'); return; }
+        const hasAdd = 'add' in op, hasCut = 'cut' in op;
+        if (hasAdd === hasCut) errors.push(path + '.ops[' + oi + ']: each op needs exactly one of "add" or "cut"');
+        const box = hasAdd ? op.add : op.cut;
+        if (box != null && (!Array.isArray(box) || box.length !== 6)) errors.push(path + '.ops[' + oi + ']: box must be [x0,y0,z0,x1,y1,z1]');
+      });
+    } else if (kind === 'mesh') {
+      if (!Array.isArray(p.prims) || !p.prims.length) errors.push(path + ' (' + (p.id || '?') + '): mesh part needs a non-empty "prims" array');
+      else (p.prims || []).forEach((pr, qi) => {
+        if (!pr || typeof pr !== 'object') { errors.push(path + '.prims[' + qi + ']: must be an object'); return; }
+        if (!pr.type || PRIM_TYPES.indexOf(pr.type) < 0) errors.push(path + '.prims[' + qi + ']: unknown prim type "' + (pr.type || '') + '" (expected ' + PRIM_TYPES.join(', ') + ')');
+        if (pr.type === 'box' || pr.type === 'wedge') {
+          if (!Array.isArray(pr.min) || pr.min.length < 3) errors.push(path + '.prims[' + qi + ']: needs min [x,y,z]');
+          if (!Array.isArray(pr.max) || pr.max.length < 3) errors.push(path + '.prims[' + qi + ']: needs max [x,y,z]');
+        }
+      });
+    } else errors.push(path + ': unknown kind "' + kind + '" (solid | mesh)');
+  });
+  if (spec.params && (typeof spec.params !== 'object' || Array.isArray(spec.params))) errors.push('spec.params must be an object');
+  if (spec.materials && (typeof spec.materials !== 'object' || Array.isArray(spec.materials))) errors.push('spec.materials must be an object');
+  return { ok: !errors.length, errors };
+};
 CAD.buildSpec = (spec, ov) => new SpecModel(spec, ov);
 CAD.SpecModel = SpecModel;
 

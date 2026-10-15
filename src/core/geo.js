@@ -186,6 +186,34 @@ class Builder {
     return this._push(new T.BoxGeometry(s[0], s[1], s[2]), m, transl(c));
   }
   box(c, s, m) { return this._push(new T.BoxGeometry(s[0], s[1], s[2]), m, transl(c)); }
+  /** Axis-aligned box [p0→p1] then rotated by Euler degrees (rx,ry,rz) about its centre. */
+  bbRot(p0, p1, rotDeg, m) {
+    const s = [Math.abs(p1[0] - p0[0]), Math.abs(p1[1] - p0[1]), Math.abs(p1[2] - p0[2])];
+    const c = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, (p0[2] + p1[2]) / 2];
+    const R = new T.Matrix4().makeRotationFromEuler(new T.Euler((rotDeg[0] || 0) * D2R, (rotDeg[1] || 0) * D2R, (rotDeg[2] || 0) * D2R, 'ZYX'));
+    return this._push(new T.BoxGeometry(s[0], s[1], s[2]), m, transl(c).multiply(R));
+  }
+  /**
+   * Mitred board: AABB min→max with one end cut at `angle` degrees (from square).
+   * tip: '+x'|'-x'|'+y'|'-y' — which end is bevelled in the horizontal plane (Z thickness kept).
+   */
+  wedge(p0, p1, tip, angleDeg, m) {
+    const x0 = Math.min(p0[0], p1[0]), y0 = Math.min(p0[1], p1[1]), z0 = Math.min(p0[2], p1[2]);
+    const x1 = Math.max(p0[0], p1[0]), y1 = Math.max(p0[1], p1[1]), z1 = Math.max(p0[2], p1[2]);
+    const ang = Math.max(1, Math.min(89, +angleDeg || 45)) * D2R;
+    const t = tip || '+x';
+    let poly;
+    if (t === '+x' || t === '-x') {
+      const inset = Math.tan(ang) * (y1 - y0);
+      if (t === '+x') poly = [[x0, y0], [x1 - inset, y0], [x1, y1], [x0, y1]];
+      else poly = [[x0 + inset, y0], [x1, y0], [x1, y1], [x0, y1]];
+      return this.ext('xy', poly, z0, z1, m, [], 8);
+    }
+    const inset = Math.tan(ang) * (x1 - x0);
+    if (t === '+y') poly = [[x0, y0], [x1, y0], [x1, y1 - inset], [x0, y1]];
+    else poly = [[x0, y0 + inset], [x1, y0], [x1, y1], [x0, y1]];
+    return this.ext('xy', poly, z0, z1, m, [], 8);
+  }
   cyl(p, ax, len, r, m, seg) { return this.cone(p, ax, len, r, r, m, seg); }
   cone(p, ax, len, r0, r1, m, seg) {
     const g = new T.CylinderGeometry(r1, r0, len, seg || 32, 1, false); g.rotateX(Math.PI / 2); g.translate(0, 0, len / 2);

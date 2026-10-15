@@ -8,7 +8,7 @@ const eq = (a, b, m) => { if (a !== b) throw new Error((m || 'expected equal') +
 const ok = (c, m) => { if (!c) throw new Error(m || 'assertion failed'); };
 const near = (a, b, tol, m) => { if (Math.abs(a - b) > tol) throw new Error((m || 'not near') + ': ' + a + ' vs ' + b); };
 const ev = (s, sc) => CAD.expr.ev(s, sc || {});
-const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = CAD.interference(M), fl = CAD.jointFill(M); return { man, it, fl, bad: fl.filter(r => r.ratio < .999) }; };
+const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = CAD.interference(M).filter(h => !h.coarse || h.severe), fl = CAD.jointFill(M); return { man, it, fl, bad: fl.filter(r => r.ratio < .999) }; };
 (async () => {
   console.log('display units');
   await t('inches snap to 1/16 and print as fractions', () => {
@@ -68,10 +68,58 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     const M = CAD.buildSpec(load('bookshelf')), files = E.stlFiles(M, [...M.defs.values()], { mult: .2, bed: [220, 220, 250], split: true }); const z = CAD.zip(files.map(f => ({ name: f.name, data: f.data })).concat([{ name: 'a/readme.txt', data: 'hello' }])), list = CAD.unzipList(z);
     eq(list.length, files.length + 1); list.forEach((e, i) => { ok(e.crcOk, 'crc ' + e.name); if (i < files.length) { const tr = CAD.stlParse(e.data); eq(tr.length / 9, files[i].tris, 'triangle count ' + e.name); eq(CAD.manifoldPos(tr), 0, 'manifold ' + e.name); } }); });
   await t('cut list & CSV', () => { const M = CAD.buildSpec(load('bookshelf')), c = E.cutCSV(M); ok(c.split('\n').length > M.defs.size, 'rows'); ok(/Shelf/.test(c)); });
+  console.log('mesh interference, wedge, schema');
+  await t('validateSpec catches structural mistakes before build', () => {
+    const bad = CAD.validateSpec({ parts: [{ id: 'a', ops: [{ add: [0, 0, 0, 1, 1] }] }, { id: 'a', prims: [{ type: 'torus' }] }] });
+    ok(!bad.ok); ok(bad.errors.some(e => /duplicate id/.test(e))); ok(bad.errors.some(e => /box must be/.test(e))); ok(bad.errors.some(e => /unknown prim type/.test(e)));
+    ok(CAD.validateSpec(V.EXAMPLE).ok);
+    ok(CAD.validateSpec({ name: 'Blank', parts: [] }).ok);
+  });
+  await t('wedge and rotated box mesh prims build watertight', () => {
+    const spec = {
+      name: 'Mitre frame', units: 'mm', parts: [
+        { id: 'rail', name: 'Rail', kind: 'mesh', material: 'oak', prims: [{ type: 'wedge', min: [0, 0, 0], max: [200, 40, 18], tip: '+x', angle: 45 }], instances: [{ pos: [0, 0, 0] }] },
+        { id: 'rail2', name: 'Rail B', kind: 'mesh', material: 'oak', prims: [{ type: 'box', min: [0, 0, 0], max: [200, 40, 18], rot: [0, 0, 0] }], instances: [{ pos: [0, 80, 0] }] }
+      ]
+    };
+    const M = CAD.buildSpec(spec); eq(M.errors.length, 0, M.errors.join('; '));
+    ok(M.defs.get('rail').vol > 0); ok(M.defs.get('rail').vol < 200 * 40 * 18, 'wedge volume less than full box');
+    const man = CAD.manifoldReport(M).filter(r => r.bad); eq(man.length, 0, 'non-manifold ' + man.map(x => x.id));
+  });
+  await t('coarse AABB interference reports mesh overlaps; exact solids unchanged', () => {
+    const solidOk = CAD.buildSpec(V.EXAMPLE);
+    eq(CAD.interference(solidOk).length, 0);
+    const clash = {
+      name: 'Clash', units: 'mm', parts: [
+        { id: 'a', kind: 'mesh', material: 'oak', prims: [{ type: 'box', min: [0, 0, 0], max: [50, 50, 50] }], instances: [{ pos: [0, 0, 0] }] },
+        { id: 'b', kind: 'mesh', material: 'oak', prims: [{ type: 'box', min: [5, 5, 5], max: [55, 55, 55] }], instances: [{ pos: [0, 0, 0] }] }
+      ]
+    };
+    const M = CAD.buildSpec(clash); eq(M.errors.length, 0, M.errors.join('; '));
+    const hits = CAD.interference(M); ok(hits.length >= 1, 'expected coarse hit'); ok(hits.every(h => h.coarse), 'mesh pairs are coarse');
+    ok(hits.some(h => h.severe), 'near-coincident boxes are severe');
+    const rep = V.evaluate(clash); ok(!rep.ok); ok(/coarse AABB/.test(rep.text));
+    const lamp = CAD.buildSpec(load('lamp'));
+    const soft = CAD.interference(lamp).filter(h => h.coarse && !h.severe);
+    ok(soft.length >= 1, 'lamp has soft assembly contacts');
+    ok(!CAD.interference(lamp).some(h => h.severe), 'lamp has no severe mesh clash');
+  });
+  await t('spatialPairs covers all pairs for small N and scales for large N', () => {
+    const items = [];
+    for (let i = 0; i < 40; i++) items.push({ _ab: [i * 30, 0, 0, i * 30 + 20, 20, 20] });
+    const pairs = CAD.spatialPairs(items, x => x._ab, 25);
+    ok(pairs.length >= 20, 'nearby pairs found ' + pairs.length);
+    ok(pairs.length < 40 * 39 / 2, 'not full brute force when grid helps');
+    const tiny = [{ _ab: [0, 0, 0, 1, 1, 1] }, { _ab: [2, 0, 0, 3, 1, 1] }];
+    eq(CAD.spatialPairs(tiny, x => x._ab).length, 1);
+    const many = [];
+    for (let i = 0; i < 30; i++) many.push({ _ab: [i * 100, i * 100, 0, i * 100 + 10, i * 100 + 10, 10] });
+    ok(CAD.spatialPairs(many, x => x._ab, 50).length < 30 * 29 / 2);
+  });
   console.log('AI module (mock provider)');
   const INV = { object: 'Plant stand', aspect: { w: 1, d: 1, h: 1.4 }, counts: { legs: 4, drawers: 0, doors: 0, shelves: 0, slats: 0 }, parts: [{ role: 'leg', count: 4, shape: 'square' }, { role: 'top', count: 1, shape: 'panel' }] };
   await t('prompt example is itself a valid, clean spec (prompt cannot drift from the engine)', () => { const r = V.evaluate(V.EXAMPLE); ok(r.ok, r.text); ok(r.fillChecked >= 4); });
-  await t('prompt documents every primitive, op and top-level key the engine accepts', () => { for (const w of ['box', 'cylinder', 'cone', 'tube', 'sphere', 'revolve', 'extrude', '"add"', '"cut"', '"fill"', 'params', 'materials', 'groups', 'steps', 'kinematics', 'instances', 'repeat', 'explode', 'if(c,a,b)']) ok(V.SPEC_DOC.includes(w), 'doc missing ' + w); });
+  await t('prompt documents every primitive, op and top-level key the engine accepts', () => { for (const w of ['box', 'cylinder', 'cone', 'tube', 'sphere', 'revolve', 'extrude', 'wedge', '"add"', '"cut"', '"fill"', 'params', 'materials', 'groups', 'steps', 'kinematics', 'instances', 'repeat', 'explode', 'if(c,a,b)']) ok(V.SPEC_DOC.includes(w), 'doc missing ' + w); });
   await t('extractJSON: fences, prose, braces inside strings, truncation', () => {
     eq(V.extractJSON('```json\n{"a":1}\n```').a, 1); eq(V.extractJSON('Here you go: {"a":{"b":"}{"}} thanks').a.b, '}{'); let threw = false; try { V.extractJSON('{"a":[1,2'); } catch (e) { threw = /truncated/.test(e.message); } ok(threw, 'truncation not detected'); threw = false; try { V.extractJSON('no json'); } catch (e) { threw = true; } ok(threw); });
   await t('evaluate flags overlap, unfilled joints and bad expressions with actionable text', () => {
