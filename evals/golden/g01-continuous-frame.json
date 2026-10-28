@@ -1,0 +1,17 @@
+{
+  "id": "g01-continuous-frame",
+  "title": "Continuous side-frame chair (not stick construction)",
+  "notes": "Photo reads as one-piece side frames; models often invent separate legs+rails.",
+  "expected": {
+    "object": "lounge chair",
+    "aspect": { "w": 1.2, "d": 1.4, "h": 1.5 },
+    "counts": { "legs": 4, "drawers": 0, "doors": 0, "shelves": 0, "slats": 0 },
+    "structure": { "memberContinuity": "continuous", "dominantSection": "square" }
+  },
+  "actual": {
+    "object": "lounge chair",
+    "aspect": { "w": 1.25, "d": 1.35, "h": 1.5 },
+    "counts": { "legs": 4, "drawers": 0, "doors": 0, "shelves": 0, "slats": 0 },
+    "structure": { "memberContinuity": "continuous", "dominantSection": "square" }
+  }
+}

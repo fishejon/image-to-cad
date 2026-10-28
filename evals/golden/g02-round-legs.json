@@ -1,0 +1,17 @@
+{
+  "id": "g02-round-legs",
+  "title": "Round turned legs vs square stock",
+  "notes": "Dominant section must stay round; square legs are a common failure.",
+  "expected": {
+    "object": "stool",
+    "aspect": { "w": 1, "d": 1, "h": 1.4 },
+    "counts": { "legs": 3, "drawers": 0, "doors": 0, "shelves": 0, "slats": 0 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "round" }
+  },
+  "actual": {
+    "object": "stool",
+    "aspect": { "w": 1, "d": 1, "h": 1.45 },
+    "counts": { "legs": 3 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "round" }
+  }
+}

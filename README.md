@@ -26,7 +26,7 @@ npx vercel             # preview
 npx vercel --prod      # production
 ```
 
-In the Vercel project, set `ANTHROPIC_API_KEY` (and optionally `RATE_PER_MIN`). Optional product analytics: `POSTHOG_KEY`. Optional LLM observability: `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` (and `LANGFUSE_BASE_URL` if not EU cloud). The Anthropic and Langfuse secrets never reach the browser when visitors use **Server proxy**. You can still import the GitHub repo into Vercel for git-based deploys; this project does not use GitHub Pages. Requires **Node ≥ 22** for Langfuse OTEL.
+In the Vercel project, set `ANTHROPIC_API_KEY` (and optionally `RATE_PER_MIN`). Optional: `POSTHOG_KEY`, `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY`, `DATABASE_URL` (Neon HITL store; run `npm run migrate`), and R2 keys for consented image uploads. Secrets never reach the browser on **Server proxy**. Requires **Node ≥ 22**. Weekly inventory regression: `npm run score:golden`.
 
 Hobby plans cap serverless request bodies at about 4.5 MB. Pictures are downscaled in the browser first; if a run still fails on size, use the browser API-key provider for that image.
 

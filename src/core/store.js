@@ -274,6 +274,25 @@ Store.mirrorFeedback = function (entry) {
     ts: entry.createdAt || entry.ts || Date.now()
   });
 };
+Store.mirrorExample = function (entry) {
+  if (!entry) return Promise.resolve(null);
+  return Store.postTelemetry('/api/examples', {
+    runId: entry.runId || null,
+    object: entry.object || null,
+    inventory: entry.inventory || null,
+    specSummary: entry.specSummary || null,
+    hints: entry.hints || '',
+    model: entry.model || null,
+    quality: entry.quality || null,
+    domain: entry.domain || 'furniture',
+    ts: entry.createdAt || entry.ts || Date.now()
+  });
+};
+/** Opt-in photo upload for a run (requires explicit consent). Default off. */
+Store.uploadRunImage = function (runId, dataUrl, consent) {
+  if (!consent || !runId || !dataUrl) return Promise.resolve(null);
+  return Store.postTelemetry('/api/image', { runId, dataUrl, consent: true });
+};
 
 /** Strip accidental data-URLs / huge blobs before export. */
 Store.sanitizeDatasetRow = function (row) {

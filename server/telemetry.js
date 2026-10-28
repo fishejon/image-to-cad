@@ -1,5 +1,6 @@
 /* Shared telemetry for local proxy + Vercel: validate event/feedback payloads, ring-buffer store, structured logs.
-   No images or API keys. DATABASE_URL can be added later; Phase 1 is memory + console. */
+   No images or API keys. When DATABASE_URL is set, also persist runs/feedback via server/hitl.js. */
+const hitl = require('./hitl');
 const MAX_EVENTS = 500;
 const MAX_FEEDBACK = 500;
 const events = [];
@@ -103,6 +104,7 @@ function logLine(kind, row) {
 function appendEvent(row) {
   pushRing(events, row, MAX_EVENTS);
   logLine('telemetry_event', row);
+  hitl.persistEvent(row);
   return row;
 }
 
@@ -117,6 +119,7 @@ function appendFeedback(row) {
     hasNote: !!row.note,
     hasInventory: !!row.inventory
   });
+  hitl.persistFeedback(row);
   return row;
 }
 

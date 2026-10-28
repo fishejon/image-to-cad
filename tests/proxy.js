@@ -41,6 +41,19 @@ up.listen(0, async () => {
   r = await fetch(base + '/'); check(r.status === 200 && /Image → CAD/.test(await r.text()), 'serves index.html'); r = await fetch(base + '/examples/stool.json'); check(r.status === 200 && (await r.json()).name === 'Three-leg stool', 'serves examples');
   r = await fetch(base + '/api/status'); const st = await r.json(); check(r.status === 200 && st.hasKey === true && !JSON.stringify(st).includes('SERVERSIDE'), 'status reports the key is present without leaking it');
   check(st.posthogKey == null || typeof st.posthogKey === 'string', 'status includes optional posthogKey field');
+  check(st.hasDatabase === false && st.hasObjectStorage === false, 'status reports DB/storage off without env');
+  r = await fetch(base + '/api/examples', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ runId: 'r_ex', object: 'stool', inventory: { object: 'stool' } })
+  });
+  check(r.status === 202 && (await r.json()).persisted === false, 'POST /api/examples accepts without DATABASE_URL');
+  r = await fetch(base + '/api/dataset');
+  check(r.status === 503, 'GET /api/dataset → 503 without DATABASE_URL');
+  r = await fetch(base + '/api/image', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ runId: 'r_img', consent: false })
+  });
+  check(r.status === 400, 'POST /api/image without consent → 400');
   r = await fetch(base + '/api/events', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ type: 'run_started', runId: 'r_evt', task: 'design', model: 'm' })

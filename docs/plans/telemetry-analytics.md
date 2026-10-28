@@ -21,8 +21,8 @@
 - [x] `/api/feedback` + `/api/events`
 - [x] PostHog
 - [x] Langfuse
-- [ ] Postgres / R2
-- [ ] Golden-set eval job
+- [x] Postgres / R2
+- [x] Golden-set eval job
 
 ## Tasks
 
@@ -39,10 +39,10 @@
 - [x] **Dashboard doc** — One page listing the 6 north-star metrics (create success, ratings, critic usefulness, unlabeled contacts, guide opens, $ / success) → [`telemetry-dashboard.md`](./telemetry-dashboard.md)
 
 ### Phase 3 — Durable learning store
-- [ ] **Postgres schema** — `runs`, `feedback`, `examples` tables keyed by `run_id`
-- [ ] **R2/S3** — Optional image upload with consent; store hash + URL on run row
-- [ ] **Export job** — Server-side JSONL compatible with existing `hitl-v1` schema (merge local + server)
-- [ ] **Golden set** — Seed 5–10 hard images with expected inventory; weekly score script
+- [x] **Postgres schema** — `runs`, `feedback`, `examples` tables keyed by `run_id` → [`server/sql/001_hitl.sql`](../../server/sql/001_hitl.sql); `npm run migrate`
+- [x] **R2/S3** — Optional image upload with consent (`POST /api/image`); store hash + URL on run row
+- [x] **Export job** — Server-side JSONL compatible with existing `hitl-v1` schema (`GET /api/dataset`)
+- [x] **Golden set** — 8 hard inventory cases in [`evals/golden`](../../evals/golden); `npm run score:golden`
 
 ### Phase 4 — Multi-domain / B2B readiness (later)
 - [ ] Auth + `org_id` on events

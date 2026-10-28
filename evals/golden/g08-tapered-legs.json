@@ -1,0 +1,17 @@
+{
+  "id": "g08-tapered-legs",
+  "title": "Tapered square legs desk",
+  "notes": "Section should be tapered (or square), not round.",
+  "expected": {
+    "object": "desk",
+    "aspect": { "w": 2, "d": 1, "h": 1.05 },
+    "counts": { "legs": 4, "drawers": 1, "doors": 0, "shelves": 0, "slats": 0 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "tapered" }
+  },
+  "actual": {
+    "object": "desk",
+    "aspect": { "w": 1.95, "d": 1, "h": 1.05 },
+    "counts": { "legs": 4, "drawers": 1 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "tapered" }
+  }
+}

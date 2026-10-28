@@ -1,0 +1,17 @@
+{
+  "id": "g05-bookshelf-shelves",
+  "title": "Five-shelf bookcase",
+  "notes": "Shelf count under-reading from foreshortening.",
+  "expected": {
+    "object": "bookshelf",
+    "aspect": { "w": 1, "d": 0.35, "h": 2.2 },
+    "counts": { "legs": 0, "drawers": 0, "doors": 0, "shelves": 5, "slats": 0 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "slab" }
+  },
+  "actual": {
+    "object": "bookshelf",
+    "aspect": { "w": 1, "d": 0.4, "h": 2.15 },
+    "counts": { "shelves": 5 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "slab" }
+  }
+}
