@@ -9,6 +9,13 @@ module.exports = (req, res) => {
     ok: true,
     hasKey: !!process.env.ANTHROPIC_API_KEY,
     posthogKey: posthogKey || null,
-    posthogHost: posthogKey ? posthogHost : null
+    posthogHost: posthogKey ? posthogHost : null,
+    hasDatabase: !!process.env.DATABASE_URL,
+    hasObjectStorage: !!(
+      (process.env.R2_ACCOUNT_ID || process.env.S3_ENDPOINT) &&
+      process.env.R2_ACCESS_KEY_ID &&
+      process.env.R2_SECRET_ACCESS_KEY &&
+      process.env.R2_BUCKET
+    )
   });
 };

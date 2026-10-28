@@ -1144,7 +1144,7 @@ async function submitFeedback(rating) {
 async function markExampleCorrect() {
   if (!S.spec) return toast('No design to save');
   try {
-    await CAD.store.addExample({
+    const ex = await CAD.store.addExample({
       object: (S.ai.inventory && S.ai.inventory.object) || S.spec.name || '',
       runId: (S.lastRun && S.lastRun.runId) || null,
       inventory: S.ai.inventory || null,
@@ -1154,6 +1154,7 @@ async function markExampleCorrect() {
       model: (S.lastRun && S.lastRun.model) || null,
       quality: (S.lastRun && S.lastRun.quality) || null
     });
+    if (CAD.store.mirrorExample) CAD.store.mirrorExample(ex);
     if (!S.feedback.rating) await submitFeedback('match');
     else toast('Saved as a success example for future generates');
     S.feedback.pending = false;

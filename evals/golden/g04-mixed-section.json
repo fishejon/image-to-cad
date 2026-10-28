@@ -1,0 +1,17 @@
+{
+  "id": "g04-mixed-section",
+  "title": "Square posts with round stretchers",
+  "notes": "dominantSection should be mixed when both are clearly visible.",
+  "expected": {
+    "object": "dining table",
+    "aspect": { "w": 2.2, "d": 1, "h": 0.85 },
+    "counts": { "legs": 4, "drawers": 0, "doors": 0, "shelves": 0, "slats": 0 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "mixed" }
+  },
+  "actual": {
+    "object": "dining table",
+    "aspect": { "w": 2.1, "d": 1, "h": 0.85 },
+    "counts": { "legs": 4 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "mixed" }
+  }
+}

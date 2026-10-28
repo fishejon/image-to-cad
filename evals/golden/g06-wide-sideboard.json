@@ -1,0 +1,17 @@
+{
+  "id": "g06-wide-sideboard",
+  "title": "Wide sideboard with doors + drawers",
+  "notes": "Aspect width-heavy; door/drawer mix often swapped.",
+  "expected": {
+    "object": "sideboard",
+    "aspect": { "w": 3.2, "d": 0.7, "h": 1 },
+    "counts": { "legs": 4, "drawers": 2, "doors": 2, "shelves": 0, "slats": 0 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "slab" }
+  },
+  "actual": {
+    "object": "sideboard",
+    "aspect": { "w": 3.0, "d": 0.75, "h": 1 },
+    "counts": { "legs": 4, "drawers": 2, "doors": 2 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "slab" }
+  }
+}

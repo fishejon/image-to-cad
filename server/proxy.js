@@ -1,11 +1,13 @@
-/* Tiny zero-dependency dev server: serves the app and proxies POST /api/messages to Anthropic so your API key stays on the server.
-   Also accepts POST /api/events and /api/feedback (Phase 1 telemetry).
-   ANTHROPIC_API_KEY=sk-ant-... node server/proxy.js      →  http://localhost:8787   (choose "Server proxy" in the AI tab) */
+/* Dev server: static app + Anthropic proxy + telemetry / HITL APIs.
+   ANTHROPIC_API_KEY=sk-ant-... node server/proxy.js      →  http://localhost:8787 */
 const http = require('http'), fs = require('fs'), path = require('path');
 const { handleMessagesRequest, pipeStream, MAX_BODY } = require('./messages');
 const { handleEventsRequest, handleFeedbackRequest } = require('./telemetry');
+const db = require('./db');
+const storage = require('./storage');
+const hitl = require('./hitl');
 const PORT = +process.env.PORT || 8787, ROOT = path.join(__dirname, '..');
-const ALLOW = new Set(['index.html', 'src', 'examples', 'dist', 'docs', 'favicon.ico']);
+const ALLOW = new Set(['index.html', 'src', 'examples', 'dist', 'docs', 'evals', 'favicon.ico']);
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.md': 'text/markdown; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 const send = (res, code, body, type, extraHeaders) => {
   res.writeHead(code, Object.assign({
@@ -39,7 +41,9 @@ const server = http.createServer((req, res) => {
       ok: true,
       hasKey: !!process.env.ANTHROPIC_API_KEY,
       posthogKey: posthogKey || null,
-      posthogHost: posthogKey ? posthogHost : null
+      posthogHost: posthogKey ? posthogHost : null,
+      hasDatabase: db.enabled(),
+      hasObjectStorage: storage.enabled()
     });
   }
   if (req.method === 'POST' && req.url === '/api/messages') {
@@ -69,6 +73,49 @@ const server = http.createServer((req, res) => {
         : await handleFeedbackRequest({ body: buf });
       send(res, result.status, result.json);
     });
+    return;
+  }
+  if (req.method === 'POST' && req.url === '/api/examples') {
+    readBody(req, res, 256 * 1024).then(async buf => {
+      if (!buf) return;
+      let body; try { body = JSON.parse(buf.toString()); } catch (e) { return send(res, 400, { error: { message: 'invalid JSON' } }); }
+      const v = hitl.validateExample(body);
+      if (!v.ok) return send(res, 400, { error: { message: v.error } });
+      if (!db.enabled()) return send(res, 202, { ok: true, persisted: false, runId: v.row.runId, reason: 'DATABASE_URL unset' });
+      try {
+        const r = await hitl.insertExample(v.row);
+        const id = r && r.rows && r.rows[0] && r.rows[0].id;
+        send(res, 202, { ok: true, persisted: true, id, runId: v.row.runId });
+      } catch (e) { send(res, 500, { error: { message: e.message || 'persist failed' } }); }
+    });
+    return;
+  }
+  if (req.method === 'POST' && req.url === '/api/image') {
+    readBody(req, res, MAX_BODY).then(async buf => {
+      if (!buf) return;
+      let body; try { body = JSON.parse(buf.toString()); } catch (e) { return send(res, 400, { error: { message: 'invalid JSON' } }); }
+      const runId = String(body.runId || '').trim();
+      if (!runId) return send(res, 400, { error: { message: 'runId required' } });
+      if (!body.consent) return send(res, 400, { error: { message: 'consent must be true to upload images' } });
+      try {
+        const up = await storage.uploadRunImage({ runId, consent: true, dataUrl: body.dataUrl || body.image || null });
+        if (!up.ok) return send(res, 400, { error: { message: up.error || 'upload failed' } });
+        if (db.enabled()) await hitl.updateRunImage(runId, { imageHash: up.imageHash, imageUrl: up.imageUrl, imageConsent: true });
+        send(res, 202, { ok: true, runId, imageHash: up.imageHash, imageUrl: up.imageUrl || null, uploaded: !up.skippedUpload });
+      } catch (e) { send(res, 500, { error: { message: e.message || 'upload failed' } }); }
+    });
+    return;
+  }
+  if (req.method === 'GET' && (req.url === '/api/dataset' || req.url.startsWith('/api/dataset?'))) {
+    if (!db.enabled()) return send(res, 503, { error: { message: 'DATABASE_URL not set' } });
+    const u = new URL(req.url, 'http://x');
+    hitl.buildServerDataset({ limit: u.searchParams.get('limit') }).then(out => {
+      if (!out || !out.ok) return send(res, 500, { error: { message: (out && out.error) || 'export failed' } });
+      if ((u.searchParams.get('format') || '').toLowerCase() === 'jsonl') {
+        return send(res, 200, out.jsonl.feedback + out.jsonl.examples, 'application/x-ndjson; charset=utf-8');
+      }
+      send(res, 200, out.pack);
+    }).catch(e => send(res, 500, { error: { message: e.message || 'export failed' } }));
     return;
   }
   if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res); send(res, 405, { error: 'method not allowed' });
