@@ -535,7 +535,9 @@ V.providers = {
   anthropic: async o => {
     const maxTok = Math.min(+o.max_tokens || V.tokenBudget(o.task), 32000);
     const stream = o.stream !== false;
-    const r = await fetch((o.baseUrl || 'https://api.anthropic.com') + '/v1/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json', 'x-api-key': o.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    const headers = { 'content-type': 'application/json', 'x-api-key': o.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
+    if (o.runId) headers['x-run-id'] = String(o.runId);
+    const r = await fetch((o.baseUrl || 'https://api.anthropic.com') + '/v1/messages', { method: 'POST', signal: o.signal, headers,
       body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: maxTok, stream, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
     if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error('Anthropic API ' + r.status + ': ' + ((j.error && j.error.message) || r.statusText)); }
     const ct = (r.headers.get('content-type') || '');
@@ -545,7 +547,11 @@ V.providers = {
   proxy: async o => {
     const maxTok = Math.min(+o.max_tokens || V.tokenBudget(o.task), 32000);
     const stream = o.stream !== false;
-    const r = await fetch(o.proxyUrl || '/api/messages', { method: 'POST', signal: o.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: maxTok, stream, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
+    const headers = { 'content-type': 'application/json' };
+    if (o.runId) headers['x-run-id'] = String(o.runId);
+    const body = { model: o.model || 'claude-sonnet-4-5', max_tokens: maxTok, stream, messages: [{ role: 'user', content: blocks(o.text, o.images) }] };
+    if (o.runId) body.runId = String(o.runId);
+    const r = await fetch(o.proxyUrl || '/api/messages', { method: 'POST', signal: o.signal, headers, body: JSON.stringify(body) });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       const msg = (j.error && (j.error.message || j.error)) || r.statusText;
@@ -586,6 +592,7 @@ V.run = async function (o) {
   const hintText = V.composeHints(o.hints, metrics);
   const pastExampleText = o.pastExampleText || (o.pastExamples && CAD.store && CAD.store.formatExamplesForPrompt
     ? CAD.store.formatExamplesForPrompt(o.pastExamples) : '') || '';
+  const callModel = (extra) => call(Object.assign({}, o.provider, { signal: o.signal, runId: o.runId }, extra));
   const promptExtras = () => ({ hints: hintText, metrics, inputMode, inventory, pastExampleText: pastExampleText || undefined });
   const critOpts = () => ({ inventory, metrics: (metrics.wMm || metrics.dMm || metrics.hMm) ? metrics : null });
   let best = null, prev = o.task === 'revise' ? o.prevSpec : null, report = null, mode = 'fix', visualDone = false, likenessRetryDone = false, lastOk = null;
@@ -613,7 +620,7 @@ V.run = async function (o) {
   if (o.task !== 'revise' && refs.length && !inventory) {
     log(inputMode === 'drawing' ? 'Inventory pass: reading the drawing…' : 'Inventory pass: reading the picture…');
     try {
-      const rawInv = await call(Object.assign({}, o.provider, { text: V.buildInventoryPrompt({ hints: hintText, metrics, inputMode, pastExampleText }), images: refs.slice(), signal: o.signal, task: 'inventory', max_tokens: V.tokenBudget('inventory') }));
+      const rawInv = await callModel({ text: V.buildInventoryPrompt({ hints: hintText, metrics, inputMode, pastExampleText }), images: refs.slice(), task: 'inventory', max_tokens: V.tokenBudget('inventory') });
       inventory = V.extractJSON(rawInv);
       if (metrics.wMm || metrics.dMm || metrics.hMm) {
         inventory.overallGuessMm = inventory.overallGuessMm || {};
@@ -642,7 +649,7 @@ V.run = async function (o) {
       for (let attempt = 1; attempt <= 2; attempt++) {
         log('Stage ' + stage.label + ' (' + (si + 1) + '/' + V.STAGES.length + ')' + (attempt > 1 ? ' · fix' : '') + '…');
         const text = V.buildPrompt(Object.assign({ stage, prevSpec: stagePrev, report: stageReport }, promptExtras(), { inventory }));
-        let raw; try { raw = await call(Object.assign({}, o.provider, { text, images: refs.slice(), signal: o.signal, task: stage.id, max_tokens: V.tokenBudget(stage.id) })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
+        let raw; try { raw = await callModel({ text, images: refs.slice(), task: stage.id, max_tokens: V.tokenBudget(stage.id) }); } catch (e) { log('Model call failed: ' + e.message); throw e; }
         let spec; try { spec = V.extractJSON(raw); } catch (e) {
           log('Could not read JSON: ' + e.message);
           stageReport = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object.' };
@@ -671,7 +678,7 @@ V.run = async function (o) {
     log('Round ' + round + '/' + max + ': ' + (round === 1 && !wantStages ? first : mode === 'visual' ? 'visual critique against the reference…' : wantStages && round === 1 ? first : 'sending critic findings back to the model…'));
     const images = refs.slice(); if (mode === 'visual' && o.render) { const png = await o.render(prev); if (png) images.push(typeof png === 'string' ? V.dataUrlToImage(png) : png); }
     const text = V.buildPrompt(Object.assign({ round: wantStages ? round + 1 : round, prevSpec: prev, report, mode, task: o.task, focusParts: o.focusParts, focusJoint: o.focusJoint }, promptExtras(), { inventory }));
-    let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal, task: o.task === 'revise' ? 'revise' : 'design', max_tokens: V.tokenBudget(o.task === 'revise' ? 'revise' : 'design') })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
+    let raw; try { raw = await callModel({ text, images, task: o.task === 'revise' ? 'revise' : 'design', max_tokens: V.tokenBudget(o.task === 'revise' ? 'revise' : 'design') }); } catch (e) { log('Model call failed: ' + e.message); throw e; }
     let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object with a "reasoning" field.' }; mode = 'fix'; continue; }
     if (prev && wantStages) spec = V.mergeSpecs(prev, spec);
     let iou = null;

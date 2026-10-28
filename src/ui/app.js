@@ -380,6 +380,10 @@ function setTarget(t) {
   S.sel = new Set(list.length ? list : S.sel);
   updateVisuals(); syncTreeSel(); renderInspect();
   if ($('#aiBox').classList.contains('open')) syncAIFocus();
+  if (CAD.analytics) CAD.analytics.capture('joint_targeted', {
+    kind: t.kind, method: t.method || null,
+    runId: (S.lastRun && S.lastRun.runId) || null
+  });
   toast(t.kind === 'contact' ? 'Targeted unlabeled contact — pick a joinery type' : 'Targeted joint: ' + CAD.jointMethodLabel(t.method));
 }
 function setSel(list) { if (!list.length) clearTarget(true); else if (S.target && S.target.kind !== 'part') { /* keep joint target if mates still selected */ const ids = new Set(list.map(R => R.def.id)); const need = targetPartIds(); if (need && [...need].some(id => !ids.has(id))) S.target = null; }
@@ -672,8 +676,10 @@ async function deliver(base, files) {
   if (!files.length) { toast('Nothing to export'); return null; } const dl = await getDL(), many = files.length > 1, zipIt = () => new Blob([CAD.zip(files.map(f => ({ name: f.name, data: f.data })))], { type: 'application/zip' });
   const info = { files: files.map(f => f.name), tris: files.reduce((s, f) => s + (f.tris || 0), 0) }; window.__lastExport = info;
   const plain = !many && /\.(csv|html|txt|json)$/.test(files[0].name), stl = !many && /\.stl$/.test(files[0].name);
+  const hasStl = files.some(f => /\.stl$/i.test(f.name));
   try { if (dl) { if (plain) { await dl.save({ filename: files[0].name, data: new Blob([files[0].data]) }); toast(files[0].name + ' saved'); } else { await dl.save({ filename: safe(base) + '.zip', data: zipIt() }); toast((many ? files.length + ' files' : files[0].name) + ' saved inside ' + safe(base) + '.zip'); } }
     else if (plain || stl) { anchorSave(files[0].name, new Blob([files[0].data], { type: 'application/octet-stream' })); toast('Downloaded ' + files[0].name); } else { anchorSave(safe(base) + '.zip', zipIt()); toast('Downloaded ' + safe(base) + '.zip'); }
+    if (hasStl && CAD.analytics) CAD.analytics.capture('export_stl', { base: String(base || '').slice(0, 80), files: files.length, runId: (S.lastRun && S.lastRun.runId) || null });
   } catch (e) { toast(e && e.code === 'declined' ? 'Save cancelled' : 'Save failed: ' + (e && e.message || e)); } return info;
 }
 const cutCSV = () => CAD.exporter.cutCSV(S.M);
@@ -710,6 +716,9 @@ async function exportHitlDataset() {
     const n = out.pack.stats.feedbackCount + out.pack.stats.exampleCount;
     if (!n) return toast('No feedback or examples saved yet — rate a generate first');
     await deliver('hitl_dataset', out.files);
+    if (CAD.analytics) CAD.analytics.capture('dataset_exported', {
+      feedback: out.pack.stats.feedbackCount, examples: out.pack.stats.exampleCount
+    });
     toast('Dataset exported · ' + out.pack.stats.feedbackCount + ' feedback · ' + out.pack.stats.exampleCount + ' examples');
   } catch (e) { toast('Dataset export failed: ' + e.message); }
 }
@@ -1027,10 +1036,22 @@ async function runAI(task) {
   const go = $('#aiGo'), rev = $('#aiRev'), stop = $('#aiStop');
   if (go) go.disabled = true; if (rev) rev.disabled = true; if (stop) stop.disabled = false;
   const ac = new AbortController(); S.ai.abort = ac;
+  const t0 = Date.now();
   setAIStatus('<b>Status:</b> starting…', true);
   aiLog('Run ' + runId + ' · ' + model + ' · Quality ' + preset.label + ' (' + maxRounds + ' round' + (maxRounds === 1 ? '' : 's') + (visual ? ', photo match on' : ', photo match off') + ')' + (inputMode === 'drawing' ? ' · drawing' : '') +
     (focusJoint ? ' · joint ' + (focusJoint.cutName || focusJoint.cutId) + '↔' + (focusJoint.addName || focusJoint.addId) + (focusJoint.requestedMethod ? ' → ' + focusJoint.requestedMethod : '') :
       (focusParts.length ? ' · focused on ' + focusParts.map(p => p.name).join(', ') : '')));
+  if (CAD.store.trackEvent) {
+    CAD.store.trackEvent({
+      type: 'run_started', runId, domain: 'furniture', task, inputMode, quality: preset.id, model,
+      staged: task === 'design', visual: !!visual
+    });
+  }
+  if (CAD.analytics) {
+    CAD.analytics.capture(task === 'revise' ? 'revise_started' : 'create_started', {
+      runId, quality: preset.id, model, inputMode, visual: !!visual
+    });
+  }
   try {
     const res = await CAD.vision.run({
       image: S.ai.img, hints, metrics, dimFields, inputMode, task, focusParts, focusJoint, pastExamples, runId,
@@ -1042,6 +1063,7 @@ async function runAI(task) {
     });
     res.spec.__ai = true; if (res.inventory) S.ai.inventory = res.inventory; noteReasoning(res.spec); adoptAIDoc(); loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText();
     S.ai.refOpen = true; syncRefPane();
+    const unlabeled = (res.rep && res.rep.unlabeledContacts && res.rep.unlabeledContacts.length) || 0;
     S.lastRun = {
       runId, task, visualCritic: res.visualCritic || null, at: Date.now(), hints, metrics,
       inventory: res.inventory || null, model, quality: preset.id,
@@ -1049,6 +1071,26 @@ async function runAI(task) {
       likenessPenalty: res.rep && res.rep.likeness ? res.rep.likeness.penalty : null,
       round: res.round || null
     };
+    if (CAD.store.trackEvent) {
+      CAD.store.trackEvent({
+        type: 'run_finished', runId, domain: 'furniture',
+        geometryOk: !!(res.rep && res.rep.ok),
+        rounds: res.round || null,
+        likenessPenalty: S.lastRun.likenessPenalty,
+        iou: res.visualCritic && res.visualCritic.iou != null ? res.visualCritic.iou : null,
+        unlabeledContacts: unlabeled,
+        durationMs: Date.now() - t0
+      });
+    }
+    if (CAD.analytics) {
+      const props = {
+        runId, geometryOk: !!(res.rep && res.rep.ok), rounds: res.round || null,
+        likenessPenalty: S.lastRun.likenessPenalty, unlabeledContacts: unlabeled,
+        durationMs: Date.now() - t0, quality: preset.id
+      };
+      if (task === 'revise') CAD.analytics.capture('revise_applied', props);
+      else CAD.analytics.capture('create_finished', props);
+    }
     S.feedback = { rating: null, tags: [], note: '', pending: true };
     const vcMsg = visualStatusHtml(res.visualCritic);
     setAIStatus('<b>Status:</b> ' + (res.rep.ok ? 'geometry checks passed' : 'loaded with remaining issues') + (vcMsg ? '<br>' + vcMsg : '') + '<br>Rate the match in Inspect.', true);
@@ -1058,6 +1100,13 @@ async function runAI(task) {
     aiLog('Error: ' + (e.name === 'AbortError' ? 'stopped' : e.message));
     setAIStatus('<b>Status:</b> <span class="fail">' + esc(e.name === 'AbortError' ? 'stopped' : e.message) + '</span>', true);
     toast('AI run failed: see the log');
+    if (CAD.store.trackEvent) {
+      CAD.store.trackEvent({
+        type: 'run_finished', runId, domain: 'furniture',
+        geometryOk: false, durationMs: Date.now() - t0,
+        error: e.name === 'AbortError' ? 'aborted' : String(e.message || e).slice(0, 500)
+      });
+    }
     if (aiDocId) { delete S.docs[aiDocId]; writeWS(); refreshDocSel(); }
   }
   finally { S.ai.busy = false; if (go) go.disabled = false; if (rev) rev.disabled = false; if (stop) stop.disabled = true; }
@@ -1067,7 +1116,7 @@ async function submitFeedback(rating) {
   const tags = S.feedback.tags || [];
   const note = S.feedback.note || '';
   try {
-    await CAD.store.addFeedback({
+    const row = await CAD.store.addFeedback({
       rating, failureTags: tags, note,
       runId: (S.lastRun && S.lastRun.runId) || null,
       inventory: S.ai.inventory || (S.lastRun && S.lastRun.inventory) || null,
@@ -1080,6 +1129,11 @@ async function submitFeedback(rating) {
       likenessPenalty: S.lastRun ? S.lastRun.likenessPenalty : null,
       docId: S.docId,
       object: (S.ai.inventory && S.ai.inventory.object) || (S.spec && S.spec.name) || ''
+    });
+    if (CAD.store.mirrorFeedback) CAD.store.mirrorFeedback(row);
+    if (CAD.analytics) CAD.analytics.capture('feedback_submitted', {
+      runId: row.runId || null, rating: row.rating,
+      failureTags: row.failureTags || [], quality: row.quality || null
     });
   } catch (e) { /* persist best-effort */ }
   S.feedback.pending = false;
@@ -1256,6 +1310,7 @@ async function importWorkspaceFile(file) {
 function boot() {
   const lb = $('#lbar'); lb.style.width = '35%';
   setTimeout(async () => {
+    if (CAD.analytics && CAD.analytics.init) CAD.analytics.init().catch(function () {});
     await loadExamples();
     const ws = await readWS();
     if (ws && ws.docs && Object.keys(ws.docs).length) {

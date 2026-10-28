@@ -6,7 +6,7 @@
   "author": "fishejon",
   "private": false,
   "scripts": {
-    "test": "node tests/run.js && node tests/proxy.js",
+    "test": "node tests/run.js && node tests/telemetry.js && node tests/proxy.js",
     "test:browser": "node tests/browser.mjs && node tests/browser-ai.mjs && node tests/browser-guide.mjs",
     "build": "node tools/build.js",
     "serve": "node server/proxy.js",
