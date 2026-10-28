@@ -274,6 +274,27 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     eq(picked.length, 1); eq(picked[0].object, 'Plant stand');
     ok(/SIMILAR PAST SUCCESS/.test(Store.formatExamplesForPrompt(picked)));
   });
+  await t('HITL dataset export builds pack + JSONL without images', async () => {
+    const Store = CAD.store;
+    ok(Store.newRunId().indexOf('r') === 0);
+    const feedback = [
+      { rating: 'wrong', failureTags: ['proportions', 'section'], note: 'legs too thin', runId: 'rtest1', object: 'Chair', inventory: INV },
+      { rating: 'match', failureTags: [], runId: 'rtest2', object: 'Plant stand', inventory: INV }
+    ];
+    const examples = [{ object: 'Plant stand', runId: 'rtest2', inventory: INV, specSummary: Store.summarizeSpec(V.EXAMPLE) }];
+    const pack = await Store.buildDataset({ feedback, examples });
+    eq(pack.kind, 'image-to-cad-dataset'); eq(pack.schema, 'hitl-v1');
+    eq(pack.stats.feedbackCount, 2); eq(pack.stats.exampleCount, 1);
+    eq(pack.stats.byRating.match, 1); eq(pack.stats.byRating.wrong, 1);
+    ok(pack.stats.tagCounts.proportions === 1);
+    const jsonl = Store.toJSONL(pack.feedback, 'feedback');
+    ok(jsonl.split('\n').filter(Boolean).length === 2);
+    ok(/"recordType":"feedback"/.test(jsonl) && /rtest1/.test(jsonl));
+    const stripped = Store.sanitizeDatasetRow({ note: 'ok', img: 'data:image/png;base64,AAAA' });
+    ok(stripped.note === 'ok'); ok(stripped.img === undefined);
+    const files = await Store.datasetExportFiles({ feedback, examples });
+    ok(files.files.length >= 3); ok(files.files.every(f => f.name && typeof f.data === 'string'));
+  });
   await t('past success text is injected into inventory and builder prompts', async () => {
     const past = CAD.store.formatExamplesForPrompt([{ object: 'Plant stand', inventory: INV, specSummary: CAD.store.summarizeSpec(V.EXAMPLE) }]);
     ok(/SIMILAR PAST SUCCESS/.test(V.buildInventoryPrompt({ pastExampleText: past })));

@@ -230,4 +230,94 @@ Store.qualityPreset = function (id) {
   };
   return map[id] || map.balanced;
 };
+
+Store.newRunId = function () {
+  return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+};
+
+/** Strip accidental data-URLs / huge blobs before export. */
+Store.sanitizeDatasetRow = function (row) {
+  if (!row || typeof row !== 'object') return row;
+  const out = {};
+  Object.keys(row).forEach(k => {
+    const v = row[k];
+    if (typeof v === 'string' && /^data:/i.test(v)) return;
+    if (typeof v === 'string' && v.length > 20000) out[k] = v.slice(0, 20000) + '…';
+    else out[k] = v;
+  });
+  return out;
+};
+
+Store.datasetStats = function (feedback, examples) {
+  const fb = feedback || [], ex = examples || [];
+  const byRating = { match: 0, close: 0, wrong: 0, other: 0 };
+  const tagCounts = {};
+  fb.forEach(r => {
+    const k = r && r.rating;
+    if (k === 'match' || k === 'close' || k === 'wrong') byRating[k]++;
+    else byRating.other++;
+    (r && r.failureTags || []).forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+  });
+  return {
+    feedbackCount: fb.length,
+    exampleCount: ex.length,
+    byRating,
+    tagCounts
+  };
+};
+
+/**
+ * HITL dataset pack for few-shot / future FT export.
+ * No raw images — inventory + ratings + compact spec summaries only.
+ * Pass `{ feedback, examples }` to build from in-memory rows (tests / offline).
+ */
+Store.buildDataset = async function (o) {
+  o = o || {};
+  const feedback = (o.feedback || await Store.readFeedback()).map(Store.sanitizeDatasetRow);
+  const examples = (o.examples || await Store.readExamples()).map(Store.sanitizeDatasetRow);
+  return {
+    version: 1,
+    kind: 'image-to-cad-dataset',
+    schema: 'hitl-v1',
+    purpose: 'Local HITL export for few-shot and future Bedrock/open VLM fine-tune. Images are not included.',
+    exportedAt: Date.now(),
+    stats: Store.datasetStats(feedback, examples),
+    feedback,
+    examples
+  };
+};
+
+/** One JSON object per line (JSONL) for FT pipelines. */
+Store.toJSONL = function (rows, recordType) {
+  return (rows || []).map(r => JSON.stringify(Object.assign({ recordType: recordType || 'row' }, Store.sanitizeDatasetRow(r)))).join('\n') + ((rows && rows.length) ? '\n' : '');
+};
+
+/** Files suitable for deliver() / ZIP: pack JSON + JSONL splits. */
+Store.datasetExportFiles = async function (o) {
+  const pack = await Store.buildDataset(o);
+  const stamp = new Date(pack.exportedAt).toISOString().slice(0, 10);
+  const base = 'image-to-cad-dataset-' + stamp;
+  return {
+    pack,
+    files: [
+      { name: base + '.json', data: JSON.stringify(pack, null, 2) },
+      { name: base + '-feedback.jsonl', data: Store.toJSONL(pack.feedback, 'feedback') },
+      { name: base + '-examples.jsonl', data: Store.toJSONL(pack.examples, 'example') },
+      {
+        name: base + '-README.txt',
+        data: [
+          'image-to-cad HITL dataset (' + pack.schema + ')',
+          'Exported: ' + new Date(pack.exportedAt).toISOString(),
+          'Feedback rows: ' + pack.stats.feedbackCount + ' (match/close/wrong: ' +
+            pack.stats.byRating.match + '/' + pack.stats.byRating.close + '/' + pack.stats.byRating.wrong + ')',
+          'Marked-correct examples: ' + pack.stats.exampleCount,
+          '',
+          'Use *.json for a full pack, or *.jsonl lines for fine-tune / eval pipelines.',
+          'No photos are included — re-link via runId when server telemetry is enabled.',
+          'Failure tags: ' + (Store.FAILURE_TAGS || []).join(', ')
+        ].join('\n')
+      }
+    ]
+  };
+};
 })(typeof globalThis !== 'undefined' ? globalThis : window);
