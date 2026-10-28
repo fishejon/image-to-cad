@@ -23,10 +23,10 @@
 - [x] **HITL UI + inject** — Inspect feedback card + `vision.run` pastExamples — Verify: rate after generate; mark correct; prompt contains SIMILAR PAST SUCCESS
 - [x] **Tests** — `tests/run.js` — Verify: `node tests/run.js` (46 passed)
 
-## Follow-on (not this PR)
-- Generic topology/section inventory + unlabeled-contact critic
-- Trusted joinery guide pages
-- Dataset export for Bedrock Haiku / open VLM fine-tune
+## Follow-on
+- [x] **Generic topology/section inventory + unlabeled-contact critic** — `vision.js` inventory.structure + likeness penalties; `checks.js` `unlabeledContacts`; staged when continuous/mixed — Verify: `node tests/run.js`
+- [ ] Trusted joinery guide pages
+- [ ] Dataset export for Bedrock Haiku / open VLM fine-tune
 
 ## Risks & rollback
 - Few-shot injection can bloat prompts — cap at 1 example, truncate spec JSON.

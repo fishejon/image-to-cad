@@ -90,6 +90,42 @@ CAD.interference = function (M, tol) {
   return res;
 };
 
+/**
+ * Exact-solid pairs that nearly touch (AABB padded by `gap` mm) but neither part has
+ * documented joinery (labeled feat or fill:true cut). Soft assembly without tags.
+ */
+CAD.unlabeledContacts = function (M, gap) {
+  gap = gap === undefined ? 2 : gap;
+  const I = M.insts.filter(i => {
+    const d = M.defs.get(i.def);
+    return d && d.solid && d.solid.exact !== false;
+  });
+  if (I.length < 2) return [];
+  I.forEach(i => CAD.instBoxes(M, i));
+  const hasJoinery = d => {
+    const feats = d.solid.feat || [];
+    return feats.some(f => (f.label && String(f.label).trim()) || (f.kind === 'cut' && f.fill) || (f.kind === 'add' && f.tag));
+  };
+  const pad = (a, g) => [a[0] - g, a[1] - g, a[2] - g, a[3] + g, a[4] + g, a[5] + g];
+  const pairs = CAD.spatialPairs(I, i => pad(i._ab, gap), Math.max(20, gap * 4));
+  const res = [], seen = new Set();
+  for (let p = 0; p < pairs.length; p++) {
+    const ia = I[pairs[p][0]], ib = I[pairs[p][1]];
+    if (ia.def === ib.def) continue;
+    const da = M.defs.get(ia.def), db = M.defs.get(ib.def);
+    if (!ov(pad(ia._ab, gap), ib._ab) && !ov(ia._ab, pad(ib._ab, gap))) continue;
+    if (hasJoinery(da) || hasJoinery(db)) continue;
+    /* Prefer pairs that actually share a face/volume, not distant padded false positives */
+    const v = CAD.boxInter(pad(ia._ab, gap), pad(ib._ab, gap));
+    if (!(v > 0)) continue;
+    const key = [ia.def, ib.def].sort().join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    res.push({ a: ia.def, b: ib.def, vol: v });
+  }
+  return res;
+};
+
 /* every cut feature flagged fill:true must be completely filled by mating parts (exact solids only) */
 CAD.jointFill = function (M) {
   const I = M.insts.filter(i => M.defs.get(i.def).solid.exact !== false), rows = []; I.forEach(i => CAD.instBoxes(M, i));
