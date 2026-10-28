@@ -94,6 +94,11 @@ main.left-off #left,main.right-off #right{overflow:hidden;pointer-events:none}
 #aiBox.open{display:flex}
 #aiBox .aih{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;font-weight:600}
 #aiBox .aib{overflow:auto;flex:1;padding:12px 14px}
+.aiTabs{display:flex;gap:4px;margin-bottom:12px;padding:3px;background:var(--panel2);border-radius:8px;border:1px solid var(--line)}
+.aiTab{flex:1;border:0;background:transparent;color:var(--dim);font:inherit;font-weight:600;font-size:13px;padding:8px 10px;border-radius:6px;cursor:pointer}
+.aiTab:hover:not(:disabled){color:var(--text)}
+.aiTab.on{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.aiTab:disabled{opacity:.45;cursor:not-allowed}
 .aiConn{font-size:12px;font-weight:500;color:var(--dim)}.aiConn.ok{color:var(--ok)}.aiConn.bad{color:var(--bad)}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
 .hud{position:absolute;pointer-events:none;font-size:12px;font-weight:500;color:var(--dim)}

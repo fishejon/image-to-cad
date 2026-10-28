@@ -12,7 +12,8 @@ const gname = id => (CAD.GROUPS.find(g => g.id === id) || { name: id }).name;
 const S = { M: null, spec: null, ov: {}, R: [], kin: {}, sel: new Set(), hiddenDef: new Set(), hiddenGrp: new Set(), iso: null, mode: 'real', exF: 0, stepCur: 0, stepping: false,
   sec: { on: false, axis: 'y', off: 0, inv: false }, edges: true, meas: { on: false, pts: [], objs: [] }, q: '', need: true, hov: null, collapsed: new Set(), mv: {},
   ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null, reasoning: '', inventory: null, refOpen: true }, examples: {}, nav: 'orbit', movePlane: 'xy', leftOn: true, rightOn: true,
-  docs: {}, docId: null, aiMode: 'photo' };
+  docs: {}, docId: null, aiMode: 'photo', aiPanel: 'create', aiQuality: 'balanced',
+  feedback: { rating: null, tags: [], note: '', pending: false }, lastRun: null };
 const uid = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function blankSpec(name) {
   return {
@@ -68,7 +69,12 @@ function nextUntitled() {
 }
 function newDesign() {
   const name = nextUntitled(), id = addDoc(blankSpec(name), { name });
-  openDoc(id); toast('New design — previous files are unchanged');
+  openDoc(id);
+  S.ai.img = null; S.ai.inventory = null; S.ai.reasoning = ''; S.ai.log = [];
+  S.feedback = { rating: null, tags: [], note: '', pending: false }; S.lastRun = null;
+  S.aiPanel = 'create';
+  openAI('create');
+  toast('New design — upload a photo or drawing to generate');
 }
 function duplicateDesign() {
   if (!S.docId || !S.spec) return; persistActive();
@@ -395,16 +401,27 @@ function renderInspect() {
   if (!S.sel.size) {
     if (!M.insts.length) {
       el.innerHTML = `<h3>${esc(M.meta.name)}</h3>
-        <div class="card">${esc(M.meta.description || 'Empty design — generate from a picture or edit the Spec tab to build something.')}</div>
-        <div class="card"><b>Get started</b>Open <b>AI design</b> to generate from a picture, paste an image, or load an example. You can also edit the Spec tab directly.</div>`;
+        <div class="card">${esc(M.meta.description || 'Empty design — upload a photo or drawing to generate.')}</div>
+        <div class="grid2" style="margin-top:8px">
+          <button type="button" class="btn pri" id="inspCreate">Upload image…</button>
+          <button type="button" class="btn" id="inspDrawing">Drawing + dims…</button>
+        </div>
+        <div class="card" style="margin-top:8px">Or paste an image, or open an example from the design menu. Spec tab edits the JSON directly.</div>`;
+      const goCreate = (mode) => { S.aiMode = mode; S.aiPanel = 'create'; openAI('create'); };
+      const c = $('#inspCreate'); if (c) c.onclick = () => goCreate('photo');
+      const d = $('#inspDrawing'); if (d) d.onclick = () => goCreate('drawing');
       return;
     }
     let mass = 0; const byMat = {}; M.insts.forEach(i => { const d = M.defs.get(i.def); mass += d.mass; const k = (CAD.MATS[d.solid.mat] || {}).name || d.solid.mat; byMat[k] = (byMat[k] || 0) + d.mass; });
     el.innerHTML = `<h3>${esc(M.meta.name)}</h3>${M.meta.description ? `<div class="card">${esc(M.meta.description)}</div>` : ''}<div class="kv"><span>Overall size</span><span>${inch3(M.size)}</span><span>Part types / pieces</span><span>${M.defs.size} / ${M.insts.length}</span><span>Weight (est.)</span><span>${lb(mass)}</span>${Object.entries(byMat).map(([k, v]) => `<span>${esc(k)}</span><span>${lb(v)}</span>`).join('')}</div>
+      ${feedbackCardHtml()}
       ${S.ai.inventory ? `<h3>Picture inventory</h3><div class="card">${esc(CAD.vision.summarizeInventory(S.ai.inventory) || 'Captured')}${S.ai.inventory.notes ? '<br>' + esc(S.ai.inventory.notes) : ''}</div>` : ''}
       ${S.ai.reasoning ? `<h3>AI thought process</h3><div class="card">${esc(S.ai.reasoning)}</div>` : ''}
       ${M.meta.assumptions.length ? `<h3>Assumptions</h3><div class="card">${M.meta.assumptions.map(a => '• ' + esc(a)).join('<br>')}</div>` : ''}${S.lastWarnings.length ? `<div class="card warn"><b>Warnings</b>${S.lastWarnings.slice(0, 6).map(esc).join('<br>')}</div>` : ''}
-      <div class="card"><b>How to use</b>Click a part (Shift-click or Shift-drag to multi-select). Delete removes selected part types from the design. <b>AI design</b> opens picture upload and prompt-based revise. Collapse panels with ‹ ›.</div>`; return; }
+      <div class="card"><b>How to use</b>Click a part to inspect. Use <b>Create</b> for a new image, <b>Revise</b> to change this design. Ship tab exports STL and the build guide.</div>`;
+    bindFeedbackCard();
+    return;
+  }
   const first = [...S.sel][0], d = first.def, many = new Set([...S.sel].map(R => R.def.id)).size > 1;
   const matPicker = () => {
     const cur = [...new Set([...S.sel].map(R => R.def.solid.mat))];
@@ -433,7 +450,7 @@ function deleteSelected() {
   if (loadSpec(S.spec, S.ov, true)) { setSpecText(); setSel([]); toast(ids.length === 1 ? 'Deleted part' : 'Deleted ' + ids.length + ' part type(s)'); }
 }
 function bindActs() {
-  $$('#p-insp [data-a]').forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'focus') focusSel(); else if (a === 'iso') { S.iso = new Set(S.sel); updateVisuals(); } else if (a === 'hide') { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); setSel([]); updateVisuals(); buildTree(); } else if (a === 'showall') showAll(); else if (a === 'del') deleteSelected(); else if (a === 'stlp') exportSelected(); else if (a === 'ai') { openAI(); const t = $('#aiRevise'); if (t) t.focus(); } });
+  $$('#p-insp [data-a]').forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'focus') focusSel(); else if (a === 'iso') { S.iso = new Set(S.sel); updateVisuals(); } else if (a === 'hide') { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); setSel([]); updateVisuals(); buildTree(); } else if (a === 'showall') showAll(); else if (a === 'del') deleteSelected(); else if (a === 'stlp') exportSelected(); else if (a === 'ai') { openAI('revise'); const t = $('#aiRevise'); if (t) t.focus(); } });
   $$('#p-insp .matbtn').forEach(b => b.onclick = () => applyMaterial(b.dataset.mat));
 }
 function showAll() { S.hiddenDef.clear(); S.hiddenGrp.clear(); S.iso = null; S.stepCur = S.M.steps.length - 1; S.stepping = false; stopPlay(); S.R.forEach(R => R.anim = 1); updateVisuals(); applyTransforms(); buildTree(); buildSteps(); }
@@ -677,7 +694,13 @@ async function checkConnection() {
     } else setAIConn('Using Claude on this page · ' + (model || 'account default'), true);
   } catch (e) { setAIConn('Not connected: ' + e.message, false); }
 }
-function openAI() { $('#aiBox').classList.add('open'); $('#bAI').classList.add('on'); checkConnection(); syncAIFocus(); }
+function hasDesignParts() { return !!(S.M && S.M.insts && S.M.insts.length); }
+function openAI(panel) {
+  if (panel === 'create' || panel === 'revise') S.aiPanel = panel;
+  else if (!hasDesignParts()) S.aiPanel = 'create';
+  $('#aiBox').classList.add('open'); $('#bAI').classList.add('on');
+  renderAI(); checkConnection();
+}
 function closeAI() { $('#aiBox').classList.remove('open'); $('#bAI').classList.remove('on'); }
 function syncAIFocus() {
   const el = $('#aiFocus'); if (!el) return;
@@ -686,100 +709,257 @@ function syncAIFocus() {
   const names = ids.map(id => (S.M.defs.get(id) || {}).name || id);
   el.innerHTML = `<div class="card"><b>Focus</b>${esc(names.join(', '))}<div class="chk" style="margin-top:6px"><input type="checkbox" id="aiFocusOnly" checked><label for="aiFocusOnly">Limit revise to these parts</label></div></div>`;
 }
+function qualityFromUI() {
+  const id = ($('#aiQuality') && $('#aiQuality').value) || S.aiQuality || 'balanced';
+  S.aiQuality = id;
+  return CAD.store.qualityPreset(id);
+}
 function renderAI() {
   const inClaude = !!window.claude, remembered = (() => { try { return localStorage.getItem('image-to-cad.key') || ''; } catch (e) { return ''; } })();
   const hosted = location.protocol !== 'file:';
   const drawing = S.aiMode === 'drawing';
-  $('#p-ai').innerHTML = `
-  <h3>Revise this design</h3>
-  <div id="aiFocus"></div>
-  <textarea id="aiRevise" rows="4" placeholder="e.g. make it 4&quot; taller, add a third drawer, change the selected legs to 1 1/2&quot; square maple" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
-  <button class="btn pri" id="aiRev" style="width:100%;margin-top:6px">Apply changes</button>
-  <h3>New design from image</h3>
-  <div class="row" style="margin-bottom:8px"><label>Mode</label>
-    <select id="aiMode" class="btn" style="flex:1"><option value="photo"${!drawing ? ' selected' : ''}>Photo</option><option value="drawing"${drawing ? ' selected' : ''}>Drawing + dimensions</option></select>
-  </div>
-  <div id="aiDrop" style="border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;background:var(--panel2)"><div id="aiDropT" style="font-weight:600">${drawing ? 'Drop, paste or click to upload a drawing' : 'Drop, paste or click to upload a photo'}</div><div id="aiDropSub" style="color:var(--dim);margin-top:4px">${drawing ? 'Reads dimensions and callouts from the sketch' : 'Generates a new design from the photo'}</div><input type="file" id="aiFile" accept="image/*" hidden><img id="aiPrev" style="display:none;max-width:100%;max-height:200px;margin:8px auto 0;border-radius:6px"></div>
-  <div class="row" id="aiDims" style="margin-top:8px;flex-wrap:wrap;gap:6px">
-    <label style="width:100%;margin:0;color:var(--dim);font-size:11px;letter-spacing:.04em;text-transform:uppercase">Overall size (inches)</label>
-    <input id="aiW" type="text" placeholder="W" title="Width" style="flex:1;min-width:4em;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
-    <input id="aiD" type="text" placeholder="D" title="Depth" style="flex:1;min-width:4em;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
-    <input id="aiH" type="text" placeholder="H" title="Height" style="flex:1;min-width:4em;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
-  </div>
-  <textarea id="aiHints" rows="2" placeholder="${drawing ? 'Optional notes + dims already on the drawing, e.g. oak, two drawers' : 'Optional brief: e.g. overall height 33 1/2&quot;, solid oak, two drawers'}" style="width:100%;margin-top:8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
-  <div class="row"><label>Max rounds</label><select id="aiRounds" class="btn"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select><div class="chk" style="margin:0"><input type="checkbox" id="aiVis"><label for="aiVis">visual critic</label></div></div>
-  <div class="grid2"><button class="btn pri" id="aiGo">${drawing ? 'Generate from drawing' : 'Generate from picture'}</button><button class="btn" id="aiStop" disabled>Stop</button></div>
+  const canRevise = hasDesignParts();
+  if (S.aiPanel === 'revise' && !canRevise) S.aiPanel = 'create';
+  const createOn = S.aiPanel !== 'revise';
+  const q = CAD.store.qualityPreset(S.aiQuality || 'balanced');
+  const title = $('#aiTitle'); if (title) title.textContent = createOn ? 'Create from image' : 'Revise design';
+  const connBlock = `
   <details style="margin-top:14px"><summary style="cursor:pointer;color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase">Connection &amp; model</summary>
-  <div class="card" style="margin-top:8px"><b>Server proxy</b> is the normal path on Vercel: <code>ANTHROPIC_API_KEY</code> stays in project env — you never paste it into this app. <b>Browser API key</b> is optional (local file:// or when you want a personal key in this browser only).</div>
+  <div class="card" style="margin-top:8px"><b>Server proxy</b> is the normal path on Vercel. <b>Browser API key</b> is optional for file:// or a personal key.</div>
   <div class="row"><label>Provider</label><select id="aiProv" class="btn" style="flex:1"><option value="proxy"${hosted && !inClaude ? ' selected' : ''}>Server proxy (Vercel key)</option><option value="anthropic"${!hosted && !inClaude ? ' selected' : ''}>Claude API key (browser)</option>${inClaude ? '<option value="artifact" selected>Claude (this page, your account)</option>' : ''}</select></div>
   <div class="row" id="aiKeyRow"><label>API key</label><input id="aiKey" type="password" placeholder="sk-ant-… (browser only)" value="${esc(remembered)}" style="flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
   <div class="row"><label>Model</label><select id="aiModel" class="btn" style="flex:1">${AI_MODELS.map((m, i) => `<option value="${esc(m.id)}"${i === 0 ? ' selected' : ''}>${esc(m.label)} — ${esc(m.hint)}</option>`).join('')}</select></div>
   <div class="chk" id="aiRemRow"><input type="checkbox" id="aiRem"><label for="aiRem">remember browser key in localStorage</label></div>
-  <button class="btn sm" id="aiPing" style="width:100%">Check connection</button></details>
-  <div class="log" id="aiLog" style="max-height:220px;overflow:auto;margin-top:8px">${S.ai.log.map(esc).join('<br>')}</div>`;
-  syncAIFocus(); if (S.ai.img) { const prev = $('#aiPrev'); prev.src = S.ai.img; prev.style.display = 'block'; $('#aiDropT').textContent = drawing ? 'Drawing ready' : 'Picture ready'; }
-  const drop = $('#aiDrop'); drop.onclick = () => $('#aiFile').click(); $('#aiFile').onchange = e => setImage(e.target.files[0]);
-  drop.ondragover = e => { e.preventDefault(); drop.style.borderColor = 'var(--acc)'; }; drop.ondragleave = () => drop.style.borderColor = ''; drop.ondrop = e => { e.preventDefault(); drop.style.borderColor = ''; setImage(e.dataTransfer.files[0]); };
-  const syncMode = () => {
-    S.aiMode = $('#aiMode').value === 'drawing' ? 'drawing' : 'photo';
-    const d = S.aiMode === 'drawing';
-    $('#aiDropT').textContent = S.ai.img ? (d ? 'Drawing ready' : 'Picture ready') : (d ? 'Drop, paste or click to upload a drawing' : 'Drop, paste or click to upload a photo');
-    $('#aiDropSub').textContent = d ? 'Reads dimensions and callouts from the sketch' : 'Generates a new design from the photo';
-    $('#aiGo').textContent = d ? 'Generate from drawing' : 'Generate from picture';
-    const dims = $('#aiDims'); if (dims) dims.style.opacity = d ? '1' : '.85';
+  <button class="btn sm" id="aiPing" style="width:100%">Check connection</button></details>`;
+  const createBody = `
+  <div class="row" style="margin-bottom:8px"><label>Source</label>
+    <select id="aiMode" class="btn" style="flex:1"><option value="photo"${!drawing ? ' selected' : ''}>Photo</option><option value="drawing"${drawing ? ' selected' : ''}>Drawing + dimensions</option></select>
+  </div>
+  <div id="aiDrop" style="border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;background:var(--panel2)"><div id="aiDropT" style="font-weight:600">${drawing ? 'Drop, paste or click to upload a drawing' : 'Drop, paste or click to upload a photo'}</div><div id="aiDropSub" style="color:var(--dim);margin-top:4px">${drawing ? 'Reads dimensions and callouts from the sketch' : 'Generates a new design from the photo'}</div><input type="file" id="aiFile" accept="image/*" hidden><img id="aiPrev" style="display:none;max-width:100%;max-height:200px;margin:8px auto 0;border-radius:6px"></div>
+  <div class="row" id="aiDims" style="margin-top:8px;flex-wrap:wrap;gap:6px">
+    <label style="width:100%;margin:0;color:var(--dim);font-size:11px;letter-spacing:.04em;text-transform:uppercase">Overall size (inches)${drawing ? ' — recommended' : ' — optional'}</label>
+    <input id="aiW" type="text" placeholder="W" title="Width" style="flex:1;min-width:4em;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
+    <input id="aiD" type="text" placeholder="D" title="Depth" style="flex:1;min-width:4em;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
+    <input id="aiH" type="text" placeholder="H" title="Height" style="flex:1;min-width:4em;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px">
+  </div>
+  <textarea id="aiHints" rows="2" placeholder="${drawing ? 'Optional notes, e.g. oak, two drawers' : 'Optional brief: e.g. solid oak, match the proportions you see'}" style="width:100%;margin-top:8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
+  <div class="row" style="margin-top:8px"><label>Quality</label>
+    <select id="aiQuality" class="btn" style="flex:1">
+      <option value="fast"${q.id === 'fast' ? ' selected' : ''}>Fast — 1 pass, geometry only</option>
+      <option value="balanced"${q.id === 'balanced' ? ' selected' : ''}>Balanced — 2 passes + photo match</option>
+      <option value="careful"${q.id === 'careful' ? ' selected' : ''}>Careful — 4 passes + photo match</option>
+    </select>
+  </div>
+  <div class="card" id="aiQualityHint" style="margin-top:6px;font-size:12px;color:var(--dim)">Photo match compares a render of the model to your image after geometry checks pass. Fast skips it.</div>
+  <div class="chk" style="margin-top:6px"><input type="checkbox" id="aiVis"${q.visual ? ' checked' : ''}><label for="aiVis">Photo match (visual critic)</label></div>
+  <div id="aiStatus" class="card" style="margin-top:8px;display:none"></div>
+  <div class="grid2" style="margin-top:8px"><button class="btn pri" id="aiGo">${drawing ? 'Generate from drawing' : 'Generate from picture'}</button><button class="btn" id="aiStop" disabled>Stop</button></div>`;
+  const reviseBody = `
+  <div id="aiFocus"></div>
+  <textarea id="aiRevise" rows="4" placeholder="e.g. make it 4&quot; taller, add a third drawer, change the selected legs to 1 1/2&quot; square maple" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
+  <div class="row" style="margin-top:8px"><label>Quality</label>
+    <select id="aiQuality" class="btn" style="flex:1">
+      <option value="fast"${q.id === 'fast' ? ' selected' : ''}>Fast</option>
+      <option value="balanced"${q.id === 'balanced' ? ' selected' : ''}>Balanced</option>
+      <option value="careful"${q.id === 'careful' ? ' selected' : ''}>Careful</option>
+    </select>
+  </div>
+  <div class="chk" style="margin-top:6px"><input type="checkbox" id="aiVis"${q.visual ? ' checked' : ''}><label for="aiVis">Photo match (if a reference image is set)</label></div>
+  <div id="aiStatus" class="card" style="margin-top:8px;display:none"></div>
+  <button class="btn pri" id="aiRev" style="width:100%;margin-top:8px">Apply changes</button>
+  <button class="btn" id="aiStop" disabled style="width:100%;margin-top:6px">Stop</button>`;
+  $('#p-ai').innerHTML = `
+  <div class="aiTabs" role="tablist">
+    <button type="button" class="aiTab${createOn ? ' on' : ''}" data-panel="create">Create</button>
+    <button type="button" class="aiTab${!createOn ? ' on' : ''}" data-panel="revise"${canRevise ? '' : ' disabled title="Generate a design first"'}>Revise</button>
+  </div>
+  ${createOn ? createBody : reviseBody}
+  ${connBlock}
+  <div class="log" id="aiLog" style="max-height:180px;overflow:auto;margin-top:8px">${S.ai.log.map(esc).join('<br>')}</div>`;
+  $$('.aiTab').forEach(b => b.onclick = () => { if (b.disabled) return; S.aiPanel = b.dataset.panel; renderAI(); });
+  if (createOn) {
+    if (S.ai.img) { const prev = $('#aiPrev'); prev.src = S.ai.img; prev.style.display = 'block'; $('#aiDropT').textContent = drawing ? 'Drawing ready' : 'Picture ready'; }
+    const drop = $('#aiDrop'); drop.onclick = () => $('#aiFile').click(); $('#aiFile').onchange = e => setImage(e.target.files[0]);
+    drop.ondragover = e => { e.preventDefault(); drop.style.borderColor = 'var(--acc)'; }; drop.ondragleave = () => drop.style.borderColor = ''; drop.ondrop = e => { e.preventDefault(); drop.style.borderColor = ''; setImage(e.dataTransfer.files[0]); };
+    const syncMode = () => {
+      S.aiMode = $('#aiMode').value === 'drawing' ? 'drawing' : 'photo';
+      const d = S.aiMode === 'drawing';
+      $('#aiDropT').textContent = S.ai.img ? (d ? 'Drawing ready' : 'Picture ready') : (d ? 'Drop, paste or click to upload a drawing' : 'Drop, paste or click to upload a photo');
+      $('#aiDropSub').textContent = d ? 'Reads dimensions and callouts from the sketch' : 'Generates a new design from the photo';
+      $('#aiGo').textContent = d ? 'Generate from drawing' : 'Generate from picture';
+    };
+    $('#aiMode').onchange = syncMode; syncMode();
+    $('#aiGo').onclick = () => runAI('design');
+  } else {
+    syncAIFocus();
+    $('#aiRev').onclick = () => runAI('revise');
+  }
+  const syncQ = () => {
+    const preset = qualityFromUI();
+    const vis = $('#aiVis'); if (vis && document.activeElement !== vis) { /* keep user override after first change */ }
+    const hint = $('#aiQualityHint'); if (hint) hint.textContent = preset.id === 'fast' ? 'Fast runs one geometry pass and skips photo match unless you check the box below.' : 'After geometry passes, photo match compares a render to your image and may request fixes.';
   };
-  $('#aiMode').onchange = syncMode; syncMode();
-  const sync = () => {
+  if ($('#aiQuality')) {
+    $('#aiQuality').onchange = () => {
+      const preset = qualityFromUI();
+      const vis = $('#aiVis'); if (vis) vis.checked = preset.visual;
+      syncQ();
+    };
+    syncQ();
+  }
+  const syncProv = () => {
     const browser = $('#aiProv').value === 'anthropic';
     $('#aiKeyRow').style.display = browser ? 'flex' : 'none';
     const rem = $('#aiRemRow'); if (rem) rem.style.display = browser ? '' : 'none';
     checkConnection();
   };
-  $('#aiProv').onchange = sync; $('#aiModel').onchange = checkConnection; $('#aiKey').onchange = checkConnection; $('#aiPing').onclick = checkConnection; sync();
-  $('#aiGo').onclick = () => runAI('design'); $('#aiRev').onclick = () => runAI('revise'); $('#aiStop').onclick = () => S.ai.abort && S.ai.abort.abort();
+  $('#aiProv').onchange = syncProv; $('#aiModel').onchange = checkConnection; $('#aiKey').onchange = checkConnection; $('#aiPing').onclick = checkConnection; syncProv();
+  $('#aiStop').onclick = () => S.ai.abort && S.ai.abort.abort();
+}
+function setAIStatus(html, show) {
+  const el = $('#aiStatus'); if (!el) return;
+  el.style.display = show === false ? 'none' : 'block';
+  if (html != null) el.innerHTML = html;
 }
 function noteReasoning(spec) {
   const r = spec && spec.reasoning; if (!r) return;
   S.ai.reasoning = String(r).trim();
 }
-addEventListener('paste', e => { const f = [...(e.clipboardData ? e.clipboardData.files : [])].find(f => /^image\//.test(f.type)); if (f) { openAI(); setImage(f); } });
+addEventListener('paste', e => { const f = [...(e.clipboardData ? e.clipboardData.files : [])].find(f => /^image\//.test(f.type)); if (f) { S.aiPanel = 'create'; openAI('create'); setImage(f); } });
 function viewNow(name) { viewTo(name); if (tween) { camera.position.copy(tween.p1); controls.target.copy(tween.t1); tween = null; controls.update(); S.need = true; } }
+function visualStatusHtml(vc) {
+  if (!vc) return '';
+  if (!vc.requested) return '<b>Photo match:</b> skipped (off for this Quality setting).';
+  if (vc.ran) return '<b>Photo match:</b> ran' + (vc.iou != null ? ' · outline IoU ' + vc.iou.toFixed(2) : '') + '.';
+  const why = vc.skippedReason === 'no-renderer' ? 'no renderer available' : 'not enough rounds or geometry never passed — try Careful';
+  return '<b>Photo match:</b> <span class="fail">could not run</span> (' + esc(why) + ').';
+}
 async function runAI(task) {
   if (S.ai.busy) return; task = task || 'design';
   const kind = $('#aiProv').value, key = $('#aiKey').value.trim(), model = $('#aiModel').value;
   if (kind === 'anthropic' && !key) return toast('Paste your Anthropic API key');
   if (task === 'design' && !S.ai.img) return toast(S.aiMode === 'drawing' ? 'Choose a drawing first' : 'Choose a picture first');
   if (task === 'revise' && !S.spec) return toast('Load a design first');
-  const hints = task === 'revise' ? $('#aiRevise').value.trim() : $('#aiHints').value.trim();
+  const hints = task === 'revise' ? ($('#aiRevise') && $('#aiRevise').value.trim()) : ($('#aiHints') && $('#aiHints').value.trim()) || '';
   if (task === 'revise' && !hints) return toast('Describe the changes you want');
   const inputMode = (task === 'design' && $('#aiMode') && $('#aiMode').value === 'drawing') ? 'drawing' : 'photo';
   S.aiMode = inputMode;
+  const preset = qualityFromUI();
+  const visual = $('#aiVis') ? $('#aiVis').checked : preset.visual;
+  const maxRounds = preset.rounds;
   const dimFields = task === 'design' ? { w: ($('#aiW') || {}).value, d: ($('#aiD') || {}).value, h: ($('#aiH') || {}).value } : {};
   const metrics = CAD.vision.parseDims(hints, dimFields);
-  if (task === 'design' && inputMode === 'drawing' && !(metrics.wMm || metrics.dMm || metrics.hMm)) {
-    /* drawing mode still works from OCR on the image; dims fields are strongly recommended */
-  }
   const focusIds = (task === 'revise' && $('#aiFocusOnly') && $('#aiFocusOnly').checked) ? selectedPartIds() : [];
   const focusParts = focusIds.map(id => ({ id, name: (S.M.defs.get(id) || {}).name || id }));
-  if ($('#aiRem').checked) { try { localStorage.setItem('image-to-cad.key', key); } catch (e) { } }
+  if ($('#aiRem') && $('#aiRem').checked) { try { localStorage.setItem('image-to-cad.key', key); } catch (e) { } }
+  let pastExamples = [];
+  try {
+    const bank = await CAD.store.readExamples();
+    pastExamples = CAD.store.pickExamples(bank, { n: 1, object: hints });
+  } catch (e) { /* optional */ }
   let aiDocId = null;
   if (task === 'design') { persistActive(); aiDocId = addDoc(blankSpec('AI design'), { name: 'AI design' }); refreshDocSel(); }
   const adoptAIDoc = () => { if (aiDocId) { S.docId = aiDocId; aiDocId = null; refreshDocSel(); } };
-  S.ai.busy = true; S.ai.log = []; S.ai.reasoning = ''; if (task === 'design') S.ai.inventory = null; $('#aiGo').disabled = true; $('#aiRev').disabled = true; $('#aiStop').disabled = false; const ac = new AbortController(); S.ai.abort = ac;
-  aiLog('Using ' + model + ' (' + (kind === 'proxy' ? 'server proxy' : kind === 'anthropic' ? 'browser API key' : 'this page') + ')' + (inputMode === 'drawing' ? ' · drawing mode' : '') + (focusParts.length ? ' · focused on ' + focusParts.map(p => p.name).join(', ') : ''));
+  S.ai.busy = true; S.ai.log = []; S.ai.reasoning = ''; if (task === 'design') S.ai.inventory = null;
+  const go = $('#aiGo'), rev = $('#aiRev'), stop = $('#aiStop');
+  if (go) go.disabled = true; if (rev) rev.disabled = true; if (stop) stop.disabled = false;
+  const ac = new AbortController(); S.ai.abort = ac;
+  setAIStatus('<b>Status:</b> starting…', true);
+  aiLog('Using ' + model + ' · Quality ' + preset.label + ' (' + maxRounds + ' round' + (maxRounds === 1 ? '' : 's') + (visual ? ', photo match on' : ', photo match off') + ')' + (inputMode === 'drawing' ? ' · drawing' : '') + (focusParts.length ? ' · focused on ' + focusParts.map(p => p.name).join(', ') : ''));
   try {
-    const res = await CAD.vision.run({ image: S.ai.img, hints, metrics, dimFields, inputMode, task, focusParts, prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model }, maxRounds: +$('#aiRounds').value, visual: $('#aiVis').checked, signal: ac.signal, onLog: aiLog,
-      onInventory: (inv) => { S.ai.inventory = inv; S.ai.refOpen = true; syncRefPane(); },
+    const res = await CAD.vision.run({
+      image: S.ai.img, hints, metrics, dimFields, inputMode, task, focusParts, pastExamples,
+      prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model },
+      maxRounds, visual, signal: ac.signal, onLog: (m) => { aiLog(m); setAIStatus('<b>Status:</b> ' + esc(m), true); },
+      onInventory: (inv) => { S.ai.inventory = inv; S.ai.refOpen = true; syncRefPane(); setAIStatus('<b>Status:</b> inventory captured', true); },
       onSpec: (spec) => { noteReasoning(spec); adoptAIDoc(); if (loadSpec(spec, {}, true)) { viewNow('iso'); setSpecText(); renderInspect(); syncRefPane(); } },
-      silhouetteIoU, render: async (spec) => { adoptAIDoc(); loadSpec(spec, {}, true); viewNow('iso'); await frames(4); return renderer.domElement.toDataURL('image/jpeg', .85); } });
+      silhouetteIoU, render: async (spec) => { adoptAIDoc(); loadSpec(spec, {}, true); viewNow('iso'); await frames(4); return renderer.domElement.toDataURL('image/jpeg', .85); }
+    });
     res.spec.__ai = true; if (res.inventory) S.ai.inventory = res.inventory; noteReasoning(res.spec); adoptAIDoc(); loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText();
     S.ai.refOpen = true; syncRefPane();
-    toast(res.rep.ok ? 'Design ready: passes every check' : 'Design loaded with remaining issues, see the log'); closeAI(); setTab('insp'); renderInspect();
+    S.lastRun = { task, visualCritic: res.visualCritic || null, at: Date.now(), hints, metrics, inventory: res.inventory || null };
+    S.feedback = { rating: null, tags: [], note: '', pending: true };
+    const vcMsg = visualStatusHtml(res.visualCritic);
+    setAIStatus('<b>Status:</b> ' + (res.rep.ok ? 'geometry checks passed' : 'loaded with remaining issues') + (vcMsg ? '<br>' + vcMsg : '') + '<br>Rate the match in Inspect.', true);
+    toast(res.rep.ok ? 'Design ready — rate how well it matches in Inspect' : 'Design loaded with issues — see Check / log');
+    closeAI(); setTab('insp'); renderInspect();
   } catch (e) {
-    aiLog('Error: ' + (e.name === 'AbortError' ? 'stopped' : e.message)); toast('AI run failed: see the log');
+    aiLog('Error: ' + (e.name === 'AbortError' ? 'stopped' : e.message));
+    setAIStatus('<b>Status:</b> <span class="fail">' + esc(e.name === 'AbortError' ? 'stopped' : e.message) + '</span>', true);
+    toast('AI run failed: see the log');
     if (aiDocId) { delete S.docs[aiDocId]; writeWS(); refreshDocSel(); }
   }
-  finally { S.ai.busy = false; $('#aiGo').disabled = false; $('#aiRev').disabled = false; $('#aiStop').disabled = true; }
+  finally { S.ai.busy = false; if (go) go.disabled = false; if (rev) rev.disabled = false; if (stop) stop.disabled = true; }
+}
+async function submitFeedback(rating) {
+  S.feedback.rating = rating;
+  const tags = S.feedback.tags || [];
+  const note = S.feedback.note || '';
+  try {
+    await CAD.store.addFeedback({
+      rating, failureTags: tags, note,
+      inventory: S.ai.inventory || (S.lastRun && S.lastRun.inventory) || null,
+      hints: (S.lastRun && S.lastRun.hints) || '',
+      metrics: (S.lastRun && S.lastRun.metrics) || null,
+      visualCritic: (S.lastRun && S.lastRun.visualCritic) || null,
+      model: ($('#aiModel') && $('#aiModel').value) || '',
+      docId: S.docId,
+      object: (S.ai.inventory && S.ai.inventory.object) || (S.spec && S.spec.name) || ''
+    });
+  } catch (e) { /* persist best-effort */ }
+  S.feedback.pending = false;
+  toast(rating === 'match' ? 'Thanks — marked as a match' : 'Thanks — feedback saved');
+  renderInspect();
+}
+async function markExampleCorrect() {
+  if (!S.spec) return toast('No design to save');
+  try {
+    await CAD.store.addExample({
+      object: (S.ai.inventory && S.ai.inventory.object) || S.spec.name || '',
+      inventory: S.ai.inventory || null,
+      specSummary: CAD.store.summarizeSpec(S.spec),
+      hints: (S.lastRun && S.lastRun.hints) || '',
+      metrics: (S.lastRun && S.lastRun.metrics) || null
+    });
+    if (!S.feedback.rating) await submitFeedback('match');
+    else toast('Saved as a success example for future generates');
+    S.feedback.pending = false;
+    renderInspect();
+  } catch (e) { toast('Could not save example: ' + e.message); }
+}
+function feedbackCardHtml() {
+  if (!S.feedback.pending && !S.lastRun) return '';
+  const tags = CAD.store.FAILURE_TAGS || [];
+  const selected = new Set(S.feedback.tags || []);
+  const rate = S.feedback.rating;
+  return `<h3>Does this match your image?</h3>
+    <div class="grid2" id="fbRates">
+      <button type="button" class="btn sm${rate === 'match' ? ' on' : ''}" data-rate="match">Match</button>
+      <button type="button" class="btn sm${rate === 'close' ? ' on' : ''}" data-rate="close">Close</button>
+      <button type="button" class="btn sm${rate === 'wrong' ? ' on' : ''}" data-rate="wrong" style="grid-column:1/3">Wrong</button>
+    </div>
+    <div class="card" style="margin-top:8px"><b>What was off?</b> (optional)
+      <div class="matrow" id="fbTags" style="margin-top:6px">${tags.map(t => `<button type="button" class="btn sm matbtn${selected.has(t) ? ' on' : ''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+      <textarea id="fbNote" rows="2" placeholder="Optional note for next try" style="width:100%;margin-top:6px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px">${esc(S.feedback.note || '')}</textarea>
+    </div>
+    <div class="grid2" style="margin-top:8px">
+      <button type="button" class="btn sm" id="fbSave">Save feedback</button>
+      <button type="button" class="btn sm pri" id="fbCorrect">Mark correct for training</button>
+    </div>
+    <div class="card" style="margin-top:6px;font-size:12px;color:var(--dim)">“Mark correct” stores a compact example used as few-shot guidance on later generates (stays in this browser). It does not fine-tune the cloud model.</div>
+    ${S.lastRun && S.lastRun.visualCritic ? `<div class="card" style="margin-top:6px">${visualStatusHtml(S.lastRun.visualCritic)}</div>` : ''}`;
+}
+function bindFeedbackCard() {
+  $$('#fbRates [data-rate]').forEach(b => b.onclick = () => { S.feedback.rating = b.dataset.rate; renderInspect(); });
+  $$('#fbTags [data-tag]').forEach(b => b.onclick = () => {
+    const t = b.dataset.tag, set = new Set(S.feedback.tags || []);
+    if (set.has(t)) set.delete(t); else set.add(t);
+    S.feedback.tags = [...set];
+    b.classList.toggle('on');
+  });
+  const note = $('#fbNote'); if (note) note.oninput = () => { S.feedback.note = note.value; };
+  const save = $('#fbSave'); if (save) save.onclick = () => { if (!S.feedback.rating) return toast('Pick Match, Close, or Wrong first'); submitFeedback(S.feedback.rating); };
+  const ok = $('#fbCorrect'); if (ok) ok.onclick = () => markExampleCorrect();
 }
 
 
@@ -805,7 +985,7 @@ $('#bLeft').onclick = () => { S.leftOn = !S.leftOn; setPanels(); };
 $('#bRight').onclick = () => { S.rightOn = !S.rightOn; setPanels(); };
 $$('#navMode button').forEach(b => b.onclick = () => { S.nav = b.dataset.nav; applyNavMode(); });
 $$('#movePlane button').forEach(b => b.onclick = () => { S.movePlane = b.dataset.plane; applyNavMode(); });
-$('#bAI').onclick = () => { $('#aiBox').classList.contains('open') ? closeAI() : openAI(); };
+$('#bAI').onclick = () => { $('#aiBox').classList.contains('open') ? closeAI() : openAI(hasDesignParts() ? S.aiPanel || 'revise' : 'create'); };
 $('#aiClose').onclick = closeAI;
 $('#refHide').onclick = () => { S.ai.refOpen = false; syncRefPane(); };
 $('#refShow').onclick = () => { S.ai.refOpen = true; syncRefPane(); };
@@ -878,14 +1058,14 @@ async function exportWorkspace() {
   const name = 'image-to-cad-workspace.json';
   const data = JSON.stringify(pack, null, 2);
   await deliver('workspace', [{ name, data }]);
-  toast('Workspace exported (' + Object.keys(pack.docs).length + ' design' + (Object.keys(pack.docs).length === 1 ? '' : 's') + ')');
+  toast('Downloaded ' + Object.keys(pack.docs).length + ' design' + (Object.keys(pack.docs).length === 1 ? '' : 's') + ' to a .json file');
 }
 async function importWorkspaceFile(file) {
   if (!file) return;
   let text; try { text = await file.text(); } catch (e) { return toast('Could not read file'); }
-  let pack; try { pack = CAD.store.unpack(text); } catch (e) { return toast(e.message || 'Invalid workspace pack'); }
+  let pack; try { pack = CAD.store.unpack(text); } catch (e) { return toast(e.message || 'Invalid designs file'); }
   const n = Object.keys(pack.docs).length;
-  if (!confirm('Replace your current workspace with ' + n + ' design' + (n === 1 ? '' : 's') + ' from this file?')) return;
+  if (!confirm('Restore ' + n + ' design' + (n === 1 ? '' : 's') + ' from this file?\n\nThis replaces every design currently in this browser.')) return;
   persistActive();
   S.docs = pack.docs;
   Object.values(S.docs).forEach(d => { if (!d.id) d.id = uid(); });
@@ -893,7 +1073,7 @@ async function importWorkspaceFile(file) {
   writeWS(); refreshDocSel();
   const prefer = (pack.activeId && S.docs[pack.activeId]) ? pack.activeId : Object.keys(S.docs)[0];
   if (prefer) openDoc(prefer);
-  toast('Imported ' + n + ' design' + (n === 1 ? '' : 's'));
+  toast('Restored ' + n + ' design' + (n === 1 ? '' : 's'));
 }
 function boot() {
   const lb = $('#lbar'); lb.style.width = '35%';

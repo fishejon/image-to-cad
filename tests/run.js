@@ -163,6 +163,35 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     let threw = false; try { Store.unpack({ kind: 'nope', docs: {} }); } catch (e) { threw = true; } ok(threw);
     ok(Store.normalize({ docs: { d1: docs.d1 }, activeId: 'd1' }));
   });
+  await t('quality presets and example bank helpers', () => {
+    const Store = CAD.store;
+    eq(Store.qualityPreset('fast').rounds, 1); ok(!Store.qualityPreset('fast').visual);
+    eq(Store.qualityPreset('balanced').rounds, 2); ok(Store.qualityPreset('balanced').visual);
+    eq(Store.qualityPreset('careful').rounds, 4);
+    const sum = Store.summarizeSpec(V.EXAMPLE); ok(sum.parts.length >= 2); ok(sum.parts.every(p => p.id && p.kind));
+    const bank = [
+      { object: 'Plant stand', inventory: INV, specSummary: sum, hints: 'oak' },
+      { object: 'Other', inventory: { object: 'Other' }, specSummary: { parts: [] } }
+    ];
+    const picked = Store.pickExamples(bank, { inventory: INV, n: 1 });
+    eq(picked.length, 1); eq(picked[0].object, 'Plant stand');
+    ok(/SIMILAR PAST SUCCESS/.test(Store.formatExamplesForPrompt(picked)));
+  });
+  await t('past success text is injected into inventory and builder prompts', async () => {
+    const past = CAD.store.formatExamplesForPrompt([{ object: 'Plant stand', inventory: INV, specSummary: CAD.store.summarizeSpec(V.EXAMPLE) }]);
+    ok(/SIMILAR PAST SUCCESS/.test(V.buildInventoryPrompt({ pastExampleText: past })));
+    ok(/SIMILAR PAST SUCCESS/.test(V.buildPrompt({ round: 1, pastExampleText: past, inventory: INV })));
+    const mock = { responses: [JSON.stringify(INV), JSON.stringify(V.EXAMPLE)] }, logs = [];
+    const res = await V.run({ image: 'data:image/png;base64,AAAA', pastExamples: [{ object: 'Plant stand', inventory: INV, specSummary: CAD.store.summarizeSpec(V.EXAMPLE) }], provider: { kind: 'mock', mock }, maxRounds: 1, onLog: m => logs.push(m) });
+    ok(res.rep.ok); ok(logs.some(l => /past success/i.test(l)));
+    ok(/SIMILAR PAST SUCCESS/.test(mock.calls[0].text));
+    ok(res.visualCritic && res.visualCritic.skippedReason === 'off');
+  });
+  await t('visual critic status reports when photo match is requested', async () => {
+    const mock = { responses: [JSON.stringify(INV), JSON.stringify(V.EXAMPLE), JSON.stringify(V.EXAMPLE)] };
+    const res = await V.run({ image: 'data:image/png;base64,AAAA', provider: { kind: 'mock', mock }, maxRounds: 2, visual: true, render: async () => 'data:image/png;base64,BBBB' });
+    ok(res.visualCritic.requested); ok(res.visualCritic.ran);
+  });
   await t('drawing design run injects metrics into inventory and builder', async () => {
     const mock = { responses: [JSON.stringify(INV), JSON.stringify(V.EXAMPLE)] }, logs = [];
     const metrics = { wMm: 300, dMm: 300, hMm: 420 };
