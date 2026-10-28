@@ -549,8 +549,17 @@ V.providers = {
     const stream = o.stream !== false;
     const headers = { 'content-type': 'application/json' };
     if (o.runId) headers['x-run-id'] = String(o.runId);
+    if (o.task) headers['x-task'] = String(o.task);
+    if (o.quality) headers['x-quality'] = String(o.quality);
+    if (o.domain) headers['x-domain'] = String(o.domain);
     const body = { model: o.model || 'claude-sonnet-4-5', max_tokens: maxTok, stream, messages: [{ role: 'user', content: blocks(o.text, o.images) }] };
     if (o.runId) body.runId = String(o.runId);
+    body.metadata = {
+      runId: o.runId || null,
+      task: o.task || null,
+      quality: o.quality || null,
+      domain: o.domain || 'furniture'
+    };
     const r = await fetch(o.proxyUrl || '/api/messages', { method: 'POST', signal: o.signal, headers, body: JSON.stringify(body) });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
@@ -592,7 +601,9 @@ V.run = async function (o) {
   const hintText = V.composeHints(o.hints, metrics);
   const pastExampleText = o.pastExampleText || (o.pastExamples && CAD.store && CAD.store.formatExamplesForPrompt
     ? CAD.store.formatExamplesForPrompt(o.pastExamples) : '') || '';
-  const callModel = (extra) => call(Object.assign({}, o.provider, { signal: o.signal, runId: o.runId }, extra));
+  const callModel = (extra) => call(Object.assign({}, o.provider, {
+    signal: o.signal, runId: o.runId, quality: o.quality, domain: o.domain || 'furniture'
+  }, extra));
   const promptExtras = () => ({ hints: hintText, metrics, inputMode, inventory, pastExampleText: pastExampleText || undefined });
   const critOpts = () => ({ inventory, metrics: (metrics.wMm || metrics.dMm || metrics.hMm) ? metrics : null });
   let best = null, prev = o.task === 'revise' ? o.prevSpec : null, report = null, mode = 'fix', visualDone = false, likenessRetryDone = false, lastOk = null;
