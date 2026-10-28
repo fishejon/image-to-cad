@@ -141,6 +141,7 @@ V.buildInventoryPrompt = function (o) {
   if (o.metrics && (o.metrics.wMm || o.metrics.dMm || o.metrics.hMm)) {
     parts.push('USER METRICS (ground truth overall size): ' + V.formatMetrics(o.metrics));
   }
+  if (o.pastExampleText) parts.push(o.pastExampleText);
   if (o.hints) parts.push('USER HINTS (they override guesses from the picture): ' + o.hints);
   return parts.join('\n\n');
 };
@@ -185,11 +186,12 @@ V.buildPrompt = function (o) {
   o = o || {}; const parts = [];
   const drawing = o.inputMode === 'drawing';
   const pushMetrics = () => { const b = V.metricsBlock(o.metrics); if (b) parts.push(b); };
+  const pushPast = () => { if (o.pastExampleText) parts.push(o.pastExampleText); };
   if (o.task === 'revise' && o.prevSpec && (o.round === 1 || !o.report)) {
     parts.push('You are revising an existing CAD design spec. Apply the user\'s requested changes and return the COMPLETE updated spec as ONE JSON object (no commentary, no markdown fences). Keep everything that is not mentioned. Preserve joinery: if you move or resize a part, update its mating mortises/tenons so they still fill. Include an updated "reasoning" field describing what you changed and why.');
     parts.push(V.SPEC_DOC); parts.push('CURRENT SPEC:\n' + JSON.stringify(o.prevSpec));
     parts.push('REQUESTED CHANGES: ' + (o.hints || '(none)'));
-    pushMetrics();
+    pushMetrics(); pushPast();
     if (o.focusParts && o.focusParts.length) parts.push('FOCUS: Prefer changing only these parts (and any joints that mate with them). Leave unrelated parts alone unless the change requires it: ' + o.focusParts.map(p => p.id + ' ("' + p.name + '")').join(', ') + '.');
   } else if (o.stage) {
     parts.push('You are an expert CAD engineer building a furniture/product design in stages. Current stage: ' + o.stage.label.toUpperCase() + '.');
@@ -199,7 +201,7 @@ V.buildPrompt = function (o) {
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
     if (o.prevSpec) parts.push('SPEC SO FAR (build on this; keep correct parts):\n' + JSON.stringify(o.prevSpec));
     if (o.hints) parts.push('USER HINTS: ' + o.hints);
-    pushMetrics();
+    pushMetrics(); pushPast();
     if (o.report) parts.push('CRITIC REPORT from the previous attempt — fix these issues:\n' + o.report.text);
   } else if (o.round === 1 || !o.prevSpec) {
     if (drawing) {
@@ -212,12 +214,12 @@ V.buildPrompt = function (o) {
     if (o.inventory) parts.push('INVENTORY (authoritative for object identity, part counts, and proportions — your spec MUST match these counts and aspect ratios):\n' + JSON.stringify(o.inventory));
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
     if (o.hints) parts.push('USER HINTS (they override anything you guess from the picture): ' + o.hints);
-    pushMetrics();
+    pushMetrics(); pushPast();
     if (o.report) parts.push('YOUR PREVIOUS REPLY WAS REJECTED:\n' + o.report.text);
   } else {
     parts.push('You are the BUILDER in a builder/critic loop. Below are your previous spec and the CRITIC report from an exact geometry checker' + (o.mode === 'visual' ? ' plus a render of your model next to the reference picture' : '') + '. Fix every issue and return the COMPLETE corrected spec as ONE JSON object (no commentary, no fences). Keep everything that was already correct. Refresh "reasoning" if you change the design.');
     parts.push(V.SPEC_DOC); if (o.hints) parts.push('USER HINTS: ' + o.hints);
-    pushMetrics();
+    pushMetrics(); pushPast();
     if (o.inventory) parts.push('INVENTORY (still authoritative for counts and proportions):\n' + JSON.stringify(o.inventory));
     parts.push('PREVIOUS SPEC:\n' + JSON.stringify(o.prevSpec)); parts.push('CRITIC REPORT:\n' + (o.report ? o.report.text : ''));
     if (o.mode === 'visual') parts.push('VISUAL CRITIQUE: image 1 is the reference picture, image 2 is the render of your spec. Compare proportions (width : depth : height), number and size of parts (legs, drawers, shelves, slats), leg/foot shape and any visible details. If they differ materially, correct the spec. If it already matches, return the spec unchanged.');
@@ -464,12 +466,18 @@ V.run = async function (o) {
   const inputMode = o.inputMode === 'drawing' ? 'drawing' : 'photo';
   const metrics = o.metrics || V.parseDims(o.hints, o.dimFields);
   const hintText = V.composeHints(o.hints, metrics);
+  const pastExampleText = o.pastExampleText || (o.pastExamples && CAD.store && CAD.store.formatExamplesForPrompt
+    ? CAD.store.formatExamplesForPrompt(o.pastExamples) : '') || '';
+  const promptExtras = () => ({ hints: hintText, metrics, inputMode, inventory, pastExampleText: pastExampleText || undefined });
   const critOpts = () => ({ inventory, metrics: (metrics.wMm || metrics.dMm || metrics.hMm) ? metrics : null });
   let best = null, prev = o.task === 'revise' ? o.prevSpec : null, report = null, mode = 'fix', visualDone = false, likenessRetryDone = false, lastOk = null;
-  let inventory = o.inventory || null, roundCounter = 0;
+  let inventory = o.inventory || null, roundCounter = 0, lastIou = null;
 
   if (metrics.wMm || metrics.dMm || metrics.hMm) log('Metrics: ' + V.formatMetrics(metrics));
   if (inputMode === 'drawing') log('Input mode: drawing + dimensions');
+  if (pastExampleText) log('Using ' + (o.pastExamples ? o.pastExamples.length : 1) + ' past success example(s) as few-shot guidance');
+  if (o.visual) log('Photo match (visual critic): on');
+  else log('Photo match (visual critic): off — enable in Quality or check the box to compare a render to your image');
 
   const noteCritic = (rep) => {
     const likeNote = rep.likeness && rep.likeness.penalty ? ', likeness −' + rep.likeness.penalty : '';
@@ -487,7 +495,7 @@ V.run = async function (o) {
   if (o.task !== 'revise' && refs.length && !inventory) {
     log(inputMode === 'drawing' ? 'Inventory pass: reading the drawing…' : 'Inventory pass: reading the picture…');
     try {
-      const rawInv = await call(Object.assign({}, o.provider, { text: V.buildInventoryPrompt({ hints: hintText, metrics, inputMode }), images: refs.slice(), signal: o.signal, task: 'inventory', max_tokens: V.tokenBudget('inventory') }));
+      const rawInv = await call(Object.assign({}, o.provider, { text: V.buildInventoryPrompt({ hints: hintText, metrics, inputMode, pastExampleText }), images: refs.slice(), signal: o.signal, task: 'inventory', max_tokens: V.tokenBudget('inventory') }));
       inventory = V.extractJSON(rawInv);
       if (metrics.wMm || metrics.dMm || metrics.hMm) {
         inventory.overallGuessMm = inventory.overallGuessMm || {};
@@ -515,7 +523,7 @@ V.run = async function (o) {
       let stageReport = null, stagePrev = prev;
       for (let attempt = 1; attempt <= 2; attempt++) {
         log('Stage ' + stage.label + ' (' + (si + 1) + '/' + V.STAGES.length + ')' + (attempt > 1 ? ' · fix' : '') + '…');
-        const text = V.buildPrompt({ stage, prevSpec: stagePrev, report: stageReport, hints: hintText, inventory, metrics, inputMode });
+        const text = V.buildPrompt(Object.assign({ stage, prevSpec: stagePrev, report: stageReport }, promptExtras(), { inventory }));
         let raw; try { raw = await call(Object.assign({}, o.provider, { text, images: refs.slice(), signal: o.signal, task: stage.id, max_tokens: V.tokenBudget(stage.id) })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
         let spec; try { spec = V.extractJSON(raw); } catch (e) {
           log('Could not read JSON: ' + e.message);
@@ -544,20 +552,27 @@ V.run = async function (o) {
     const first = o.task === 'revise' ? 'asking the model to apply your changes…' : (wantStages ? 'final critic pass…' : (inputMode === 'drawing' ? 'asking the model to design from the drawing…' : 'asking the model to design from the picture…'));
     log('Round ' + round + '/' + max + ': ' + (round === 1 && !wantStages ? first : mode === 'visual' ? 'visual critique against the reference…' : wantStages && round === 1 ? first : 'sending critic findings back to the model…'));
     const images = refs.slice(); if (mode === 'visual' && o.render) { const png = await o.render(prev); if (png) images.push(typeof png === 'string' ? V.dataUrlToImage(png) : png); }
-    const text = V.buildPrompt({ round: wantStages ? round + 1 : round, prevSpec: prev, report, hints: hintText, mode, task: o.task, focusParts: o.focusParts, inventory, metrics, inputMode });
+    const text = V.buildPrompt(Object.assign({ round: wantStages ? round + 1 : round, prevSpec: prev, report, mode, task: o.task, focusParts: o.focusParts }, promptExtras(), { inventory }));
     let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal, task: o.task === 'revise' ? 'revise' : 'design', max_tokens: V.tokenBudget(o.task === 'revise' ? 'revise' : 'design') })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
     let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object with a "reasoning" field.' }; mode = 'fix'; continue; }
     if (prev && wantStages) spec = V.mergeSpecs(prev, spec);
     let iou = null;
     if (mode === 'visual' && typeof o.silhouetteIoU === 'function' && images.length >= 2) {
-      try { iou = await o.silhouetteIoU(images[0], images[1]); } catch (e) { /* optional */ }
+      try { iou = await o.silhouetteIoU(images[0], images[1]); lastIou = iou; if (iou != null) log('Photo match silhouette IoU: ' + iou.toFixed(2)); } catch (e) { log('Photo match silhouette skipped: ' + e.message); }
     }
     const rep = V.evaluate(spec, Object.assign(critOpts(), { iou }));
     adopt(spec, rep);
     if (rep.ok && !likenessRetryDone && rep.likeness && rep.likeness.penalty >= 20 && round < max) {
       likenessRetryDone = true; mode = 'fix'; prev = spec; report = rep; continue;
     }
-    if (rep.ok && o.visual && !visualDone && round < max && o.render) { visualDone = true; mode = 'visual'; prev = spec; report = rep; continue; }
+    if (rep.ok && o.visual && !visualDone && round < max && o.render) {
+      visualDone = true; mode = 'visual'; prev = spec; report = rep;
+      log('Photo match: comparing a render of the model to your reference…');
+      continue;
+    }
+    if (rep.ok && o.visual && !visualDone && !(round < max && o.render)) {
+      log('Photo match: could not run — ' + (!o.render ? 'no renderer available' : 'no rounds left; raise Quality to Careful'));
+    }
     if (rep.ok) break; prev = spec; report = rep; mode = 'fix';
   }
   if (!best) throw new Error('The model never returned a usable spec. See the log.');
@@ -565,6 +580,14 @@ V.run = async function (o) {
   final.inventory = inventory;
   final.metrics = metrics;
   final.staged = !!wantStages;
+  final.visualCritic = {
+    requested: !!o.visual,
+    ran: !!visualDone,
+    iou: lastIou,
+    skippedReason: o.visual ? (visualDone ? null : (!o.render ? 'no-renderer' : 'not-enough-rounds-or-geometry-failed')) : 'off'
+  };
+  if (final.visualCritic.requested && final.visualCritic.ran) log('Photo match: finished' + (lastIou != null ? ' (IoU ' + lastIou.toFixed(2) + ')' : ''));
+  else if (!final.visualCritic.requested) log('Photo match: skipped (turned off)');
   log(final.rep.ok ? 'Done: design passes every check (round ' + final.round + ').' : 'Stopped after ' + max + ' rounds: best design still has issues. You can fix it in the Spec tab.');
   return final;
 };
