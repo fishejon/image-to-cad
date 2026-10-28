@@ -29,9 +29,9 @@ groups: [{"id":"carcass","name":"Carcass","color":"#6aa6ff"}]. steps: ["Glue the
 kinematics: { "drawer": {"label":"Drawer","axis":[0,-1,0],"range":[0,300],"unit":"mm"} }  or rotation: {"unit":"deg","axis":[0,0,1],"pivot":[x,y,z],"range":[0,110]}. Instances with "kin":"drawer" move with it.
 parts[]: each part is ONE physical piece type: { "id","name","group","material","kind":"solid"|"mesh","grain":"x"|"y"|"z","spec":"size text","notes":[...],"tools":[...], "vars":{...}, "instances":[...] }.
   kind "solid" (default; rectilinear parts, EXACT boolean geometry): "ops":[ {"add":[x0,y0,z0,x1,y1,z1]}, {"cut":[x0,y0,z0,x1,y1,z1],"tag":"mortise","label":"Mortise 24 × 8 × 40","fill":true} ]. Boxes are axis-aligned in the part's LOCAL frame. All "add" boxes are united, then all "cut" boxes removed. "fill":true means a mating part MUST completely occupy that void (mortise, dado, groove, rabbet). "tag"+"label" document a joint so the build guide can show it. Leave "fill" off for deliberate voids (finger pulls, door tracks).
-  kind "mesh" (round / turned / angled / non-rectilinear parts): "prims":[ {"type":"box","min":[..],"max":[..],"rot":[rx,ry,rz]}, {"type":"wedge","min":[..],"max":[..],"tip":"+x","angle":45}, {"type":"cylinder","base":[x,y,z],"axis":"+z","length":L,"r":R,"seg":32}, {"type":"cone","base","axis","length","r0","r1"}, {"type":"tube","base","axis","length","ro","ri"}, {"type":"sphere","r":R,"center":[..]}, {"type":"revolve","at":[x,y,z],"axis":"+z","profile":[[radius,height],...],"seg":48}, {"type":"extrude","plane":"xy"|"xz"|"yz","profile":[[u,v],...],"range":[w0,w1],"holes":[{"c":[u,v],"r":R}]} ]. Optional box "rot" is Euler degrees about the box centre. "wedge" is a mitred board (AABB with one end bevelled in the XY plane; tip +x|-x|+y|-y; angle from square, default 45). One material per part. Prefer kind "solid" for rectilinear carcass; use mesh for turned parts and mitres/angles.
+  kind "mesh" (round / turned / angled / non-rectilinear parts): "prims":[ {"type":"box","min":[..],"max":[..],"rot":[rx,ry,rz]}, {"type":"wedge","min":[..],"max":[..],"tip":"+x","angle":45}, {"type":"cylinder","base":[x,y,z],"axis":"+z","length":L,"r":R,"seg":32}, {"type":"cone","base","axis","length","r0","r1"}, {"type":"tube","base","axis","length","ro","ri"}, {"type":"sphere","r":R,"center":[..]}, {"type":"revolve","at":[x,y,z],"axis":"+z","profile":[[radius,height],...],"seg":48}, {"type":"extrude","plane":"xy"|"xz"|"yz","profile":[[u,v],...],"range":[w0,w1],"holes":[{"c":[u,v],"r":R}]} ]. Optional box "rot" is Euler degrees about the box centre. "wedge" is a mitred board (AABB with one end bevelled in the XY plane; tip +x|-x|+y|-y; angle from square, default 45). One material per part. Prefer kind "solid" for rectilinear carcass; use mesh for turned parts, continuous sculpted frames, and mitres/angles.
   instances: [{"pos":[x,y,z],"rot":[rx,ry,rz],"step":0,"explode":[dx,dy,dz],"kin":"name","repeat":{"var":"i","count":4}}]. Placement = translate(pos) · Rz · Ry · Rx. Solid parts should be rotated only by multiples of 90°. "repeat" also works on ops and prims. Omit "explode" to get an automatic exploded view.
-Modelling rules: (1) Parts must NOT overlap each other except where a tenon/tongue fills a "fill":true void exactly. (2) Joint voids and the tenon that fills them must have identical dimensions. (3) Model the object as separate real-world parts joined the way the real object is built (mortise & tenon, dados, rabbets, box joints, mitres, bolted flanges...). (4) Use params for the main dimensions so the user can resize. (5) Prefer "solid" parts; use "mesh" for round/turned/sloped/mitred shapes. (6) Put the object on the floor (min z = 0). (7) Give each part a short real-world "spec" and, when there is a joint to cut, "notes" saying how.
+Modelling rules: (1) Parts must NOT overlap each other except where a tenon/tongue fills a "fill":true void exactly. (2) Joint voids and the tenon that fills them must have identical dimensions. (3) Model the object as separate real-world parts joined the way the real object is built (mortise & tenon, dados, rabbets, box joints, mitres, bolted flanges...). (4) Use params for the main dimensions so the user can resize. (5) Prefer "solid" parts; use "mesh" for round/turned/sloped/mitred/continuous shapes. (6) Put the object on the floor (min z = 0). (7) Give each part a short real-world "spec" and, when there is a joint to cut, "notes" saying how. (8) Honor inventory.structure: if memberContinuity is continuous, model primary side/frame members as one piece (or mirrored pair), not separate stick legs+arms+posts with magic butt joints. (9) Match inventory section (round vs square vs tapered); do not mix cylinder legs with square posts unless inventory says mixed. (10) Every structural wood–wood meeting needs tag+label joinery (and fill:true on receiving cuts); unlabeled contacts fail the critic.
 `;
 V.EXAMPLE_JSON = JSON.stringify(V.EXAMPLE);
 
@@ -39,7 +39,12 @@ V.INVENTORY_DOC = `{
   "object": "short name of the object",
   "aspect": {"w": <relative width>, "d": <relative depth>, "h": <relative height>},
   "counts": {"legs": N, "drawers": N, "doors": N, "shelves": N, "slats": N, "other": N},
-  "parts": [{"role":"leg|top|side|drawer|door|shelf|rail|panel|stretcher|other","count":N,"shape":"square|rect|turned|panel","notes":"optional"}],
+  "structure": {
+    "memberContinuity": "continuous|separate|mixed|unknown",
+    "dominantSection": "round|square|rect|tapered|slab|mixed|unknown",
+    "notes": "optional: how primary members are built (one-piece side frames vs separate legs/rails, etc.)"
+  },
+  "parts": [{"role":"leg|top|side|drawer|door|shelf|rail|panel|stretcher|arm|seat|back|frame|cushion|other","count":N,"shape":"square|rect|turned|panel|tapered|slab|continuous","section":"round|square|rect|tapered|oval|unknown","continuity":"separate|continuous|unknown","notes":"optional"}],
   "materialsGuess": ["oak"],
   "joineryGuess": ["mortise and tenon legs into top"],
   "overallGuessMm": {"w":0,"d":0,"h":0},
@@ -135,8 +140,8 @@ V.buildInventoryPrompt = function (o) {
       : 'You are a careful visual inventory agent for furniture/product CAD. Study the attached picture and return ONE JSON object (no commentary, no markdown fences) with this shape:',
     V.INVENTORY_DOC,
     drawing
-      ? 'Rules: (1) Prefer dimensions readable on the drawing; put them in overallGuessMm (millimetres). (2) aspect ratios should match the drawing proportions; normalize so the smallest of w/d/h is about 1. (3) counts are integers for labeled or clearly drawn features. (4) If USER METRICS are provided, copy them into overallGuessMm and treat them as ground truth. (5) parts[].role should cover every distinct piece type needed in a CAD model.'
-      : 'Rules: (1) Match what you SEE — do not invent a generic piece of the same category. (2) aspect ratios must reflect the photo; normalize so the smallest of w/d/h is about 1. (3) counts are integers for visible or strongly implied features; prefer under-counting hidden structure over inventing parts. (4) overallGuessMm is optional; leave zeros if scale is unknown — but if USER METRICS are provided, copy them into overallGuessMm. (5) parts[].role should cover every distinct piece type you will need in a CAD model.'
+      ? 'Rules: (1) Prefer dimensions readable on the drawing; put them in overallGuessMm (millimetres). (2) aspect ratios should match the drawing proportions; normalize so the smallest of w/d/h is about 1. (3) counts are integers for labeled or clearly drawn features. (4) If USER METRICS are provided, copy them into overallGuessMm and treat them as ground truth. (5) parts[].role should cover every distinct piece type needed in a CAD model. (6) structure.memberContinuity: continuous = primary members are one piece (e.g. side frame that is leg+arm+post); separate = discrete sticks joined; mixed = both. (7) structure.dominantSection and parts[].section must match visible cross-sections (do not invent round legs when the drawing shows square stock, or vice versa).'
+      : 'Rules: (1) Match what you SEE — do not invent a generic piece of the same category. (2) aspect ratios must reflect the photo; normalize so the smallest of w/d/h is about 1. (3) counts are integers for visible or strongly implied features; prefer under-counting hidden structure over inventing parts. (4) overallGuessMm is optional; leave zeros if scale is unknown — but if USER METRICS are provided, copy them into overallGuessMm. (5) parts[].role should cover every distinct piece type you will need in a CAD model. (6) structure.memberContinuity: continuous = primary members read as one sculpted/laminated piece; separate = discrete sticks; mixed = both. Never report separate stick construction when the photo shows continuous frames. (7) structure.dominantSection and parts[].section must match visible cross-sections (round vs square vs tapered vs slab).'
   ];
   if (o.metrics && (o.metrics.wMm || o.metrics.dMm || o.metrics.hMm)) {
     parts.push('USER METRICS (ground truth overall size): ' + V.formatMetrics(o.metrics));
@@ -147,16 +152,20 @@ V.buildInventoryPrompt = function (o) {
 };
 
 V.STAGES = [
-  { id: 'carcass', label: 'carcass', focus: 'Build ONLY the primary structure: sides, top, bottom, back, legs, stretchers, rails, and fixed panels. Do NOT add drawers, doors, shelves, slats, or hardware yet. Match inventory aspect ratios.' },
-  { id: 'interiors', label: 'interiors', focus: 'ADD drawers, doors, shelves, dividers, and other interior/movable parts from the inventory. Keep every carcass part that is still correct. Update mating joinery (dados, runners, hinges). Return the COMPLETE updated spec.' },
-  { id: 'refine', label: 'refine', focus: 'Polish the COMPLETE design: fix joinery fill, interference, and inventory count/aspect mismatches. Do not remove correct parts. Return the COMPLETE corrected spec.' }
+  { id: 'carcass', label: 'carcass', focus: 'Build ONLY the primary structure: sides, top, bottom, back, legs, stretchers, rails, frames, and fixed panels. Honor inventory.structure (continuous vs separate members; dominant section). Do NOT add drawers, doors, shelves, slats, cushions, or hardware yet. Match inventory aspect ratios. Every wood–wood meeting needs labeled joinery (tag+label; fill:true on cuts).' },
+  { id: 'interiors', label: 'interiors', focus: 'ADD drawers, doors, shelves, dividers, cushions, arms (if separate), and other secondary parts from the inventory. Keep every carcass part that is still correct. Update mating joinery. Return the COMPLETE updated spec.' },
+  { id: 'refine', label: 'refine', focus: 'Polish the COMPLETE design: fix joinery fill, interference, unlabeled contacts, and inventory count/aspect/structure mismatches (section + continuity). Do not remove correct parts. Return the COMPLETE corrected spec.' }
 ];
 V.needsStages = function (inventory) {
   if (!inventory || typeof inventory !== 'object') return false;
   const c = inventory.counts || {};
   const complex = (+c.drawers || 0) + (+c.doors || 0) + (+c.shelves || 0) + (+c.slats || 0);
   const nParts = Array.isArray(inventory.parts) ? inventory.parts.length : 0;
-  return complex >= 1 || nParts >= 6;
+  const st = inventory.structure || {};
+  const continuity = String(st.memberContinuity || '').toLowerCase();
+  const roles = (inventory.parts || []).map(p => String((p && p.role) || '').toLowerCase());
+  const richRoles = roles.some(r => /arm|seat|back|frame|cushion|rail|stretcher/.test(r));
+  return complex >= 1 || nParts >= 5 || continuity === 'continuous' || continuity === 'mixed' || richRoles;
 };
 /** Merge next into base by part id (next wins). Keeps base parts the next draft omitted. */
 V.mergeSpecs = function (base, next) {
@@ -197,7 +206,7 @@ V.buildPrompt = function (o) {
     parts.push('You are an expert CAD engineer building a furniture/product design in stages. Current stage: ' + o.stage.label.toUpperCase() + '.');
     parts.push('STAGE FOCUS: ' + o.stage.focus);
     parts.push('Return ONE COMPLETE JSON design spec for this stage (no commentary, no markdown fences). Include "reasoning" describing what you added or changed in this stage.');
-    if (o.inventory) parts.push('INVENTORY (authoritative for counts and proportions):\n' + JSON.stringify(o.inventory));
+    if (o.inventory) parts.push('INVENTORY (authoritative for counts, proportions, and structure — honor memberContinuity and dominantSection):\n' + JSON.stringify(o.inventory));
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
     if (o.prevSpec) parts.push('SPEC SO FAR (build on this; keep correct parts):\n' + JSON.stringify(o.prevSpec));
     if (o.hints) parts.push('USER HINTS: ' + o.hints);
@@ -206,12 +215,12 @@ V.buildPrompt = function (o) {
   } else if (o.round === 1 || !o.prevSpec) {
     if (drawing) {
       parts.push('You are an expert CAD engineer. The attached image is a TECHNICAL DRAWING or dimensioned sketch (not a photo). Read dimensions, callouts, and part counts carefully and write a design spec for THAT object as ONE JSON object that follows the DESIGN SPEC below.');
-      parts.push('Prefer printed/handwritten sizes over guessed scale. Match labeled overall width×depth×height when present. Count drawers/doors/legs/shelves from the drawing. Where a dimension is missing, choose a plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what the drawing shows, (2) key dimensions you read, (3) major parts, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
+      parts.push('Prefer printed/handwritten sizes over guessed scale. Match labeled overall width×depth×height when present. Count drawers/doors/legs/shelves from the drawing. Honor inventory.structure (continuous vs separate members; section). Where a dimension is missing, choose a plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what the drawing shows, (2) key dimensions you read, (3) major parts and continuity, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
     } else {
       parts.push('You are an expert CAD engineer and furniture/product designer. Study the attached picture carefully and write a design spec for a 3D model of THAT object, as ONE JSON object that follows the DESIGN SPEC below.');
-      parts.push('Match what you SEE — not a generic piece in the same category. Count drawers/doors/legs/shelves/slats; match overall width:depth:height proportions from the photo; match leg shape, top overhang, and visible joinery or hardware. Where something is hidden, choose the most plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what object you see, (2) proportions you read from the image, (3) major parts you identified, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
+      parts.push('Match what you SEE — not a generic piece in the same category. Count drawers/doors/legs/shelves/slats; match overall width:depth:height proportions from the photo; match member continuity and cross-section from inventory.structure; match leg shape, top overhang, and visible joinery or hardware. Where something is hidden, choose the most plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what object you see, (2) proportions you read from the image, (3) major parts and continuity/section, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
     }
-    if (o.inventory) parts.push('INVENTORY (authoritative for object identity, part counts, and proportions — your spec MUST match these counts and aspect ratios):\n' + JSON.stringify(o.inventory));
+    if (o.inventory) parts.push('INVENTORY (authoritative for object identity, part counts, proportions, and structure — your spec MUST match these counts, aspect ratios, memberContinuity, and dominantSection):\n' + JSON.stringify(o.inventory));
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
     if (o.hints) parts.push('USER HINTS (they override anything you guess from the picture): ' + o.hints);
     pushMetrics(); pushPast();
@@ -220,9 +229,9 @@ V.buildPrompt = function (o) {
     parts.push('You are the BUILDER in a builder/critic loop. Below are your previous spec and the CRITIC report from an exact geometry checker' + (o.mode === 'visual' ? ' plus a render of your model next to the reference picture' : '') + '. Fix every issue and return the COMPLETE corrected spec as ONE JSON object (no commentary, no fences). Keep everything that was already correct. Refresh "reasoning" if you change the design.');
     parts.push(V.SPEC_DOC); if (o.hints) parts.push('USER HINTS: ' + o.hints);
     pushMetrics(); pushPast();
-    if (o.inventory) parts.push('INVENTORY (still authoritative for counts and proportions):\n' + JSON.stringify(o.inventory));
+    if (o.inventory) parts.push('INVENTORY (still authoritative for counts, proportions, and structure):\n' + JSON.stringify(o.inventory));
     parts.push('PREVIOUS SPEC:\n' + JSON.stringify(o.prevSpec)); parts.push('CRITIC REPORT:\n' + (o.report ? o.report.text : ''));
-    if (o.mode === 'visual') parts.push('VISUAL CRITIQUE: image 1 is the reference picture, image 2 is the render of your spec. Compare proportions (width : depth : height), number and size of parts (legs, drawers, shelves, slats), leg/foot shape and any visible details. If they differ materially, correct the spec. If it already matches, return the spec unchanged.');
+    if (o.mode === 'visual') parts.push('VISUAL CRITIQUE: image 1 is the reference picture, image 2 is the render of your spec. Compare proportions (width : depth : height), number and size of parts (legs, drawers, shelves, slats), member continuity and cross-section, leg/foot shape and any visible details. If they differ materially, correct the spec. If it already matches, return the spec unchanged.');
   }
   return parts.join('\n\n');
 };
@@ -265,9 +274,50 @@ V.countRoles = function (M) {
   });
   return roles;
 };
+/** Infer section / continuity signals from a built SpecModel (category-agnostic). */
+V.inferStructure = function (M) {
+  const out = { memberContinuity: 'unknown', dominantSection: 'unknown', partSections: [], mixedSection: false };
+  if (!M || !M.defs || !M.defs.size) return out;
+  const sections = [];
+  M.defs.forEach(d => {
+    const blob = ((d.id || '') + ' ' + (d.name || '') + ' ' + (d.grp || '')).toLowerCase();
+    let section = 'unknown';
+    if (d.solid && d.solid.exact === false) {
+      /* mesh: look at prim types via size aspect of bbox as weak hint; cylinder-like → round */
+      const sz = d.size || [0, 0, 0];
+      const sorted = sz.slice().sort((a, b) => a - b);
+      if (sorted[0] > 1 && Math.abs(sorted[0] - sorted[1]) / sorted[1] < 0.25 && sorted[2] > sorted[1] * 1.5) section = 'round';
+      else if (/cyl|turn|dowel|spindle|round/.test(blob)) section = 'round';
+      else section = 'mixed';
+    } else {
+      const sz = d.size || [0, 0, 0];
+      const sorted = sz.slice().sort((a, b) => a - b);
+      if (sorted[0] > 1 && Math.abs(sorted[0] - sorted[1]) / Math.max(sorted[1], 1) < 0.2) section = 'square';
+      else section = 'rect';
+    }
+    out.partSections.push({ id: d.id, section, qty: d.qty || 0 });
+    if (d.qty) for (let i = 0; i < d.qty; i++) sections.push(section);
+  });
+  const uniq = [...new Set(sections.filter(s => s !== 'unknown'))];
+  out.dominantSection = uniq.length === 1 ? uniq[0] : (uniq.length > 1 ? 'mixed' : 'unknown');
+  out.mixedSection = uniq.indexOf('round') >= 0 && (uniq.indexOf('square') >= 0 || uniq.indexOf('rect') >= 0);
+  /* continuous heuristic: few structural defs that span height, named frame/side, or mesh with large extent */
+  let tallMesh = 0, stickLegs = 0;
+  M.defs.forEach(d => {
+    const blob = ((d.id || '') + ' ' + (d.name || '')).toLowerCase();
+    const h = d.size ? d.size[2] : 0;
+    if (/frame|side.?frame|arm.?leg|continuous/.test(blob)) tallMesh += d.qty || 0;
+    if (d.solid && d.solid.exact === false && h > (M.size ? M.size[2] * 0.55 : 0)) tallMesh += d.qty || 0;
+    if (/leg|post|dowel/.test(blob) && !(d.solid && d.solid.exact === false && h > (M.size ? M.size[2] * 0.7 : 99999))) stickLegs += d.qty || 0;
+  });
+  if (tallMesh >= 2 && stickLegs <= 2) out.memberContinuity = 'continuous';
+  else if (stickLegs >= 3) out.memberContinuity = 'separate';
+  else if (tallMesh && stickLegs) out.memberContinuity = 'mixed';
+  return out;
+};
 V.likeness = function (M, inventory, o) {
   o = o || {};
-  const out = { penalty: 0, aspectErr: 0, countMismatches: [], iou: null, text: '' };
+  const out = { penalty: 0, aspectErr: 0, countMismatches: [], structureIssues: [], iou: null, text: '' };
   if (!inventory || typeof inventory !== 'object') return out;
   const L = [];
   if (inventory.aspect && M && M.size && M.size[0] > 0) {
@@ -298,7 +348,7 @@ V.likeness = function (M, inventory, o) {
     inventory.parts.forEach(p => {
       if (!p || p.count == null) return;
       const role = String(p.role || '').toLowerCase();
-      if (!role || role === 'other' || role === 'top' || role === 'side' || role === 'panel' || role === 'rail' || role === 'stretcher') return;
+      if (!role || role === 'other' || role === 'top' || role === 'side' || role === 'panel' || role === 'rail' || role === 'stretcher' || role === 'arm' || role === 'seat' || role === 'back' || role === 'frame' || role === 'cushion') return;
       const key = /leg|foot|post/.test(role) ? 'legs' : /drawer/.test(role) ? 'drawers' : /door/.test(role) ? 'doors' : /shelf/.test(role) ? 'shelves' : /slat|spindle/.test(role) ? 'slats' : null;
       if (!key || wantCounts[key] != null) return;
       const got = gotCounts[key] || 0;
@@ -308,6 +358,38 @@ V.likeness = function (M, inventory, o) {
         L.push('LIKENESS count: inventory lists ' + p.count + '× ' + role + ' but model has ' + got + '.');
       }
     });
+  }
+  /* Structure: continuity + section (category-agnostic) */
+  const wantSt = inventory.structure || {};
+  const gotSt = V.inferStructure(M);
+  out.inferredStructure = gotSt;
+  const wantCont = String(wantSt.memberContinuity || '').toLowerCase();
+  const gotCont = String(gotSt.memberContinuity || '').toLowerCase();
+  if (wantCont && wantCont !== 'unknown' && gotCont && gotCont !== 'unknown' && wantCont !== gotCont) {
+    if (!(wantCont === 'mixed' || gotCont === 'mixed')) {
+      out.structureIssues.push({ kind: 'continuity', want: wantCont, got: gotCont });
+      out.penalty += 28;
+      L.push('LIKENESS structure: inventory memberContinuity is "' + wantCont + '" but model reads as "' + gotCont + '". Rebuild primary members to match (continuous = one-piece frames; separate = discrete sticks).');
+    }
+  }
+  const wantSec = String(wantSt.dominantSection || '').toLowerCase();
+  if (wantSec && wantSec !== 'unknown' && wantSec !== 'mixed') {
+    const gotDom = gotSt.dominantSection || 'unknown';
+    const roundWant = wantSec === 'round' || wantSec === 'oval';
+    const squareishWant = wantSec === 'square' || wantSec === 'rect' || wantSec === 'slab' || wantSec === 'tapered';
+    if (gotSt.mixedSection) {
+      out.structureIssues.push({ kind: 'section', want: wantSec, got: 'mixed' });
+      out.penalty += 22;
+      L.push('LIKENESS structure: inventory dominantSection is "' + wantSec + '" but the model mixes round and square/rect members. Match cross-sections to the inventory (do not invent dowel legs on a square-stock frame or vice versa).');
+    } else if (roundWant && gotDom !== 'unknown' && gotDom !== 'round') {
+      out.structureIssues.push({ kind: 'section', want: wantSec, got: gotDom });
+      out.penalty += 18;
+      L.push('LIKENESS structure: inventory dominantSection is "' + wantSec + '" but model is mostly "' + gotDom + '".');
+    } else if (squareishWant && gotDom === 'round') {
+      out.structureIssues.push({ kind: 'section', want: wantSec, got: gotDom });
+      out.penalty += 18;
+      L.push('LIKENESS structure: inventory dominantSection is "' + wantSec + '" but model is mostly "' + gotDom + '".');
+    }
   }
   if (o.iou != null && isFinite(o.iou)) {
     out.iou = o.iou;
@@ -335,7 +417,11 @@ V.likeness = function (M, inventory, o) {
       L.push('METRIC size: ' + bits.join('; ') + '. Set params so overall AABB matches USER METRICS within ~2%.');
     }
   }
-  if (!L.length && inventory.object) L.push('LIKENESS: aspect/counts look consistent with inventory ("' + inventory.object + '").');
+  if (o.unlabeledContacts && o.unlabeledContacts.length) {
+    /* Penalty drives likeness retry; evaluate already lists the pairs in the critic text. */
+    out.penalty += Math.min(40, o.unlabeledContacts.length * 12);
+  }
+  if (!L.length && inventory.object) L.push('LIKENESS: aspect/counts/structure look consistent with inventory ("' + inventory.object + '").');
   out.text = L.join('\n');
   return out;
 };
@@ -355,6 +441,7 @@ V.evaluate = function (spec, o) {
     r.interference = allHit.filter(x => !x.coarse || x.severe);
     r.coarseInterference = allHit.filter(x => x.coarse && !x.severe);
     const fl = CAD.jointFill(M); r.fillChecked = fl.length; r.underfilled = fl.filter(x => x.ratio < .999).map(x => ({ part: x.part, tag: x.tag, ratio: x.ratio, by: x.by }));
+    r.unlabeledContacts = typeof CAD.unlabeledContacts === 'function' ? CAD.unlabeledContacts(M) : [];
     r.size = M.size.map(Math.round); r.parts = M.defs.size; r.pieces = M.insts.length;
   }
   r.ok = !r.errors.length && !r.nonmanifold.length && !r.interference.length && !r.underfilled.length;
@@ -371,9 +458,13 @@ V.evaluate = function (spec, o) {
     r.coarseInterference.slice(0, 10).forEach(x => L.push(' - ' + x.a + ' × ' + x.b + ': ~' + Math.round(x.vol) + ' mm³ AABB'));
   }
   if (r.underfilled.length) { L.push('UNFILLED JOINTS: these "fill":true cuts are not completely occupied by a mating part (ratio filled). Add/resize the mating tenon/tongue, or drop "fill" if the void is deliberate:'); r.underfilled.slice(0, 15).forEach(x => L.push(' - ' + x.part + ' / ' + x.tag + ': ' + Math.round(x.ratio * 100) + '%')); }
+  if (r.unlabeledContacts && r.unlabeledContacts.length) {
+    L.push('UNLABELED CONTACTS: these exact parts nearly touch without tagged/labeled joinery — add fill:true cuts and mating tenons (tag+label), or merge continuous members into one part:');
+    r.unlabeledContacts.slice(0, 15).forEach(x => L.push(' - ' + x.a + ' ↔ ' + x.b));
+  }
   if (r.size) L.push('Overall size: ' + r.size.join(' × ') + ' mm; ' + r.parts + ' part types, ' + r.pieces + ' pieces.');
-  if ((o.inventory || o.metrics) && !M.errors.length) {
-    r.likeness = V.likeness(M, o.inventory || {}, { iou: o.iou, metrics: o.metrics });
+  if ((o.inventory || o.metrics || (r.unlabeledContacts && r.unlabeledContacts.length)) && !M.errors.length) {
+    r.likeness = V.likeness(M, o.inventory || {}, { iou: o.iou, metrics: o.metrics, unlabeledContacts: r.unlabeledContacts });
     r.score += r.likeness.penalty;
     if (r.likeness.text) L.push(r.likeness.text);
   }
@@ -455,6 +546,9 @@ V.summarizeInventory = function (inv) {
   if (inv.aspect) bits.push('aspect ' + [inv.aspect.w, inv.aspect.d, inv.aspect.h].map(x => (+x || 0).toFixed(2)).join(':'));
   const c = inv.counts || {};
   ['legs', 'drawers', 'doors', 'shelves', 'slats'].forEach(k => { if (c[k]) bits.push(c[k] + ' ' + k); });
+  const st = inv.structure || {};
+  if (st.memberContinuity && st.memberContinuity !== 'unknown') bits.push(st.memberContinuity + ' members');
+  if (st.dominantSection && st.dominantSection !== 'unknown') bits.push(st.dominantSection + ' section');
   return bits.join(' · ');
 };
 

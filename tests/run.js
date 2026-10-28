@@ -130,6 +130,37 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     const many = JSON.parse(JSON.stringify(INV)); many.counts.legs = 8; const badCnt = V.evaluate(V.EXAMPLE, { inventory: many }); ok(badCnt.likeness.countMismatches.some(m => m.role === 'legs')); ok(/LIKENESS count/.test(badCnt.text));
     eq(V.maskIoU([1, 1, 0, 0], [1, 0, 1, 0]), 1 / 3); eq(V.maskIoU([1, 1], [1, 1]), 1);
   });
+  await t('likeness structure penalizes continuity/section mismatch; EXAMPLE has no unlabeled contacts', () => {
+    const clean = V.evaluate(V.EXAMPLE, { inventory: INV }); ok(clean.ok); ok(!clean.unlabeledContacts || !clean.unlabeledContacts.length, 'EXAMPLE joinery labeled');
+    const cont = Object.assign({}, INV, { structure: { memberContinuity: 'continuous', dominantSection: 'square' } });
+    const badCont = V.evaluate(V.EXAMPLE, { inventory: cont });
+    ok(badCont.likeness.structureIssues.some(x => x.kind === 'continuity'), 'continuity issue');
+    ok(badCont.likeness.penalty >= 20, 'continuity penalty ' + badCont.likeness.penalty);
+    ok(/LIKENESS structure/.test(badCont.text));
+    const roundInv = Object.assign({}, INV, { structure: { memberContinuity: 'separate', dominantSection: 'round' } });
+    const badSec = V.evaluate(V.EXAMPLE, { inventory: roundInv });
+    ok(badSec.likeness.structureIssues.some(x => x.kind === 'section') || badSec.likeness.penalty >= 18, 'section mismatch');
+    ok(V.needsStages(Object.assign({}, INV, { structure: { memberContinuity: 'continuous' } })), 'continuous stages');
+    ok(/continuous members|square section/.test(V.summarizeInventory(cont)) || /continuous/.test(V.summarizeInventory(cont)));
+  });
+  await t('unlabeledContacts flags touching parts without joinery tags', () => {
+    const soft = {
+      name: 'Butt', units: 'mm', params: {}, materials: { oak: { base: 'oak' } },
+      parts: [
+        { id: 'a', name: 'A', material: 'oak', ops: [{ add: [0, 0, 0, 40, 40, 200] }], instances: [{ pos: [0, 0, 0] }] },
+        { id: 'b', name: 'B', material: 'oak', ops: [{ add: [0, 0, 0, 40, 40, 40] }], instances: [{ pos: [0, 0, 200] }] }
+      ]
+    };
+    const M = CAD.buildSpec(soft); ok(!M.errors.length, M.errors.join('; '));
+    const hits = CAD.unlabeledContacts(M); ok(hits.length >= 1, 'unlabeled pair'); ok(hits.some(h => (h.a === 'a' && h.b === 'b') || (h.a === 'b' && h.b === 'a')));
+    const rep = V.evaluate(soft); ok(rep.ok, 'geometry still ok'); ok(rep.unlabeledContacts.length >= 1); ok(/UNLABELED CONTACTS/.test(rep.text));
+    ok(rep.likeness && rep.likeness.penalty >= 12, 'likeness penalty from contacts');
+    const labeled = JSON.parse(JSON.stringify(soft));
+    labeled.parts[0].ops.push({ add: [10, 10, 185, 30, 30, 200], tag: 'tenon', label: 'Tenon' });
+    labeled.parts[1].ops.push({ cut: [10, 10, 0, 30, 30, 15], tag: 'mortise', fill: true, label: 'Mortise' });
+    labeled.parts[1].instances[0].pos = [0, 0, 185];
+    const okRep = V.evaluate(labeled); ok(!okRep.unlabeledContacts.length, 'labeled joinery clears contacts');
+  });
   await t('parseDims reads fractions, triplets, and structured fields', () => {
     near(V.parseInch('12 3/16'), (12 + 3 / 16) * 25.4, .01);
     near(V.parseInch('3/4'), 19.05, .01);
