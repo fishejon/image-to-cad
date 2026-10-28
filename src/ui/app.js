@@ -693,11 +693,25 @@ function renderExport() {
   <h3>Export</h3><div class="grid2"><button class="btn sm" id="eSel">Selected part(s)</button><button class="btn sm" id="eGrp">Group of selection</button><button class="btn sm" id="eAsm">Whole object · 1 STL</button><button class="btn sm" id="eAll">All parts · ZIP</button></div>
   <button class="btn pri sm" id="ePl" style="width:100%;margin-top:8px">Nest everything onto bed plates (STL per plate)</button>
   <div class="grid2" style="margin-top:8px"><button class="btn sm" id="eCsv">Cut list · CSV</button><button class="btn sm" id="eGuide">Build guide · HTML</button><button class="btn sm" id="eSpec" style="grid-column:1/3">Design spec · JSON</button></div>
+  <h3>Training / feedback</h3>
+  <button class="btn sm" id="eDataset" style="width:100%">Download HITL dataset (JSON + JSONL)</button>
+  <div class="card" style="margin-top:6px;font-size:12px;color:var(--dim)">Exports Match/Close/Wrong ratings and “Mark correct” examples from this browser (no photos). Use for few-shot review or future model fine-tune.</div>
   <div class="card"><b>Notes</b>Binary STL, millimetres at the chosen scale, Z-up. Parts lie flat (longest axis on X). Exact (solid) parts split on straight planes with keys; round mesh parts are exported whole and flagged if they exceed the bed. Inside Claude the viewer only saves certain file types, so STLs arrive in a .zip.</div>`;
   const upd = () => { e.scale = +$('#exs2').value; e.bed = [+$('#bx').value || 220, +$('#by').value || 220, +$('#bz').value || 250]; e.split = $('#exsp').checked; info(); renderInspect(); };
   ['exs2', 'bx', 'by', 'bz', 'exsp'].forEach(id => $('#' + id).onchange = upd);
   $('#eSel').onclick = exportSelected; $('#eGrp').onclick = () => { const f = [...S.sel][0]; f ? exportGroup(f.def.grp) : toast('Select a part to pick its group'); }; $('#eAsm').onclick = exportAssembly; $('#eAll').onclick = exportAll; $('#ePl').onclick = exportPlates;
-  $('#eCsv').onclick = () => deliver('cut_list', [{ name: safe(S.M.meta.name) + '_cut_list.csv', data: cutCSV() }]); $('#eGuide').onclick = () => window.__guide && window.__guide.save(); $('#eSpec').onclick = () => deliver('spec', [{ name: safe(S.M.meta.name) + '.spec.json', data: jsonOf(S.spec) }]); info();
+  $('#eCsv').onclick = () => deliver('cut_list', [{ name: safe(S.M.meta.name) + '_cut_list.csv', data: cutCSV() }]); $('#eGuide').onclick = () => window.__guide && window.__guide.save(); $('#eSpec').onclick = () => deliver('spec', [{ name: safe(S.M.meta.name) + '.spec.json', data: jsonOf(S.spec) }]);
+  $('#eDataset').onclick = () => exportHitlDataset();
+  info();
+}
+async function exportHitlDataset() {
+  try {
+    const out = await CAD.store.datasetExportFiles();
+    const n = out.pack.stats.feedbackCount + out.pack.stats.exampleCount;
+    if (!n) return toast('No feedback or examples saved yet — rate a generate first');
+    await deliver('hitl_dataset', out.files);
+    toast('Dataset exported · ' + out.pack.stats.feedbackCount + ' feedback · ' + out.pack.stats.exampleCount + ' examples');
+  } catch (e) { toast('Dataset export failed: ' + e.message); }
 }
 function info() { try { let np = 0, ns = 0, mesh = 0; S.M.defs.forEach(d => { const ps = CAD.exporter.printPieces(d, mult(), S.ex.bed, S.ex.split); np += ps.length * d.qty; if (ps.length > 1) ns++; if (ps.some(p => p.over)) mesh++; }); const { plates, over } = CAD.exporter.nest(S.M, mult(), S.ex.bed, S.ex.split); $('#exInfo').innerHTML = `<div class="card">${np} printed pieces · ${ns} part types split · ${plates.length} plate(s)${over.length ? ' · <span class="fail">' + over.length + ' oversize (round parts or too tall)</span>' : ''}</div>`; } catch (e) { $('#exInfo').textContent = ''; } }
 
@@ -1009,16 +1023,17 @@ async function runAI(task) {
   if (task === 'design') { persistActive(); aiDocId = addDoc(blankSpec('AI design'), { name: 'AI design' }); refreshDocSel(); }
   const adoptAIDoc = () => { if (aiDocId) { S.docId = aiDocId; aiDocId = null; refreshDocSel(); } };
   S.ai.busy = true; S.ai.log = []; S.ai.reasoning = ''; if (task === 'design') S.ai.inventory = null;
+  const runId = CAD.store.newRunId ? CAD.store.newRunId() : ('r' + Date.now().toString(36));
   const go = $('#aiGo'), rev = $('#aiRev'), stop = $('#aiStop');
   if (go) go.disabled = true; if (rev) rev.disabled = true; if (stop) stop.disabled = false;
   const ac = new AbortController(); S.ai.abort = ac;
   setAIStatus('<b>Status:</b> starting…', true);
-  aiLog('Using ' + model + ' · Quality ' + preset.label + ' (' + maxRounds + ' round' + (maxRounds === 1 ? '' : 's') + (visual ? ', photo match on' : ', photo match off') + ')' + (inputMode === 'drawing' ? ' · drawing' : '') +
+  aiLog('Run ' + runId + ' · ' + model + ' · Quality ' + preset.label + ' (' + maxRounds + ' round' + (maxRounds === 1 ? '' : 's') + (visual ? ', photo match on' : ', photo match off') + ')' + (inputMode === 'drawing' ? ' · drawing' : '') +
     (focusJoint ? ' · joint ' + (focusJoint.cutName || focusJoint.cutId) + '↔' + (focusJoint.addName || focusJoint.addId) + (focusJoint.requestedMethod ? ' → ' + focusJoint.requestedMethod : '') :
       (focusParts.length ? ' · focused on ' + focusParts.map(p => p.name).join(', ') : '')));
   try {
     const res = await CAD.vision.run({
-      image: S.ai.img, hints, metrics, dimFields, inputMode, task, focusParts, focusJoint, pastExamples,
+      image: S.ai.img, hints, metrics, dimFields, inputMode, task, focusParts, focusJoint, pastExamples, runId,
       prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model },
       maxRounds, visual, signal: ac.signal, onLog: (m) => { aiLog(m); setAIStatus('<b>Status:</b> ' + esc(m), true); },
       onInventory: (inv) => { S.ai.inventory = inv; S.ai.refOpen = true; syncRefPane(); setAIStatus('<b>Status:</b> inventory captured', true); },
@@ -1027,7 +1042,13 @@ async function runAI(task) {
     });
     res.spec.__ai = true; if (res.inventory) S.ai.inventory = res.inventory; noteReasoning(res.spec); adoptAIDoc(); loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText();
     S.ai.refOpen = true; syncRefPane();
-    S.lastRun = { task, visualCritic: res.visualCritic || null, at: Date.now(), hints, metrics, inventory: res.inventory || null };
+    S.lastRun = {
+      runId, task, visualCritic: res.visualCritic || null, at: Date.now(), hints, metrics,
+      inventory: res.inventory || null, model, quality: preset.id,
+      geometryOk: !!(res.rep && res.rep.ok),
+      likenessPenalty: res.rep && res.rep.likeness ? res.rep.likeness.penalty : null,
+      round: res.round || null
+    };
     S.feedback = { rating: null, tags: [], note: '', pending: true };
     const vcMsg = visualStatusHtml(res.visualCritic);
     setAIStatus('<b>Status:</b> ' + (res.rep.ok ? 'geometry checks passed' : 'loaded with remaining issues') + (vcMsg ? '<br>' + vcMsg : '') + '<br>Rate the match in Inspect.', true);
@@ -1048,11 +1069,15 @@ async function submitFeedback(rating) {
   try {
     await CAD.store.addFeedback({
       rating, failureTags: tags, note,
+      runId: (S.lastRun && S.lastRun.runId) || null,
       inventory: S.ai.inventory || (S.lastRun && S.lastRun.inventory) || null,
       hints: (S.lastRun && S.lastRun.hints) || '',
       metrics: (S.lastRun && S.lastRun.metrics) || null,
       visualCritic: (S.lastRun && S.lastRun.visualCritic) || null,
-      model: ($('#aiModel') && $('#aiModel').value) || '',
+      model: (S.lastRun && S.lastRun.model) || ($('#aiModel') && $('#aiModel').value) || '',
+      quality: (S.lastRun && S.lastRun.quality) || S.aiQuality || null,
+      geometryOk: S.lastRun ? S.lastRun.geometryOk : null,
+      likenessPenalty: S.lastRun ? S.lastRun.likenessPenalty : null,
       docId: S.docId,
       object: (S.ai.inventory && S.ai.inventory.object) || (S.spec && S.spec.name) || ''
     });
@@ -1066,10 +1091,13 @@ async function markExampleCorrect() {
   try {
     await CAD.store.addExample({
       object: (S.ai.inventory && S.ai.inventory.object) || S.spec.name || '',
+      runId: (S.lastRun && S.lastRun.runId) || null,
       inventory: S.ai.inventory || null,
       specSummary: CAD.store.summarizeSpec(S.spec),
       hints: (S.lastRun && S.lastRun.hints) || '',
-      metrics: (S.lastRun && S.lastRun.metrics) || null
+      metrics: (S.lastRun && S.lastRun.metrics) || null,
+      model: (S.lastRun && S.lastRun.model) || null,
+      quality: (S.lastRun && S.lastRun.quality) || null
     });
     if (!S.feedback.rating) await submitFeedback('match');
     else toast('Saved as a success example for future generates');

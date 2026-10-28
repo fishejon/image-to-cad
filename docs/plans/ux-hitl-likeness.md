@@ -27,7 +27,7 @@
 - [x] **Generic topology/section inventory + unlabeled-contact critic** — `vision.js` inventory.structure + likeness penalties; `checks.js` `unlabeledContacts`; staged when continuous/mixed — Verify: `node tests/run.js`
 - [x] **Trusted joinery guide pages** — `joinery.js` mating pairs + how-to; auto guide subset pages; asm method hints; unlabeled-contact warning; labeled arrows — Verify: `node tests/run.js`
 - [x] **Click-to-target joints for revise** — pick joint/contact in viewer; Inspect chips (incl. dovetail/box); `FOCUS JOINT` revise prompt — Verify: `node tests/run.js`
-- [ ] Dataset export for Bedrock Haiku / open VLM fine-tune
+- [x] **Dataset export for Bedrock Haiku / open VLM fine-tune** — Ship → Download HITL dataset (JSON + JSONL); `runId` on feedback/examples — Verify: `node tests/run.js`
 
 ## Risks & rollback
 - Few-shot injection can bloat prompts — cap at 1 example, truncate spec JSON.
