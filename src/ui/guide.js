@@ -6,30 +6,17 @@ const N = v => CAD.fmtInch(v);
 
 const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 CAD.sanitizeHTML = s => escH(s).replace(/&lt;(\/?)(b|i|br)&gt;/g, '<$1$2>');
-/* Guide pages for the current model. A spec may carry its own hand-written "guide" array (the sideboard does); otherwise pages are generated
-   from the parts' tagged joinery features and the assembly steps. */
+/* Guide pages for the current model. A spec may carry its own hand-written "guide" array (the sideboard does); otherwise pages come from CAD.buildGuidePlan (joinery.js). */
 function guideSteps(M) {
   const trusted = !!M.spec.__trusted, clean = t => trusted ? String(t) : CAD.sanitizeHTML(t), E = escH, S = [], add = o => { o.n = S.length + 1; S.push(o); return o; };
-  const has = id => M.defs.has(id), defs = [...M.defs.values()], gi = id => Math.max(0, CAD.GROUPS.findIndex(g => g.id === id));
+  const has = id => M.defs.has(id);
   if (Array.isArray(M.spec.guide) && M.spec.guide.length) {
     const inch = t => CAD.inchifyText(t);
     M.spec.guide.forEach(g => { const o = Object.assign({}, g); o.text = (o.text || []).map(t => clean(inch(t))); if (o.tip) o.tip = clean(inch(o.tip)); if (o.chk) o.chk = clean(inch(o.chk)); o.title = E(inch(o.title)); o.phase = E(o.phase || ''); o.tools = (o.tools || []).map(t => E(inch(t)));
       if (o.focus) { o.focus = o.focus.filter(has); if (!o.focus.length) return; } if (o.show) { o.show = o.show.filter(s => has(s.def)); if (!o.show.length) return; } if (o.parts) o.parts = o.parts.filter(p => has(p.def)); if (o.kind === 'asm' && !(o.asm >= 0 && o.asm < M.steps.length)) return; add(o); });
     if (S.length) return S;
   }
-  add({ kind: 'hero', phase: 'Welcome', title: E(M.meta.name), text: [].concat(M.meta.description ? [E(M.meta.description)] : [], [`Finished size <b>${CAD.fmtInch3(M.size)}</b>: ${defs.length} part types, ${M.insts.length} pieces.`,
-    'How to read the pictures: <span style="color:#e86a00">orange parts</span> are new in this step; <span style="color:#e86a00">orange boxes</span> inside a part are material to remove; <span style="color:#18a34a">green boxes</span> are tenons and tongues you leave standing.'], M.meta.assumptions.slice(0, 2).map(a => 'Assumed: ' + E(a))), tools: [], tip: 'Dry-fit every joint before gluing.' });
-  add({ kind: 'flat', phase: 'Welcome', title: 'Parts overview', text: [`<b>${defs.length} part types, ${M.insts.length} pieces.</b> Each tile shows the part name and the quantity you need.`, 'Part names match the cut list on the next page.'], tools: [], tip: 'Label every part with its name and an orientation arrow as soon as you make it.' });
-  add({ kind: 'cutlist', phase: 'Prepare', title: 'Cut list & milling', text: [] });
-  defs.filter(d => (d.solid.feat || []).some(f => f.label)).sort((a, b) => gi(a.grp) - gi(b.grp)).slice(0, 22).forEach(d => {
-    const feats = d.solid.feat.filter(f => f.label), tags = [...new Set(feats.map(f => f.tag))], seen = new Set(), tx = [];
-    feats.forEach(f => { if (seen.has(f.label)) return; seen.add(f.label); const lab = E(CAD.inchifyText(f.label)); tx.push(f.kind === 'cut' ? `Remove <b>${lab}</b> (orange): mark it with a knife and gauge, remove the waste, then pare to the lines.` : `Leave <b>${lab}</b> (green) standing: saw the cheeks and shoulders, then pare it to fit its mating part.`); });
-    (d.notes || []).forEach(n => tx.push(E(CAD.inchifyText(n)))); tx.push(`Make <b>${d.qty}</b> of these.`);
-    add({ kind: 'part', phase: 'Joinery', title: 'Make the joints: ' + E(CAD.inchifyText(d.name)), focus: [d.id], tags, dir: [.8, .85, .6], zoom: 'first', parts: [{ def: d.id, qty: d.qty }], text: tx.slice(0, 6), tools: d.tools.length ? d.tools.map(t => E(CAD.inchifyText(t))) : ['Marking knife', 'Square', 'Chisels', 'Saw'], tip: 'Cut one test joint in scrap first.', chk: 'Dry-fit with its mating part before any glue.' });
-  });
-  M.steps.forEach((s, k) => { if (!M.insts.some(i => i.step === k)) return; const nt = (s.notes || []).map(E);
-    add({ kind: 'asm', phase: 'Assembly', title: E(s.title), asm: k, dir: [.7, -.9, .6], text: nt.length ? nt : ['Dry-fit the new parts first.', 'Glue only where the joints meet and clamp until set.', 'Check the assembly is square and flat before the next step.'], tools: (s.tools || []).length ? s.tools.map(E) : ['Glue', 'Clamps', 'Square'], tip: s.tip ? E(s.tip) : undefined, chk: s.check ? E(s.check) : undefined }); });
-  add({ kind: 'hero', phase: 'Finish', title: 'Finish and enjoy', final: true, text: ['Sand, finish and check every moving part.', 'Keep this guide with the spec file so the design can be changed and rebuilt.'], tools: [] });
+  if (typeof CAD.buildGuidePlan === 'function') return CAD.buildGuidePlan(M);
   return S;
 }
 CAD.guideSteps = guideSteps;
@@ -91,14 +78,30 @@ CAD.makeGuide = function (ctx) {
   function heroAsm(st) {
     const M = S.M, [w, h] = SZ3, k = w / 1000, { box, news } = addAll(M, st.asm, st.asm, st.exf || .5), fl = new T.Box3(); M.insts.forEach(i => { if (i.step <= st.asm) fl.union(tbox(M.defs.get(i.def), i.m)); }); shadowDisc(fl);
     frame(cam, box, st.dir || [.7, -.9, .6], .9, w / h); const c = snap(w, h), x = c.getContext('2d'), seen = new Set(); let na = 0;
-    news.forEach(({ i, off, def }) => { if (seen.has(i.def) || na >= 8) return; seen.add(i.def); const cc = tbox(def, instMat(i, off)).getCenter(V(0, 0, 0)); if (off.length() > 10) { arrow(x, proj(cc, w, h), proj(cc.clone().sub(off), w, h), null, k); na++; } });
-    let detail = null; if (st.detail && news.length) { const pick = st.detail === 'first' ? news[0] : news[st.detail]; const bb = tbox(pick.def, instMat(pick.i, pick.off)).union(tbox(pick.def, pick.i.m)); const home = tbox(pick.def, pick.i.m), cen = home.getCenter(V(0, 0, 0)); const bx = new T.Box3().setFromCenterAndSize(cen, V(150, 150, 150)); bx.union(bb); frame(cam, bx, st.dir || [.7, -.9, .6], .8, SZD[0] / SZD[1]); detail = snap(SZD[0], SZD[1]); const xd = detail.getContext('2d'); const cc = bb.getCenter(V(0, 0, 0)); arrow(xd, proj(cc, SZD[0], SZD[1]), proj(cc.clone().sub(pick.off), SZD[0], SZD[1]), null, SZD[0] / 1000); }
+    const callouts = [];
+    news.forEach(({ i, off, def }) => {
+      if (seen.has(i.def) || na >= 4) return; seen.add(i.def);
+      const cc = tbox(def, instMat(i, off)).getCenter(V(0, 0, 0));
+      if (off.length() > 10) {
+        const from = proj(cc, w, h), to = proj(cc.clone().sub(off), w, h);
+        arrow(x, from, to, '#2563eb', k * 1.15);
+        const label = st.joinLabel || (def.name || i.def);
+        callouts.push({ p: [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, Math.min(from[2], to[2])], text: String(label).slice(0, 42), col: '#1d4ed8' });
+        na++;
+      }
+    });
+    if (callouts.length) labels(c, callouts.slice(0, 3), Math.round(w * .018));
+    let detail = null; if (st.detail && news.length) { const pick = st.detail === 'first' ? news[0] : news[st.detail]; const bb = tbox(pick.def, instMat(pick.i, pick.off)).union(tbox(pick.def, pick.i.m)); const home = tbox(pick.def, pick.i.m), cen = home.getCenter(V(0, 0, 0)); const bx = new T.Box3().setFromCenterAndSize(cen, V(150, 150, 150)); bx.union(bb); frame(cam, bx, st.dir || [.7, -.9, .6], .8, SZD[0] / SZD[1]); detail = snap(SZD[0], SZD[1]); const xd = detail.getContext('2d'); const cc = bb.getCenter(V(0, 0, 0)); arrow(xd, proj(cc, SZD[0], SZD[1]), proj(cc.clone().sub(pick.off), SZD[0], SZD[1]), '#2563eb', SZD[0] / 1000); }
     return { hero: c, detail };
   }
   function heroSubset(st) {
     const M = S.M, [w, h] = SZ3, k = w / 1000, box = new T.Box3(), arrows = [], feats = []; clear();
-    st.show.forEach(s => { const i = M.insts.filter(q => q.def === s.def)[s.idx - 1]; if (!i) return; const off = V(...s.ex), def = M.defs.get(i.def); addInst(def, instMat(i, off), s.ex.some(v => v) ? 'new' : 'real'); box.union(tbox(def, instMat(i, off))); box.union(tbox(def, i.m)); if (st.tags) featBoxes(def, instMat(i, off), st.tags).forEach(f => feats.push(f)); if (off.length() > 10) { const cc = tbox(def, instMat(i, off)).getCenter(V(0, 0, 0)); arrows.push([cc, cc.clone().sub(off)]); } });
-    frame(cam, box, st.dir, .88, w / h); const c = snap(w, h), x = c.getContext('2d'); arrows.slice(0, 6).forEach(([a, b]) => arrow(x, proj(a, w, h), proj(b, w, h), null, k));
+    st.show.forEach(s => { const i = M.insts.filter(q => q.def === s.def)[s.idx - 1]; if (!i) return; const off = V(...(s.ex || [0, 0, 0])), def = M.defs.get(i.def); addInst(def, instMat(i, off), (s.ex || []).some(v => v) ? 'new' : 'real'); box.union(tbox(def, instMat(i, off))); box.union(tbox(def, i.m)); if (st.tags) featBoxes(def, instMat(i, off), st.tags).forEach(f => feats.push(f)); if (off.length() > 10) { const cc = tbox(def, instMat(i, off)).getCenter(V(0, 0, 0)); arrows.push([cc, cc.clone().sub(off)]); } });
+    frame(cam, box, st.dir || [.85, -.75, .55], .88, w / h); const c = snap(w, h), x = c.getContext('2d'); arrows.slice(0, 3).forEach(([a, b]) => arrow(x, proj(a, w, h), proj(b, w, h), '#2563eb', k * 1.1));
+    if (st.joinLabel) {
+      const mid = box.getCenter(V(0, 0, 0));
+      labels(c, [{ p: proj(mid, w, h), text: String(st.joinLabel).slice(0, 48), col: '#1d4ed8' }], Math.round(w * .02));
+    }
     if (feats.length) { const its = []; feats.forEach(f => { if (f.f.label) its.push({ p: proj(f.c, w, h), text: featLabel(f.f), col: f.f.kind === 'cut' ? '#b34700' : '#0b6b2e' }); }); labels(c, dedupe(its).slice(0, 4), Math.round(w * .021)); } return { hero: c };
   }
   function featLabel(f) {

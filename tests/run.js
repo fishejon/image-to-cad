@@ -116,6 +116,37 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     for (let i = 0; i < 30; i++) many.push({ _ab: [i * 100, i * 100, 0, i * 100 + 10, i * 100 + 10, 10] });
     ok(CAD.spatialPairs(many, x => x._ab, 50).length < 30 * 29 / 2);
   });
+  console.log('Joinery guide plan');
+  await t('classifyJoint and matingJoints pair fill:true cuts with mates', () => {
+    eq(CAD.classifyJoint('Mortise 20 × 20 × 15', 'mortise', 'cut'), 'mortise_and_tenon');
+    eq(CAD.classifyJoint('Shelf dado 18 × 6', 'dado', 'cut'), 'dado');
+    const M = CAD.buildSpec(V.EXAMPLE);
+    const joints = CAD.matingJoints(M);
+    ok(joints.length >= 1, 'plant-stand joints ' + joints.length);
+    ok(joints.some(j => j.cutId === 'top' && j.addId === 'leg'), 'top←leg');
+    ok(joints.every(j => j.method === 'mortise_and_tenon'));
+    const how = CAD.joineryHowTo(joints[0]);
+    ok(/Mortise|tenon/i.test(how.title)); ok(how.text.length >= 3); ok(/Dry-fit|dry-fit|Shoulders/i.test(how.chk));
+  });
+  await t('buildGuidePlan emits joinery subset pages and assembly method hints', () => {
+    const M = CAD.buildSpec(V.EXAMPLE);
+    const plan = CAD.buildGuidePlan(M);
+    ok(plan.some(p => p.kind === 'subset' && /Mortise|tenon/i.test(p.title)), 'joinery subset');
+    ok(plan.some(p => p.kind === 'subset' && p.joinLabel), 'join label');
+    ok(plan.some(p => p.kind === 'asm' && /Join|Mortise|tenon|Dry-fit/i.test(p.text.join(' '))), 'asm method');
+    const soft = {
+      name: 'Butt', units: 'mm', params: {}, materials: { oak: { base: 'oak' } }, steps: ['Stack'],
+      parts: [
+        { id: 'a', name: 'A', material: 'oak', ops: [{ add: [0, 0, 0, 40, 40, 200] }], instances: [{ pos: [0, 0, 0], step: 0 }] },
+        { id: 'b', name: 'B', material: 'oak', ops: [{ add: [0, 0, 0, 40, 40, 40] }], instances: [{ pos: [0, 0, 200], step: 0 }] }
+      ]
+    };
+    const warn = CAD.buildGuidePlan(CAD.buildSpec(soft));
+    ok(warn.some(p => /Unlabeled contacts/i.test(p.title)), 'warns unlabeled');
+    const book = CAD.buildGuidePlan(CAD.buildSpec(load('bookshelf')));
+    ok(book.filter(p => p.kind === 'subset').length >= 1, 'bookshelf joint pages');
+    ok(book.some(p => /Dado|dado|Rabbet|Groove|Tongue/i.test(p.title + (p.joinLabel || ''))), 'bookshelf joint types');
+  });
   console.log('AI module (mock provider)');
   const INV = { object: 'Plant stand', aspect: { w: 1, d: 1, h: 1.4 }, counts: { legs: 4, drawers: 0, doors: 0, shelves: 0, slats: 0 }, parts: [{ role: 'leg', count: 4, shape: 'square' }, { role: 'top', count: 1, shape: 'panel' }] };
   await t('prompt example is itself a valid, clean spec (prompt cannot drift from the engine)', () => { const r = V.evaluate(V.EXAMPLE); ok(r.ok, r.text); ok(r.fillChecked >= 4); });
