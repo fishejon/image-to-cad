@@ -201,6 +201,24 @@ V.buildPrompt = function (o) {
     parts.push(V.SPEC_DOC); parts.push('CURRENT SPEC:\n' + JSON.stringify(o.prevSpec));
     parts.push('REQUESTED CHANGES: ' + (o.hints || '(none)'));
     pushMetrics(); pushPast();
+    if (o.focusJoint) {
+      const j = o.focusJoint;
+      const cur = j.method || 'unknown';
+      const req = j.requestedMethod || null;
+      const reqLab = req && CAD.jointMethodLabel ? CAD.jointMethodLabel(req) : req;
+      const curLab = CAD.jointMethodLabel ? CAD.jointMethodLabel(cur) : cur;
+      let fj = 'FOCUS JOINT: cut "' + (j.cutId || '') + '"' + (j.cutTag ? ' tag ' + j.cutTag : '') +
+        ' ↔ add "' + (j.addId || '') + '"' + (j.addTag ? ' tag ' + j.addTag : '') +
+        '; current method ' + cur + (curLab ? ' (' + curLab + ')' : '') +
+        (j.label ? '; label "' + j.label + '"' : '') +
+        (req ? '; requested: ' + req + (reqLab ? ' (' + reqLab + ')' : '') : '') +
+        '. Rewrite only this connection and its mating ops on those two parts; keep unrelated parts.';
+      if (req && CAD.jointInterlockingHint) {
+        const hint = CAD.jointInterlockingHint(req);
+        if (hint) fj += ' ' + hint;
+      }
+      parts.push(fj);
+    }
     if (o.focusParts && o.focusParts.length) parts.push('FOCUS: Prefer changing only these parts (and any joints that mate with them). Leave unrelated parts alone unless the change requires it: ' + o.focusParts.map(p => p.id + ' ("' + p.name + '")').join(', ') + '.');
   } else if (o.stage) {
     parts.push('You are an expert CAD engineer building a furniture/product design in stages. Current stage: ' + o.stage.label.toUpperCase() + '.');
@@ -231,6 +249,12 @@ V.buildPrompt = function (o) {
     pushMetrics(); pushPast();
     if (o.inventory) parts.push('INVENTORY (still authoritative for counts, proportions, and structure):\n' + JSON.stringify(o.inventory));
     parts.push('PREVIOUS SPEC:\n' + JSON.stringify(o.prevSpec)); parts.push('CRITIC REPORT:\n' + (o.report ? o.report.text : ''));
+    if (o.focusJoint) {
+      const j = o.focusJoint;
+      parts.push('FOCUS JOINT (still authoritative): ' + (j.cutId || '') + ' ↔ ' + (j.addId || '') +
+        (j.requestedMethod ? '; requested method ' + j.requestedMethod : '') +
+        '. Keep fixing this connection until joinery is labeled and filled.');
+    }
     if (o.mode === 'visual') parts.push('VISUAL CRITIQUE: image 1 is the reference picture, image 2 is the render of your spec. Compare proportions (width : depth : height), number and size of parts (legs, drawers, shelves, slats), member continuity and cross-section, leg/foot shape and any visible details. If they differ materially, correct the spec. If it already matches, return the spec unchanged.');
   }
   return parts.join('\n\n');
@@ -646,7 +670,7 @@ V.run = async function (o) {
     const first = o.task === 'revise' ? 'asking the model to apply your changes…' : (wantStages ? 'final critic pass…' : (inputMode === 'drawing' ? 'asking the model to design from the drawing…' : 'asking the model to design from the picture…'));
     log('Round ' + round + '/' + max + ': ' + (round === 1 && !wantStages ? first : mode === 'visual' ? 'visual critique against the reference…' : wantStages && round === 1 ? first : 'sending critic findings back to the model…'));
     const images = refs.slice(); if (mode === 'visual' && o.render) { const png = await o.render(prev); if (png) images.push(typeof png === 'string' ? V.dataUrlToImage(png) : png); }
-    const text = V.buildPrompt(Object.assign({ round: wantStages ? round + 1 : round, prevSpec: prev, report, mode, task: o.task, focusParts: o.focusParts }, promptExtras(), { inventory }));
+    const text = V.buildPrompt(Object.assign({ round: wantStages ? round + 1 : round, prevSpec: prev, report, mode, task: o.task, focusParts: o.focusParts, focusJoint: o.focusJoint }, promptExtras(), { inventory }));
     let raw; try { raw = await call(Object.assign({}, o.provider, { text, images, signal: o.signal, task: o.task === 'revise' ? 'revise' : 'design', max_tokens: V.tokenBudget(o.task === 'revise' ? 'revise' : 'design') })); } catch (e) { log('Model call failed: ' + e.message); throw e; }
     let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object with a "reasoning" field.' }; mode = 'fix'; continue; }
     if (prev && wantStages) spec = V.mergeSpecs(prev, spec);

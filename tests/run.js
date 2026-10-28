@@ -120,6 +120,11 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
   await t('classifyJoint and matingJoints pair fill:true cuts with mates', () => {
     eq(CAD.classifyJoint('Mortise 20 × 20 × 15', 'mortise', 'cut'), 'mortise_and_tenon');
     eq(CAD.classifyJoint('Shelf dado 18 × 6', 'dado', 'cut'), 'dado');
+    eq(CAD.classifyJoint('Through dovetail', 'dovetail', 'cut'), 'dovetail');
+    eq(CAD.classifyJoint('Box joint fingers', 'finger', 'cut'), 'box_joint');
+    ok(CAD.JOINT_METHODS.some(m => m.id === 'dovetail'));
+    ok(CAD.JOINT_METHODS.some(m => m.id === 'box_joint'));
+    ok(/pins and tails/i.test(CAD.jointInterlockingHint('dovetail')));
     const M = CAD.buildSpec(V.EXAMPLE);
     const joints = CAD.matingJoints(M);
     ok(joints.length >= 1, 'plant-stand joints ' + joints.length);
@@ -127,6 +132,36 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     ok(joints.every(j => j.method === 'mortise_and_tenon'));
     const how = CAD.joineryHowTo(joints[0]);
     ok(/Mortise|tenon/i.test(how.title)); ok(how.text.length >= 3); ok(/Dry-fit|dry-fit|Shoulders/i.test(how.chk));
+  });
+  await t('jointsNearPoint resolves EXAMPLE mortise and unlabeled contacts', () => {
+    const M = CAD.buildSpec(V.EXAMPLE);
+    const joints = CAD.matingJoints(M); ok(joints.length >= 1);
+    const j0 = joints[0];
+    const ic = M.insts.find(i => i.def === j0.cutId);
+    const wb = CAD.xfBoxes([j0.cutFeat.box], ic.m)[0];
+    const c = [(wb[0] + wb[3]) / 2, (wb[1] + wb[4]) / 2, (wb[2] + wb[5]) / 2];
+    const near = CAD.jointsNearPoint(M, c, 12);
+    ok(near.length >= 1, 'near joint'); ok(near[0].kind === 'joint');
+    const hit = CAD.resolveJointTarget(M, c, 12); ok(hit && hit.cutId === 'top');
+    const soft = {
+      name: 'Butt', units: 'mm', params: {}, materials: { oak: { base: 'oak' } },
+      parts: [
+        { id: 'a', name: 'A', material: 'oak', ops: [{ add: [0, 0, 0, 40, 40, 200] }], instances: [{ pos: [0, 0, 0] }] },
+        { id: 'b', name: 'B', material: 'oak', ops: [{ add: [0, 0, 0, 40, 40, 40] }], instances: [{ pos: [0, 0, 200] }] }
+      ]
+    };
+    const Ms = CAD.buildSpec(soft);
+    const pt = [20, 20, 200];
+    const contact = CAD.resolveJointTarget(Ms, pt, 12);
+    ok(contact && contact.kind === 'contact', 'unlabeled contact target');
+    ok(/dovetail|Dovetail/i.test(CAD.reviseJointPrompt(hit, 'dovetail')));
+  });
+  await t('revise prompt includes FOCUS JOINT when focusJoint is set', () => {
+    const fj = { kind: 'joint', cutId: 'top', addId: 'leg', cutTag: 'mortise', addTag: 'tenon', method: 'mortise_and_tenon', requestedMethod: 'dovetail', label: 'Mortise' };
+    const p = V.buildPrompt({ task: 'revise', round: 1, prevSpec: V.EXAMPLE, hints: 'change to dovetails', focusJoint: fj, focusParts: [{ id: 'top', name: 'Top' }, { id: 'leg', name: 'Leg' }] });
+    ok(/FOCUS JOINT/.test(p), 'focus joint block');
+    ok(/dovetail/.test(p), 'requested method');
+    ok(/pins and tails|interlocking|fill:true/i.test(p), 'interlock hint');
   });
   await t('buildGuidePlan emits joinery subset pages and assembly method hints', () => {
     const M = CAD.buildSpec(V.EXAMPLE);
