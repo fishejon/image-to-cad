@@ -13,36 +13,88 @@ const sizeOf = box => {
   return CAD.fmtInch3 ? CAD.fmtInch3(dims) : dims.map(d => Math.round(d)).join(' × ') + ' mm';
 };
 
+/** Canonical joinery methods for classify, chips, and revise prompts. */
+CAD.JOINT_METHODS = [
+  { id: 'mortise_and_tenon', label: 'Mortise & tenon', group: 'casework', interlocking: false },
+  { id: 'bridal', label: 'Bridle / open mortise', group: 'casework', interlocking: false },
+  { id: 'half_lap', label: 'Half-lap', group: 'casework', interlocking: false },
+  { id: 'dado', label: 'Dado / housing', group: 'casework', interlocking: false },
+  { id: 'rabbet', label: 'Rabbet', group: 'casework', interlocking: false },
+  { id: 'groove', label: 'Groove / panel', group: 'casework', interlocking: false },
+  { id: 'tongue', label: 'Tongue & groove', group: 'casework', interlocking: false },
+  { id: 'dowel', label: 'Dowel / peg', group: 'casework', interlocking: false },
+  { id: 'spline', label: 'Spline / biscuit', group: 'casework', interlocking: false },
+  { id: 'mitre', label: 'Mitre', group: 'casework', interlocking: false },
+  { id: 'dovetail', label: 'Dovetail', group: 'interlock', interlocking: true },
+  { id: 'box_joint', label: 'Box / finger joint', group: 'interlock', interlocking: true },
+  { id: 'finger_lap', label: 'Finger / comb lap', group: 'interlock', interlocking: true },
+  { id: 'scarf', label: 'Scarf / kama-tsugi', group: 'interlock', interlocking: true },
+  { id: 'wedge_tenon', label: 'Wedged / keyed tenon', group: 'interlock', interlocking: true },
+  { id: 'housings_with_shoulders', label: 'Stopped housing', group: 'interlock', interlocking: false },
+  { id: 'fastener', label: 'Screw / hardware', group: 'casework', interlocking: false },
+  { id: 'glue_only', label: 'Glue-only butt', group: 'casework', interlocking: false }
+];
+CAD.jointMethodInfo = function (id) {
+  return CAD.JOINT_METHODS.find(m => m.id === id) || null;
+};
 /** Classify a joint from tag/label text. */
 CAD.classifyJoint = function (label, tag, kind) {
   const s = (String(label || '') + ' ' + String(tag || '') + ' ' + String(kind || '')).toLowerCase();
+  if (/dove.?tail|ari.?kumi|half.?blind.?dove/.test(s)) return 'dovetail';
+  if (/box.?joint|finger.?joint/.test(s)) return 'box_joint';
+  if (/finger.?lap|comb.?lap|comb.?joint/.test(s)) return 'finger_lap';
+  if (/scarf|kama.?tsugi|kane.?tsugi/.test(s)) return 'scarf';
+  if (/shachi|wedge.?tenon|keyed.?tenon|fox.?wedge|draw.?wedge/.test(s)) return 'wedge_tenon';
+  if (/bridle|open.?mortise/.test(s)) return 'bridal';
+  if (/half.?lap|halving/.test(s)) return 'half_lap';
+  if (/stopped.?housing|housing.?with.?shoulder/.test(s)) return 'housings_with_shoulders';
   if (/mortise|tenon/.test(s)) return 'mortise_and_tenon';
   if (/dado|housing/.test(s)) return 'dado';
   if (/rabbet|rebate/.test(s)) return 'rabbet';
   if (/groove|panel.?groove|floating.?panel/.test(s)) return 'groove';
+  if (/spline|biscuit/.test(s)) return 'spline';
   if (/dowel|peg|draw.?bor/.test(s)) return 'dowel';
-  if (/tongue|box.?joint|finger|comb/.test(s)) return 'tongue';
-  if (/mitre|miter|wedge/.test(s)) return 'mitre';
+  if (/tongue/.test(s)) return 'tongue';
+  if (/finger|comb/.test(s)) return 'box_joint';
+  if (/mitre|miter/.test(s)) return 'mitre';
   if (/screw|bolt|hardware/.test(s)) return 'fastener';
+  if (/glue.?only|butt.?joint|glue.?butt/.test(s)) return 'glue_only';
   if (kind === 'cut') return 'pocket';
   if (kind === 'add') return 'projection';
   return 'joint';
 };
 
 CAD.jointMethodLabel = function (method) {
+  const known = CAD.jointMethodInfo(method);
+  if (known) return known.label;
   return ({
-    mortise_and_tenon: 'Mortise & tenon',
-    dado: 'Dado / housing',
-    rabbet: 'Rabbet',
-    groove: 'Groove',
-    dowel: 'Dowel / peg',
-    tongue: 'Tongue / interlocking',
-    mitre: 'Mitre',
-    fastener: 'Fastener',
     pocket: 'Cut pocket',
     projection: 'Standing tenon / tongue',
     joint: 'Joinery'
   })[method] || 'Joinery';
+};
+
+CAD.jointInterlockingHint = function (method) {
+  const info = CAD.jointMethodInfo(method);
+  if (!info || !info.interlocking) return '';
+  if (method === 'dovetail') return 'Model mating pins and tails as labeled cut/add features with fill:true (exact mating voids/projections), not magic butts.';
+  if (method === 'box_joint' || method === 'finger_lap') return 'Model interlocking fingers as paired cut/add features with fill:true on receiving cuts.';
+  if (method === 'scarf') return 'Model the scarf faces (and any keys/wedges) as labeled mating cut/add geometry with fill where appropriate.';
+  if (method === 'wedge_tenon') return 'Model the tenon, mortise, and wedge/key as labeled features; fill:true on the receiving mortise.';
+  return 'Model interlocking members as exact mating cut/add features with tag+label and fill:true — not unlabeled contact.';
+};
+
+/** Prefill sentence for revise when user picks a joinery chip. */
+CAD.reviseJointPrompt = function (target, requestedMethod) {
+  const req = CAD.jointMethodInfo(requestedMethod) || { id: requestedMethod, label: CAD.jointMethodLabel(requestedMethod) };
+  const a = (target && (target.cutName || target.aName || target.cutId || target.a)) || 'part A';
+  const b = (target && (target.addName || target.bName || target.addId || target.b)) || 'part B';
+  const cur = target && target.method ? CAD.jointMethodLabel(target.method) : 'the current joint';
+  const hint = CAD.jointInterlockingHint(req.id);
+  let s = 'Change the joint between "' + a + '" and "' + b + '" from ' + cur + ' to ' + req.label +
+    ' (method id: ' + req.id + '). Keep overall sizes. Update both mating features (tag+label; fill:true on receiving cuts). Prefer Quality Careful if the joint is interlocking.';
+  if (hint) s += ' ' + hint;
+  return s;
 };
 
 /**
@@ -114,6 +166,82 @@ CAD.matingJoints = function (M) {
     });
   });
   return out;
+};
+
+const boxCenter = b => [(b[0] + b[3]) / 2, (b[1] + b[4]) / 2, (b[2] + b[5]) / 2];
+const distPointBox = (p, b) => {
+  const dx = Math.max(b[0] - p[0], 0, p[0] - b[3]);
+  const dy = Math.max(b[1] - p[1], 0, p[1] - b[4]);
+  const dz = Math.max(b[2] - p[2], 0, p[2] - b[5]);
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+};
+const pointInPad = (p, b, g) => p[0] >= b[0] - g && p[0] <= b[3] + g && p[1] >= b[1] - g && p[1] <= b[4] + g && p[2] >= b[2] - g && p[2] <= b[5] + g;
+
+/**
+ * Joints / unlabeled contacts near a world-space point (mm).
+ * Returns sorted list of target descriptors: { kind, dist, ... }.
+ */
+CAD.jointsNearPoint = function (M, worldPoint, radiusMm) {
+  radiusMm = radiusMm == null ? 12 : radiusMm;
+  if (!M || !worldPoint) return [];
+  const p = Array.isArray(worldPoint) ? worldPoint : [worldPoint.x, worldPoint.y, worldPoint.z];
+  const hits = [];
+  const firstInst = id => {
+    for (let i = 0; i < M.insts.length; i++) if (M.insts[i].def === id) return M.insts[i];
+    return null;
+  };
+  CAD.matingJoints(M).forEach(j => {
+    let best = Infinity, cutWorld = null, addWorld = null;
+    const ic = firstInst(j.cutId), ia = firstInst(j.addId);
+    if (ic && j.cutFeat && j.cutFeat.box) {
+      cutWorld = CAD.xfBoxes([j.cutFeat.box], ic.m)[0];
+      best = Math.min(best, distPointBox(p, cutWorld));
+    }
+    if (ia && j.addFeat && j.addFeat.box) {
+      addWorld = CAD.xfBoxes([j.addFeat.box], ia.m)[0];
+      best = Math.min(best, distPointBox(p, addWorld));
+    }
+    if (!(best <= radiusMm)) return;
+    hits.push(Object.assign({}, j, {
+      kind: 'joint',
+      dist: best,
+      cutWorld, addWorld,
+      center: cutWorld ? boxCenter(cutWorld) : (addWorld ? boxCenter(addWorld) : p.slice())
+    }));
+  });
+  if (typeof CAD.unlabeledContacts === 'function') {
+    const contacts = CAD.unlabeledContacts(M, Math.max(2, radiusMm));
+    contacts.forEach(c => {
+      const ia = firstInst(c.a), ib = firstInst(c.b);
+      if (!ia || !ib) return;
+      CAD.instBoxes(M, ia); CAD.instBoxes(M, ib);
+      const nearA = pointInPad(p, ia._ab, radiusMm), nearB = pointInPad(p, ib._ab, radiusMm);
+      if (!nearA && !nearB) return;
+      /* Prefer points in the padded overlap of both AABBs */
+      const pad = g => [Math.max(ia._ab[0], ib._ab[0]) - g, Math.max(ia._ab[1], ib._ab[1]) - g, Math.max(ia._ab[2], ib._ab[2]) - g,
+        Math.min(ia._ab[3], ib._ab[3]) + g, Math.min(ia._ab[4], ib._ab[4]) + g, Math.min(ia._ab[5], ib._ab[5]) + g];
+      const ov = pad(radiusMm);
+      if (ov[0] > ov[3] || ov[1] > ov[4] || ov[2] > ov[5]) return;
+      const dist = distPointBox(p, ov);
+      if (dist > radiusMm) return;
+      const da = M.defs.get(c.a), db = M.defs.get(c.b);
+      hits.push({
+        kind: 'contact', dist, method: 'glue_only', label: 'Unlabeled contact',
+        cutId: c.a, addId: c.b,
+        cutName: (da && da.name) || c.a, addName: (db && db.name) || c.b,
+        a: c.a, b: c.b, aName: (da && da.name) || c.a, bName: (db && db.name) || c.b,
+        center: boxCenter(ov), cutWorld: ia._ab.slice(), addWorld: ib._ab.slice()
+      });
+    });
+  }
+  hits.sort((a, b) => a.dist - b.dist);
+  return hits;
+};
+
+/** Best single target near a point, or null. */
+CAD.resolveJointTarget = function (M, worldPoint, radiusMm) {
+  const hits = CAD.jointsNearPoint(M, worldPoint, radiusMm);
+  return hits.length ? hits[0] : null;
 };
 
 /** Shop-ready bullets for one mating joint. */

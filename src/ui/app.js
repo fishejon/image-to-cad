@@ -13,7 +13,7 @@ const S = { M: null, spec: null, ov: {}, R: [], kin: {}, sel: new Set(), hiddenD
   sec: { on: false, axis: 'y', off: 0, inv: false }, edges: true, meas: { on: false, pts: [], objs: [] }, q: '', need: true, hov: null, collapsed: new Set(), mv: {},
   ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null, reasoning: '', inventory: null, refOpen: true }, examples: {}, nav: 'orbit', movePlane: 'xy', leftOn: true, rightOn: true,
   docs: {}, docId: null, aiMode: 'photo', aiPanel: 'create', aiQuality: 'balanced',
-  feedback: { rating: null, tags: [], note: '', pending: false }, lastRun: null };
+  feedback: { rating: null, tags: [], note: '', pending: false }, lastRun: null, target: null };
 const uid = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function blankSpec(name) {
   return {
@@ -162,10 +162,18 @@ function geomOf(d) {
   g.setAttribute('position', new T.BufferAttribute(m.pos, 3)); g.setAttribute('normal', new T.BufferAttribute(m.nor, 3)); g.setAttribute('uv', new T.BufferAttribute(m.uv, 2)); g.computeBoundingBox(); g.computeBoundingSphere();
   d.geom = g; d.edgeGeom = new T.EdgesGeometry(g, 25); return g;
 }
+function targetPartIds() {
+  const t = S.target; if (!t) return null;
+  if (t.kind === 'joint' || t.kind === 'contact') return new Set([t.cutId || t.a, t.addId || t.b].filter(Boolean));
+  if (t.kind === 'part' && t.partId) return new Set([t.partId]);
+  return null;
+}
 function matFor(R) {
   const key = R.def.solid.mat;
   if (S.sel.has(R)) return getMat('sel', key); if (S.hov === R) return getMat('hov', key);
   if (S.iso && !S.iso.has(R)) return getMat('ghost', 'wood');
+  const tp = targetPartIds();
+  if (tp && !tp.has(R.def.id)) return getMat('ghost', 'wood');
   if (S.mode === 'xray') return getMat('xray', 'x');
   if (S.mode === 'group') return getMat('flat', CAD.GROUPS.find(g => g.id === R.def.grp).color, R.def.grp);
   return getMat('real', key);
@@ -174,7 +182,11 @@ function matFor(R) {
 
 /* ---------------- spec → scene ---------------- */
 let prevM = null, fillRows = null; const fillFor = () => fillRows || (fillRows = CAD.jointFill(S.M));
-function disposeScene() { while (root.children.length) root.remove(root.children[0]); S.R = []; S.sel.clear(); S.iso = null; S.hov = null; clearMeasure(); }
+let targetOverlay = null;
+function clearTargetOverlay() {
+  if (targetOverlay) { root.remove(targetOverlay); targetOverlay = null; }
+}
+function disposeScene() { clearTargetOverlay(); while (root.children.length) root.remove(root.children[0]); S.R = []; S.sel.clear(); S.iso = null; S.hov = null; S.target = null; clearMeasure(); }
 /* returns true when the scene was replaced */
 const hist = { stack: [], i: -1, max: 50, lock: false, sig: '' };
 function histSig() { try { return JSON.stringify({ s: S.spec, o: S.ov }); } catch (e) { return String(Date.now()); } }
@@ -227,8 +239,33 @@ function applyMotion() {
   applyTransforms();
 }
 const isVis = R => !(S.hiddenDef.has(R.def.id) || S.hiddenGrp.has(R.def.grp) || R.inst.step > S.stepCur);
+function featOverlayBox(worldBox, kind) {
+  const w = [worldBox[3] - worldBox[0], worldBox[4] - worldBox[1], worldBox[5] - worldBox[2]];
+  const g = new T.BoxGeometry(Math.max(w[0], 1), Math.max(w[1], 1), Math.max(w[2], 1));
+  const col = kind === 'cut' ? 0xff7a00 : (kind === 'contact' ? 0x2563eb : 0x16a34a);
+  const m = new T.Mesh(g, new T.MeshBasicMaterial({ color: col, transparent: true, opacity: kind === 'contact' ? .28 : .55, depthWrite: false }));
+  m.position.set((worldBox[0] + worldBox[3]) / 2, (worldBox[1] + worldBox[4]) / 2, (worldBox[2] + worldBox[5]) / 2);
+  m.raycast = () => { };
+  const e = new T.LineSegments(new T.EdgesGeometry(g), new T.LineBasicMaterial({ color: col })); e.raycast = () => { };
+  const grp = new T.Group(); grp.add(m, e); return grp;
+}
+function rebuildTargetOverlay() {
+  clearTargetOverlay();
+  const t = S.target; if (!t || !S.M) return;
+  targetOverlay = new T.Group(); targetOverlay.name = 'targetOverlay';
+  if (t.kind === 'joint') {
+    if (t.cutWorld) targetOverlay.add(featOverlayBox(t.cutWorld, 'cut'));
+    if (t.addWorld) targetOverlay.add(featOverlayBox(t.addWorld, 'add'));
+  } else if (t.kind === 'contact') {
+    const c = t.center || [0, 0, 0];
+    const band = [c[0] - 8, c[1] - 8, c[2] - 8, c[0] + 8, c[1] + 8, c[2] + 8];
+    targetOverlay.add(featOverlayBox(band, 'contact'));
+  }
+  root.add(targetOverlay); S.need = true;
+}
 function updateVisuals() {
   S.R.forEach(R => { const v = isVis(R); R.mesh.visible = v; R.line.visible = v && S.edges && S.mode !== 'xray' && !(S.iso && !S.iso.has(R)); const mat = matFor(R); if (R.mesh.material !== mat) R.mesh.material = mat; R.line.material = S.sel.has(R) ? edgeSel : edgeMat; });
+  rebuildTargetOverlay();
   S.need = true;
 }
 function refreshAll() { applyTransforms(); updateVisuals(); buildTree(); renderInspect(); buildSteps(); renderMotion(); renderParam(); renderExport(); renderReview(); }
@@ -302,22 +339,65 @@ cv.addEventListener('pointerup', e => {
   }
   if (draggingModel) { draggingModel = null; controls.enabled = true; }
   if (!down) return; const mv = Math.hypot(e.clientX - down.x, e.clientY - down.y), add = down.shift || e.ctrlKey || e.metaKey; down = null; if (mv > 4) return; const h = pickAt(e.clientX, e.clientY);
-  if (S.meas.on) { if (h) addMeasurePoint(snap(h).p); return; } if (S.nav === 'move' || S.nav === 'pan') return; if (!h) { if (!add) setSel([]); return; }
-  const R = h.object.userData.R; if (add) { const n = new Set(S.sel); n.has(R) ? n.delete(R) : n.add(R); setSel([...n]); } else setSel([R]);
+  if (S.meas.on) { if (h) addMeasurePoint(snap(h).p); return; } if (S.nav === 'move' || S.nav === 'pan') return; if (!h) { if (!add) { clearTarget(); setSel([]); } return; }
+  const R = h.object.userData.R;
+  if (!add && S.M && typeof CAD.resolveJointTarget === 'function') {
+    const jt = CAD.resolveJointTarget(S.M, h.point, 12);
+    if (jt) { setTarget(jt); return; }
+  }
+  clearTarget(true); if (add) { const n = new Set(S.sel); n.has(R) ? n.delete(R) : n.add(R); setSel([...n]); } else setSel([R]);
 });
-let hovT = 0;
+let hovT = 0, hovJoint = null;
 cv.addEventListener('pointermove', e => {
   if (e.buttons || marquee || draggingModel) { hideTip(); return; } const now = performance.now(); if (now - hovT < 40) return; hovT = now;
   const h = pickAt(e.clientX, e.clientY), R = h ? h.object.userData.R : null; if (R !== S.hov) { S.hov = R; updateVisuals(); }
+  hovJoint = (h && S.M && CAD.resolveJointTarget) ? CAD.resolveJointTarget(S.M, h.point, 12) : null;
   const tip = $('#tip'), r = wrap.getBoundingClientRect();
-  if (R && !S.meas.on) { tip.style.display = 'block'; tip.style.left = Math.min(r.width - 290, e.clientX - r.left + 14) + 'px'; tip.style.top = (e.clientY - r.top + 14) + 'px'; tip.innerHTML = `<b>${esc(R.def.name)}</b><br><span style="color:var(--dim)">${esc(gname(R.def.grp))}${R.def.qty > 1 ? ' · #' + R.inst.qtyIdx + ' of ' + R.def.qty : ''}</span>`; }
-  else if (S.meas.on && h) { const s = snap(h); tip.style.display = 'block'; tip.style.left = (e.clientX - r.left + 14) + 'px'; tip.style.top = (e.clientY - r.top + 14) + 'px'; tip.textContent = (s.snapped ? 'Vertex ' : 'Surface ') + s.p.toArray().map(inch).join(', '); } else hideTip();
+  if (S.meas.on && h) { const s = snap(h); tip.style.display = 'block'; tip.style.left = (e.clientX - r.left + 14) + 'px'; tip.style.top = (e.clientY - r.top + 14) + 'px'; tip.textContent = (s.snapped ? 'Vertex ' : 'Surface ') + s.p.toArray().map(inch).join(', '); }
+  else if (hovJoint && !S.meas.on) {
+    tip.style.display = 'block'; tip.style.left = Math.min(r.width - 320, e.clientX - r.left + 14) + 'px'; tip.style.top = (e.clientY - r.top + 14) + 'px';
+    const a = esc(hovJoint.cutName || hovJoint.aName || hovJoint.cutId), b = esc(hovJoint.addName || hovJoint.bName || hovJoint.addId);
+    tip.innerHTML = hovJoint.kind === 'contact'
+      ? `<b>Unlabeled contact</b><br><span style="color:var(--dim)">${a} ↔ ${b} · click to target</span>`
+      : `<b>${esc(CAD.jointMethodLabel(hovJoint.method))}</b><br><span style="color:var(--dim)">${a} ↔ ${b}${hovJoint.label ? ' · ' + esc(note(hovJoint.label)) : ''}</span>`;
+  }
+  else if (R && !S.meas.on) { tip.style.display = 'block'; tip.style.left = Math.min(r.width - 290, e.clientX - r.left + 14) + 'px'; tip.style.top = (e.clientY - r.top + 14) + 'px'; tip.innerHTML = `<b>${esc(R.def.name)}</b><br><span style="color:var(--dim)">${esc(gname(R.def.grp))}${R.def.qty > 1 ? ' · #' + R.inst.qtyIdx + ' of ' + R.def.qty : ''}</span>`; }
+  else hideTip();
 });
-cv.addEventListener('pointerleave', () => { hideTip(); if (S.hov) { S.hov = null; updateVisuals(); } });
+cv.addEventListener('pointerleave', () => { hideTip(); hovJoint = null; if (S.hov) { S.hov = null; updateVisuals(); } });
 function hideTip() { $('#tip').style.display = 'none'; }
-function setSel(list) { S.sel = new Set(list); updateVisuals(); syncTreeSel(); renderInspect(); if ($('#aiBox').classList.contains('open')) syncAIFocus(); }
-function selectDef(id, add) { const l = S.R.filter(R => R.def.id === id); if (add) { const n = new Set(S.sel); l.forEach(R => n.add(R)); setSel([...n]); } else setSel(l); }
+function clearTarget(skipSel) {
+  if (!S.target) return;
+  S.target = null; clearTargetOverlay();
+  if (!skipSel) updateVisuals();
+  else { /* selection will refresh visuals */ }
+  if ($('#aiBox').classList.contains('open')) syncAIFocus();
+}
+function setTarget(t) {
+  S.target = t;
+  const ids = [t.cutId || t.a, t.addId || t.b].filter(Boolean);
+  const list = S.R.filter(R => ids.indexOf(R.def.id) >= 0);
+  S.sel = new Set(list.length ? list : S.sel);
+  updateVisuals(); syncTreeSel(); renderInspect();
+  if ($('#aiBox').classList.contains('open')) syncAIFocus();
+  toast(t.kind === 'contact' ? 'Targeted unlabeled contact — pick a joinery type' : 'Targeted joint: ' + CAD.jointMethodLabel(t.method));
+}
+function setSel(list) { if (!list.length) clearTarget(true); else if (S.target && S.target.kind !== 'part') { /* keep joint target if mates still selected */ const ids = new Set(list.map(R => R.def.id)); const need = targetPartIds(); if (need && [...need].some(id => !ids.has(id))) S.target = null; }
+  S.sel = new Set(list); updateVisuals(); syncTreeSel(); renderInspect(); if ($('#aiBox').classList.contains('open')) syncAIFocus(); }
+function selectDef(id, add) { clearTarget(true); const l = S.R.filter(R => R.def.id === id); if (add) { const n = new Set(S.sel); l.forEach(R => n.add(R)); setSel([...n]); } else setSel(l); }
 function selectedPartIds() { return [...new Set([...S.sel].map(R => R.def.id))]; }
+function focusJointPayload() {
+  const t = S.target; if (!t || (t.kind !== 'joint' && t.kind !== 'contact')) return null;
+  return {
+    kind: t.kind,
+    cutId: t.cutId || t.a, addId: t.addId || t.b,
+    cutName: t.cutName || t.aName, addName: t.addName || t.bName,
+    cutTag: t.cutTag || null, addTag: t.addTag || null,
+    label: t.label || null, method: t.method || null,
+    requestedMethod: t.requestedMethod || null,
+    size: t.size || null
+  };
+}
 function applyMaterial(matKey) {
   const ids = selectedPartIds(); if (!ids.length) return toast('Select one or more parts first');
   if (!S.spec.materials) S.spec.materials = {};
@@ -418,8 +498,33 @@ function renderInspect() {
       ${S.ai.inventory ? `<h3>Picture inventory</h3><div class="card">${esc(CAD.vision.summarizeInventory(S.ai.inventory) || 'Captured')}${S.ai.inventory.notes ? '<br>' + esc(S.ai.inventory.notes) : ''}</div>` : ''}
       ${S.ai.reasoning ? `<h3>AI thought process</h3><div class="card">${esc(S.ai.reasoning)}</div>` : ''}
       ${M.meta.assumptions.length ? `<h3>Assumptions</h3><div class="card">${M.meta.assumptions.map(a => '• ' + esc(a)).join('<br>')}</div>` : ''}${S.lastWarnings.length ? `<div class="card warn"><b>Warnings</b>${S.lastWarnings.slice(0, 6).map(esc).join('<br>')}</div>` : ''}
-      <div class="card"><b>How to use</b>Click a part to inspect. Use <b>Create</b> for a new image, <b>Revise</b> to change this design. Ship tab exports STL and the build guide.</div>`;
+      <div class="card"><b>How to use</b>Click a part — or a <b>connection</b> (joint) — to inspect. Joint targets open joinery-type chips for Revise. Ship tab exports STL and the build guide.</div>`;
     bindFeedbackCard();
+    return;
+  }
+  if (S.target && (S.target.kind === 'joint' || S.target.kind === 'contact')) {
+    const t = S.target, method = t.method || 'joint';
+    const a = esc(t.cutName || t.aName || t.cutId), b = esc(t.addName || t.bName || t.addId);
+    const chips = (CAD.JOINT_METHODS || []).map(m =>
+      `<button type="button" class="btn sm jchip${m.id === method ? ' on' : ''}" data-jm="${esc(m.id)}" title="${esc(m.label)}">${esc(m.label)}</button>`
+    ).join('');
+    el.innerHTML = `<h3>${t.kind === 'contact' ? 'Unlabeled contact' : esc(CAD.jointMethodLabel(method))}</h3>
+      <div class="kv"><span>Parts</span><span>${a} ↔ ${b}</span>
+      ${t.label ? `<span>Feature</span><span>${esc(note(t.label))}</span>` : ''}
+      ${t.size ? `<span>Size</span><span>${esc(t.size)}</span>` : ''}
+      <span>Tags</span><span>${esc([t.cutTag, t.addTag].filter(Boolean).join(' · ') || '—')}</span></div>
+      <div class="card">${t.kind === 'contact'
+        ? 'These parts touch without tagged joinery. Pick a joinery type to revise — the AI will add mating cut/add features.'
+        : 'Click a joinery type to open Revise focused on this connection. Prefer Careful for interlocking joints (dovetail, box joint).'}</div>
+      <h3>Change joinery to</h3><div class="matrow jchips" style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${chips}</div>
+      <h3>Actions</h3><div class="grid2">
+        <button class="btn sm" data-a="focus">Focus</button>
+        <button class="btn sm" data-a="iso">Isolate</button>
+        <button class="btn sm pri" data-a="aij" style="grid-column:1/3">Revise this joint…</button>
+        <button class="btn sm" data-a="cleart" style="grid-column:1/3">Clear joint target</button>
+      </div>`;
+    bindActs();
+    $$('#p-insp .jchip').forEach(b => b.onclick = () => startJointRevise(b.dataset.jm));
     return;
   }
   const first = [...S.sel][0], d = first.def, many = new Set([...S.sel].map(R => R.def.id)).size > 1;
@@ -449,8 +554,34 @@ function deleteSelected() {
   S.spec.parts = (S.spec.parts || []).filter(p => !drop.has(p.id));
   if (loadSpec(S.spec, S.ov, true)) { setSpecText(); setSel([]); toast(ids.length === 1 ? 'Deleted part' : 'Deleted ' + ids.length + ' part type(s)'); }
 }
+function startJointRevise(requestedMethod) {
+  if (!S.target) return;
+  if (requestedMethod) S.target.requestedMethod = requestedMethod;
+  const text = CAD.reviseJointPrompt(S.target, requestedMethod || S.target.method || 'mortise_and_tenon');
+  openAI('revise');
+  const sync = () => {
+    const ta = $('#aiRevise'); if (ta) { ta.value = text; ta.focus(); }
+    const fo = $('#aiFocusOnly'); if (fo) fo.checked = true;
+    const q = $('#aiQuality'); if (q && CAD.jointMethodInfo(requestedMethod) && CAD.jointMethodInfo(requestedMethod).interlocking) {
+      q.value = 'careful'; S.aiQuality = 'careful';
+    }
+    syncAIFocus();
+  };
+  setTimeout(sync, 0);
+}
 function bindActs() {
-  $$('#p-insp [data-a]').forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'focus') focusSel(); else if (a === 'iso') { S.iso = new Set(S.sel); updateVisuals(); } else if (a === 'hide') { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); setSel([]); updateVisuals(); buildTree(); } else if (a === 'showall') showAll(); else if (a === 'del') deleteSelected(); else if (a === 'stlp') exportSelected(); else if (a === 'ai') { openAI('revise'); const t = $('#aiRevise'); if (t) t.focus(); } });
+  $$('#p-insp [data-a]').forEach(b => b.onclick = () => {
+    const a = b.dataset.a;
+    if (a === 'focus') focusSel();
+    else if (a === 'iso') { S.iso = new Set(S.sel); updateVisuals(); }
+    else if (a === 'hide') { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); clearTarget(); setSel([]); updateVisuals(); buildTree(); }
+    else if (a === 'showall') showAll();
+    else if (a === 'del') deleteSelected();
+    else if (a === 'stlp') exportSelected();
+    else if (a === 'ai') { openAI('revise'); const t = $('#aiRevise'); if (t) t.focus(); }
+    else if (a === 'aij') startJointRevise(S.target && S.target.method);
+    else if (a === 'cleart') { clearTarget(); setSel([]); }
+  });
   $$('#p-insp .matbtn').forEach(b => b.onclick = () => applyMaterial(b.dataset.mat));
 }
 function showAll() { S.hiddenDef.clear(); S.hiddenGrp.clear(); S.iso = null; S.stepCur = S.M.steps.length - 1; S.stepping = false; stopPlay(); S.R.forEach(R => R.anim = 1); updateVisuals(); applyTransforms(); buildTree(); buildSteps(); }
@@ -704,8 +835,17 @@ function openAI(panel) {
 function closeAI() { $('#aiBox').classList.remove('open'); $('#bAI').classList.remove('on'); }
 function syncAIFocus() {
   const el = $('#aiFocus'); if (!el) return;
+  const jt = focusJointPayload();
+  if (jt) {
+    const a = esc(jt.cutName || jt.cutId), b = esc(jt.addName || jt.addId);
+    const meth = esc(CAD.jointMethodLabel(jt.method || 'joint'));
+    const req = jt.requestedMethod ? ' → ' + esc(CAD.jointMethodLabel(jt.requestedMethod)) : '';
+    el.innerHTML = `<div class="card"><b>Focus joint</b> ${meth}${req}<br><span style="color:var(--dim)">${a} ↔ ${b}${jt.label ? ' · ' + esc(note(jt.label)) : ''}</span>
+      <div class="chk" style="margin-top:6px"><input type="checkbox" id="aiFocusOnly" checked><label for="aiFocusOnly">Limit revise to these mating parts</label></div></div>`;
+    return;
+  }
   const ids = selectedPartIds();
-  if (!ids.length) { el.innerHTML = '<div class="card">No parts selected — changes apply to the <b>whole design</b>. Shift-click parts in the viewer to focus a revise.</div>'; return; }
+  if (!ids.length) { el.innerHTML = '<div class="card">No parts selected — changes apply to the <b>whole design</b>. Click a part or <b>joint</b> in the viewer to focus a revise.</div>'; return; }
   const names = ids.map(id => (S.M.defs.get(id) || {}).name || id);
   el.innerHTML = `<div class="card"><b>Focus</b>${esc(names.join(', '))}<div class="chk" style="margin-top:6px"><input type="checkbox" id="aiFocusOnly" checked><label for="aiFocusOnly">Limit revise to these parts</label></div></div>`;
 }
@@ -849,7 +989,15 @@ async function runAI(task) {
   const maxRounds = preset.rounds;
   const dimFields = task === 'design' ? { w: ($('#aiW') || {}).value, d: ($('#aiD') || {}).value, h: ($('#aiH') || {}).value } : {};
   const metrics = CAD.vision.parseDims(hints, dimFields);
-  const focusIds = (task === 'revise' && $('#aiFocusOnly') && $('#aiFocusOnly').checked) ? selectedPartIds() : [];
+  const focusJoint = task === 'revise' ? focusJointPayload() : null;
+  if (focusJoint && !focusJoint.requestedMethod) {
+    const m = /method id:\s*([a-z0-9_]+)/i.exec(hints);
+    if (m) focusJoint.requestedMethod = m[1];
+  }
+  let focusIds = (task === 'revise' && $('#aiFocusOnly') && $('#aiFocusOnly').checked) ? selectedPartIds() : [];
+  if (focusJoint && $('#aiFocusOnly') && $('#aiFocusOnly').checked) {
+    focusIds = [focusJoint.cutId, focusJoint.addId].filter(Boolean);
+  }
   const focusParts = focusIds.map(id => ({ id, name: (S.M.defs.get(id) || {}).name || id }));
   if ($('#aiRem') && $('#aiRem').checked) { try { localStorage.setItem('image-to-cad.key', key); } catch (e) { } }
   let pastExamples = [];
@@ -865,10 +1013,12 @@ async function runAI(task) {
   if (go) go.disabled = true; if (rev) rev.disabled = true; if (stop) stop.disabled = false;
   const ac = new AbortController(); S.ai.abort = ac;
   setAIStatus('<b>Status:</b> starting…', true);
-  aiLog('Using ' + model + ' · Quality ' + preset.label + ' (' + maxRounds + ' round' + (maxRounds === 1 ? '' : 's') + (visual ? ', photo match on' : ', photo match off') + ')' + (inputMode === 'drawing' ? ' · drawing' : '') + (focusParts.length ? ' · focused on ' + focusParts.map(p => p.name).join(', ') : ''));
+  aiLog('Using ' + model + ' · Quality ' + preset.label + ' (' + maxRounds + ' round' + (maxRounds === 1 ? '' : 's') + (visual ? ', photo match on' : ', photo match off') + ')' + (inputMode === 'drawing' ? ' · drawing' : '') +
+    (focusJoint ? ' · joint ' + (focusJoint.cutName || focusJoint.cutId) + '↔' + (focusJoint.addName || focusJoint.addId) + (focusJoint.requestedMethod ? ' → ' + focusJoint.requestedMethod : '') :
+      (focusParts.length ? ' · focused on ' + focusParts.map(p => p.name).join(', ') : '')));
   try {
     const res = await CAD.vision.run({
-      image: S.ai.img, hints, metrics, dimFields, inputMode, task, focusParts, pastExamples,
+      image: S.ai.img, hints, metrics, dimFields, inputMode, task, focusParts, focusJoint, pastExamples,
       prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model },
       maxRounds, visual, signal: ac.signal, onLog: (m) => { aiLog(m); setAIStatus('<b>Status:</b> ' + esc(m), true); },
       onInventory: (inv) => { S.ai.inventory = inv; S.ai.refOpen = true; syncRefPane(); setAIStatus('<b>Status:</b> inventory captured', true); },
@@ -1005,7 +1155,7 @@ addEventListener('keydown', e => {
   if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { if (!/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); redo(); } return; }
   if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.type !== 'range') return; if ($('#guide').style.display === 'flex') return;
   if (k === 'f') focusSel(); else if (k === 'e') { const to = S.exF > .5 ? 0 : 1, from = S.exF, t0 = performance.now(); cancelAnimationFrame(exAnim); const st = () => { const t = Math.min(1, (performance.now() - t0) / 700); S.exF = from + (to - from) * (t * t * (3 - 2 * t)); $('#exs').value = S.exF; applyTransforms(); if (t < 1) exAnim = requestAnimationFrame(st); }; st(); }
-  else if (k === 's') $('#bSec').click(); else if (k === 'm') $('#bMeas').click(); else if (k === 'escape') { setSel([]); clearMeasure(); S.iso = null; updateVisuals(); } else if (k === 'h') { if (e.altKey) showAll(); else { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); setSel([]); updateVisuals(); buildTree(); } }
+  else if (k === 's') $('#bSec').click(); else if (k === 'm') $('#bMeas').click(); else if (k === 'escape') { clearTarget(); setSel([]); clearMeasure(); S.iso = null; updateVisuals(); } else if (k === 'h') { if (e.altKey) showAll(); else { S.sel.forEach(R => S.hiddenDef.add(R.def.id)); clearTarget(); setSel([]); updateVisuals(); buildTree(); } }
   else if (k === 'i') { if (S.sel.size) { S.iso = new Set(S.sel); updateVisuals(); } } else if (k === ' ') { e.preventDefault(); playT ? stopPlay() : startPlay(); } else if ('12345'.includes(k) && k) viewTo(['iso', 'front', 'right', 'top', 'back'][+k - 1]);
   else if (k === 'delete' || k === 'backspace') { if (S.sel.size) { e.preventDefault(); deleteSelected(); } }
   else if (k === '[') { S.leftOn = !S.leftOn; setPanels(); } else if (k === ']') { S.rightOn = !S.rightOn; setPanels(); }
