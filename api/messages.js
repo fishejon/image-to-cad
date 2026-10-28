@@ -24,7 +24,16 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return send(res, { status: 405, json: { error: 'method not allowed' } });
   const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || (req.socket && req.socket.remoteAddress) || 'unknown';
   const runId = req.headers['x-run-id'];
-  const result = await handleMessagesRequest({ body: req.body, ip, runId });
+  const result = await handleMessagesRequest({
+    body: req.body,
+    ip,
+    runId,
+    headers: {
+      'x-task': req.headers['x-task'],
+      'x-quality': req.headers['x-quality'],
+      'x-domain': req.headers['x-domain']
+    }
+  });
   if (result.stream) return pipeStream(res, result);
   return send(res, result);
 };

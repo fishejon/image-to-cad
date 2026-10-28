@@ -1,8 +1,10 @@
 /* Shared Anthropic proxy used by the local server and the Vercel /api/messages function.
    Only whitelisted fields are forwarded; the API key never leaves the server.
    Optional stream:true pipes Anthropic SSE so long generations keep the connection alive.
-   Optional x-run-id (header or body.runId) is echoed and logged — never full prompts/images. */
+   Optional x-run-id (header or body.runId) is echoed and logged — never full prompts/images.
+   Optional Langfuse tracing when LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY are set. */
 const { normalizeRunId } = require('./telemetry');
+const langfuse = require('./langfuse');
 const MAX_BODY = 25 * 1024 * 1024;
 const hits = new Map();
 
@@ -28,7 +30,7 @@ function runIdFrom(body, headerRunId) {
     || '';
 }
 
-async function handleMessagesRequest({ body, ip, runId: headerRunId }) {
+async function handleMessagesRequest({ body, ip, runId: headerRunId, headers: reqHeaders }) {
   const KEY = key();
   const t0 = Date.now();
   if (!KEY) return { status: 500, json: { error: { message: 'ANTHROPIC_API_KEY is not set on the server' } } };
@@ -36,6 +38,7 @@ async function handleMessagesRequest({ body, ip, runId: headerRunId }) {
   let b;
   try { b = parseBody(body); } catch (e) { return { status: 400, json: { error: { message: 'invalid JSON' } } }; }
   const rid = runIdFrom(b, headerRunId);
+  const meta = langfuse.metaFrom(b, reqHeaders || {});
   const wantStream = !!b.stream;
   const payload = { model: String(b.model || 'claude-sonnet-4-5'), max_tokens: Math.min(+b.max_tokens || 16000, 32000), messages: b.messages, stream: wantStream };
   if (b.system) payload.system = String(b.system);
@@ -63,16 +66,38 @@ async function handleMessagesRequest({ body, ip, runId: headerRunId }) {
   if (rid) headers['x-run-id'] = rid;
   result.headers = headers;
   result.runId = rid || null;
+  const ms = Date.now() - t0;
   try {
     console.log(JSON.stringify({
       kind: 'proxy_messages',
       runId: rid || null,
+      task: meta.task,
+      quality: meta.quality,
+      domain: meta.domain,
       model: payload.model,
-      ms: Date.now() - t0,
+      ms,
       status: result.status,
       stream: !!result.stream
     }));
   } catch (e) { /* ignore */ }
+  try {
+    await langfuse.traceMessages({
+      runId: rid || null,
+      metadata: meta,
+      model: payload.model,
+      modelParameters: { max_tokens: payload.max_tokens, stream: wantStream },
+      input: {
+        system: b.system ? langfuse.clip(String(b.system), 8000) : undefined,
+        messages: langfuse.sanitizeMessages(payload.messages)
+      },
+      responseText: result.text || null,
+      stream: !!result.stream,
+      status: result.status,
+      error: result.json && result.json.error && result.json.error.message,
+      startedAt: t0,
+      endedAt: Date.now()
+    });
+  } catch (e) { /* never fail the proxy */ }
   return result;
 }
 

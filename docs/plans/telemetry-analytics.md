@@ -20,7 +20,7 @@
 - [x] `runId` on Anthropic proxy requests / response headers
 - [x] `/api/feedback` + `/api/events`
 - [x] PostHog
-- [ ] Langfuse
+- [x] Langfuse
 - [ ] Postgres / R2
 - [ ] Golden-set eval job
 
@@ -35,8 +35,8 @@
 
 ### Phase 2 — Product + LLM visibility
 - [x] **PostHog** — Load snippet when `POSTHOG_KEY` present; events: `create_started`, `create_finished`, `revise_applied`, `feedback_submitted`, `joint_targeted`, `guide_opened`, `dataset_exported`, `export_stl`
-- [ ] **Langfuse** — Trace each `/api/messages` call; metadata: `runId`, `task`, `quality`, `domain`
-- [ ] **Dashboard doc** — One page listing the 6 north-star metrics (create success, ratings, critic usefulness, unlabeled contacts, guide opens, $ / success)
+- [x] **Langfuse** — Trace each `/api/messages` call via `@langfuse/tracing` + OTEL (`proxy-messages` span → `generate-*` generation); metadata: `runId`, `task`, `quality`, `domain`; images masked; `sessionId=runId`
+- [x] **Dashboard doc** — One page listing the 6 north-star metrics (create success, ratings, critic usefulness, unlabeled contacts, guide opens, $ / success) → [`telemetry-dashboard.md`](./telemetry-dashboard.md)
 
 ### Phase 3 — Durable learning store
 - [ ] **Postgres schema** — `runs`, `feedback`, `examples` tables keyed by `run_id`

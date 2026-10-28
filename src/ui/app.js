@@ -1055,6 +1055,7 @@ async function runAI(task) {
   try {
     const res = await CAD.vision.run({
       image: S.ai.img, hints, metrics, dimFields, inputMode, task, focusParts, focusJoint, pastExamples, runId,
+      quality: preset.id, domain: 'furniture',
       prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model },
       maxRounds, visual, signal: ac.signal, onLog: (m) => { aiLog(m); setAIStatus('<b>Status:</b> ' + esc(m), true); },
       onInventory: (inv) => { S.ai.inventory = inv; S.ai.refOpen = true; syncRefPane(); setAIStatus('<b>Status:</b> inventory captured', true); },

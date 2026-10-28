@@ -45,7 +45,16 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/api/messages') {
     readBody(req, res, MAX_BODY).then(async buf => {
       if (!buf) return;
-      const result = await handleMessagesRequest({ body: buf, ip: req.socket.remoteAddress, runId: req.headers['x-run-id'] });
+      const result = await handleMessagesRequest({
+        body: buf,
+        ip: req.socket.remoteAddress,
+        runId: req.headers['x-run-id'],
+        headers: {
+          'x-task': req.headers['x-task'],
+          'x-quality': req.headers['x-quality'],
+          'x-domain': req.headers['x-domain']
+        }
+      });
       if (result.stream) return pipeStream(res, result);
       const type = result.json ? 'application/json' : 'application/json';
       send(res, result.status, result.json || result.text, type, result.headers);
