@@ -17,9 +17,9 @@
 - [x] Local feedback + examples in IndexedDB
 - [x] Ship → Download HITL dataset (JSON + JSONL)
 - [x] Client `runId` stamped on AI runs and feedback/example rows
-- [ ] `runId` on Anthropic proxy requests / response headers
-- [ ] `/api/feedback` + `/api/events`
-- [ ] PostHog
+- [x] `runId` on Anthropic proxy requests / response headers
+- [x] `/api/feedback` + `/api/events`
+- [x] PostHog
 - [ ] Langfuse
 - [ ] Postgres / R2
 - [ ] Golden-set eval job
@@ -27,14 +27,14 @@
 ## Tasks
 
 ### Phase 1 — Correlate runs (small, in-repo)
-- [ ] **Proxy run_id** — Accept `x-run-id` (or body metadata) on [`api/messages.js`](../../api/messages.js) / [`server/messages.js`](../../server/messages.js); echo on response; log structured line `{ runId, model, ms, status, tokens? }`
-- [ ] **Client sends run_id** — [`vision.js`](../../src/ai/vision.js) proxy/anthropic providers attach header from `o.runId`
-- [ ] **`POST /api/events`** — Fire-and-forget run_started / run_finished payloads (JSON body); store in memory/log first or Neon if `DATABASE_URL` set
-- [ ] **`POST /api/feedback`** — Same shape as `CAD.store.addFeedback`; append to DB or file; client calls after local save when `navigator.onLine` and opt-in flag
-- [ ] **Tests** — Unit tests for event payload validation; mock proxy header round-trip
+- [x] **Proxy run_id** — Accept `x-run-id` (or body metadata) on [`api/messages.js`](../../api/messages.js) / [`server/messages.js`](../../server/messages.js); echo on response; log structured line `{ runId, model, ms, status, tokens? }`
+- [x] **Client sends run_id** — [`vision.js`](../../src/ai/vision.js) proxy/anthropic providers attach header from `o.runId`
+- [x] **`POST /api/events`** — Fire-and-forget run_started / run_finished payloads (JSON body); store in memory/log first or Neon if `DATABASE_URL` set
+- [x] **`POST /api/feedback`** — Same shape as `CAD.store.addFeedback`; append to DB or file; client calls after local save when `navigator.onLine` and opt-in flag
+- [x] **Tests** — Unit tests for event payload validation; mock proxy header round-trip
 
 ### Phase 2 — Product + LLM visibility
-- [ ] **PostHog** — Load snippet when `POSTHOG_KEY` present; events: `create_started`, `create_finished`, `revise_applied`, `feedback_submitted`, `joint_targeted`, `guide_opened`, `dataset_exported`, `export_stl`
+- [x] **PostHog** — Load snippet when `POSTHOG_KEY` present; events: `create_started`, `create_finished`, `revise_applied`, `feedback_submitted`, `joint_targeted`, `guide_opened`, `dataset_exported`, `export_stl`
 - [ ] **Langfuse** — Trace each `/api/messages` call; metadata: `runId`, `task`, `quality`, `domain`
 - [ ] **Dashboard doc** — One page listing the 6 north-star metrics (create success, ratings, critic usefulness, unlabeled contacts, guide opens, $ / success)
 
@@ -55,7 +55,7 @@
 ```text
 run_started:  { runId, domain, task, inputMode, quality, model, staged?, visual? }
 run_finished: { runId, geometryOk, rounds, likenessPenalty, iou?, unlabeledContacts?, durationMs, error? }
-feedback:     { runId, rating, failureTags[], note, object?, inventory?, model?, quality? }
+feedback:     { runId, rating /* match|close|wrong */, failureTags[], note, object?, inventory?, model?, quality? }
 example:      { runId, object, inventory, specSummary }  // mark correct
 ui:           { name, runId?, props }  // PostHog only
 ```

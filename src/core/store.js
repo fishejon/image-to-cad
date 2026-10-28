@@ -235,6 +235,46 @@ Store.newRunId = function () {
   return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
 };
 
+/** Opt-out via localStorage image-to-cad.telemetry=0. Default on for same-origin aggregate events (no photos). */
+Store.TELEMETRY_LS = 'image-to-cad.telemetry';
+Store.telemetryEnabled = function () {
+  try {
+    const v = localStorage.getItem(Store.TELEMETRY_LS);
+    if (v === '0' || v === 'false' || v === 'off') return false;
+  } catch (e) { /* ignore */ }
+  return true;
+};
+Store.postTelemetry = function (path, body) {
+  if (!Store.telemetryEnabled()) return Promise.resolve(null);
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.resolve(null);
+  try {
+    return fetch(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      keepalive: true
+    }).catch(function () { return null; });
+  } catch (e) { return Promise.resolve(null); }
+};
+Store.trackEvent = function (payload) {
+  return Store.postTelemetry('/api/events', Object.assign({ domain: 'furniture' }, payload || {}));
+};
+Store.mirrorFeedback = function (entry) {
+  if (!entry) return Promise.resolve(null);
+  return Store.postTelemetry('/api/feedback', {
+    runId: entry.runId || null,
+    rating: entry.rating,
+    failureTags: entry.failureTags || [],
+    note: entry.note || '',
+    object: entry.object || null,
+    inventory: entry.inventory || null,
+    model: entry.model || null,
+    quality: entry.quality || null,
+    domain: entry.domain || 'furniture',
+    ts: entry.createdAt || entry.ts || Date.now()
+  });
+};
+
 /** Strip accidental data-URLs / huge blobs before export. */
 Store.sanitizeDatasetRow = function (row) {
   if (!row || typeof row !== 'object') return row;

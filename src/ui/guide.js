@@ -171,6 +171,10 @@ CAD.makeGuide = function (ctx) {
   function showAll() { el.body().innerHTML = '<div style="display:flex;flex-direction:column;gap:12px;width:100%;align-items:center">' + pages.join('') + '</div>'; el.box().dataset.mode = 'all'; el.body().parentNode.dataset.mode = 'all'; syncNav(); }
   async function open() {
     el.box().style.display = 'flex'; if (!pages) { el.body().innerHTML = '<div style="padding:40px;color:#445;font:16px system-ui">Rendering the guide from the live model… <b id="gp">0%</b></div>'; await generate((i, n) => { const p = $('#gp'); if (p) p.textContent = Math.round(i / n * 100) + '%  (step ' + (i + 1) + ' of ' + n + ')'; }); el.sel().innerHTML = steps.map((s, i) => `<option value="${i}">${s.n}. ${s.title}</option>`).join(''); } show(cur);
+    if (CAD.analytics) CAD.analytics.capture('guide_opened', {
+      steps: steps ? steps.length : 0,
+      runId: (ctx.S.lastRun && ctx.S.lastRun.runId) || null
+    });
   }
   function invalidate() { pages = null; }
   function standalone() { return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${esc(S.M.meta.name)}: build guide</title><style>${css}\nbody{overflow:auto!important;background:var(--bg,#eef1f4);height:auto!important}#guide{display:block!important;position:static!important;background:transparent}#gbody{display:flex;flex-direction:column;gap:12px;align-items:center;padding:18px}.pg{width:min(1100px,96vw);height:auto;max-height:none;min-height:480px}</style></head><body><div id="guide" data-mode="all"><div class="gb" id="gbody">${pages.join('')}</div></div></body></html>`; }
