@@ -143,6 +143,39 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     const depth = bb[5] - bb[2];
     ok(depth > t * 1.5, 'bent panel has depth from curvature');
     near(depth, Rb * (1 - Math.cos((W / 2) / Rb)) + t, 8, 'bbox Z ≈ R(1-cos(θ))+t');
+    ok(/Flat blank/i.test(M.defs.get('p').spec), 'cut-list hint on panel spec');
+  });
+  await t('panel rounded edgeR and seam prim are watertight', () => {
+    const panel = CAD.buildSpec({
+      name: 'p', units: 'mm', parts: [{ id: 'p', kind: 'mesh', material: 'oak', prims: [{ type: 'panel', size: [200, 60], t: 12, bend: { radius: 400 }, edgeR: 5 }], instances: [{ pos: [0, 0, 0] }] }]
+    });
+    eq(panel.errors.length, 0, panel.errors.join('; '));
+    eq(CAD.manifoldReport(panel).filter(r => r.bad).length, 0, 'rounded panel manifold');
+    const seam = CAD.buildSpec({
+      name: 's', units: 'mm', parts: [{ id: 's', kind: 'mesh', material: 'oak', prims: [{ type: 'seam', size: [200, 150, 40], planR: 20, edgeR: 10, r: 3, inset: 12, side: 'top' }], instances: [{ pos: [0, 0, 0] }] }]
+    });
+    eq(seam.errors.length, 0, seam.errors.join('; '));
+    ok(seam.defs.get('s').vol > 0);
+    eq(CAD.manifoldReport(seam).filter(r => r.bad).length, 0, 'seam manifold');
+  });
+  await t('sweep chunked boxes and mesh AABB clip utility', () => {
+    const M = CAD.buildSpec({
+      name: 'leg', units: 'mm', parts: [{ id: 'leg', kind: 'mesh', material: 'oak', prims: [{ type: 'sweep', path: [[0, 0, 0], [0, 40, 200], [0, 20, 450]], curve: 'catmull', section: { type: 'rrect', w: 30, h: 20, r: 2 } }], instances: [{ pos: [0, 0, 0] }] }]
+    });
+    eq(M.errors.length, 0, M.errors.join('; '));
+    ok(M.defs.get('leg').solid.boxes().length >= 2, 'chunked boxes from sweep stations');
+    const pos = M.defs.get('leg').solid.mesh().pos;
+    const mid = M.defs.get('leg').box;
+    const clip = [(mid[0] + mid[3]) / 2 - 1, mid[1] - 1, mid[2] - 1, mid[3] + 1, mid[4] + 1, mid[5] + 1];
+    const clipped = CAD.clipMeshAABB(pos, clip);
+    ok(clipped.pos.length > 0 && clipped.pos.length < pos.length, 'clip reduces triangle soup');
+  });
+  await t('fitParams descends aspect penalty on dining-chair params', () => {
+    const spec = load('dining-chair');
+    const inv = { aspect: { w: 1, d: 1.2, h: 1.5 }, counts: { legs: 4 } };
+    const fit = V.fitParams(spec, inv, { maxIters: 12 });
+    ok(fit.overrides && typeof fit.penalty === 'number');
+    ok(fit.iters >= 0);
   });
   await t('coarse AABB interference reports mesh overlaps; exact solids unchanged', () => {
     const solidOk = CAD.buildSpec(V.EXAMPLE);
@@ -243,7 +276,7 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
   console.log('AI module (mock provider)');
   const INV = { object: 'Plant stand', aspect: { w: 1, d: 1, h: 1.4 }, counts: { legs: 4, drawers: 0, doors: 0, shelves: 0, slats: 0 }, parts: [{ role: 'leg', count: 4, shape: 'square' }, { role: 'top', count: 1, shape: 'panel' }] };
   await t('prompt example is itself a valid, clean spec (prompt cannot drift from the engine)', () => { const r = V.evaluate(V.EXAMPLE); ok(r.ok, r.text); ok(r.fillChecked >= 4); });
-  await t('prompt documents every primitive, op and top-level key the engine accepts', () => { for (const w of ['box', 'cylinder', 'cone', 'tube', 'sphere', 'revolve', 'extrude', 'wedge', 'sweep', 'pillow', 'panel', '"add"', '"cut"', '"fill"', 'params', 'materials', 'groups', 'steps', 'kinematics', 'instances', 'repeat', 'explode', 'if(c,a,b)']) ok(V.SPEC_DOC.includes(w), 'doc missing ' + w); });
+  await t('prompt documents every primitive, op and top-level key the engine accepts', () => { for (const w of ['box', 'cylinder', 'cone', 'tube', 'sphere', 'revolve', 'extrude', 'wedge', 'sweep', 'pillow', 'panel', 'seam', '"add"', '"cut"', '"fill"', 'params', 'materials', 'groups', 'steps', 'kinematics', 'instances', 'repeat', 'explode', 'if(c,a,b)']) ok(V.SPEC_DOC.includes(w), 'doc missing ' + w); });
   await t('extractJSON: fences, prose, braces inside strings, truncation', () => {
     eq(V.extractJSON('```json\n{"a":1}\n```').a, 1); eq(V.extractJSON('Here you go: {"a":{"b":"}{"}} thanks').a.b, '}{'); let threw = false; try { V.extractJSON('{"a":[1,2'); } catch (e) { threw = /truncated/.test(e.message); } ok(threw, 'truncation not detected'); threw = false; try { V.extractJSON('no json'); } catch (e) { threw = true; } ok(threw); });
   await t('evaluate flags overlap, unfilled joints and bad expressions with actionable text', () => {

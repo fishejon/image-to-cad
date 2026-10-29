@@ -350,7 +350,21 @@ CAD.buildSweepPrim = function (opts) {
     pos = pos.concat(capFan(rings[0], samples[0].p, false));
     pos = pos.concat(capFan(rings[rings.length - 1], samples[samples.length - 1].p, true));
   }
-  return geomFrom(pos, uv);
+  const g = geomFrom(pos, uv);
+  // Chunk AABBs (~every 8 stations) for coarse interference
+  const chunkBoxes = [];
+  const step = 8;
+  for (let i = 0; i < rings.length; i += step) {
+    const end = Math.min(rings.length - 1, i + step);
+    let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+    for (let j = i; j <= end; j++) rings[j].forEach(p => {
+      mn[0] = Math.min(mn[0], p.x); mn[1] = Math.min(mn[1], p.y); mn[2] = Math.min(mn[2], p.z);
+      mx[0] = Math.max(mx[0], p.x); mx[1] = Math.max(mx[1], p.y); mx[2] = Math.max(mx[2], p.z);
+    });
+    chunkBoxes.push([mn[0], mn[1], mn[2], mx[0], mx[1], mx[2]]);
+  }
+  g.userData = { chunkBoxes, prim: 'sweep' };
+  return g;
 };
 
 /* ---------- pillow (sphere topology → rounded-box SDF + displace) ---------- */
@@ -456,14 +470,17 @@ CAD.pillowSteinerVolume = function (X, Y, Z, r) {
   return a * b * c + 2 * (a * b + b * c + c * a) * r + Math.PI * (a + b + c) * r * r + (4 / 3) * Math.PI * r * r * r;
 };
 
-/* ---------- panel (developable bend, square edge walls) ---------- */
+/* ---------- panel (developable bend; square wall or rounded edgeR) ---------- */
 CAD.buildPanelPrim = function (opts) {
   opts = opts || {};
   const size = opts.size;
   if (!Array.isArray(size) || size.length < 2) throw new Error('panel.size [W,H] required');
   const W = assertFinite(size[0], 'W'), H = assertFinite(size[1], 'H');
   const t = assertFinite(opts.t != null ? opts.t : opts.thickness, 't');
+  if (t >= W / 10) throw new Error('panel.t must be < W/10');
   const tol = opts.tol != null ? opts.tol : DEFAULT_TOL;
+  let edgeR = opts.edgeR != null ? opts.edgeR : 0;
+  edgeR = Math.max(0, Math.min(edgeR, t / 2));
   const outline = opts.outline || { shape: 'rect' };
   const shape = outline.shape || 'rect';
   let fmin = outline.fmin != null ? outline.fmin : 0.55;
@@ -489,13 +506,27 @@ CAD.buildPanelPrim = function (opts) {
   }
 
   const nu = Math.max(16, Math.min(80, Math.ceil(W / Math.max(4, tol * 20))));
-  const nv = Math.max(8, Math.min(40, Math.ceil(H / Math.max(4, tol * 20))));
+  let nv = Math.max(8, Math.min(40, Math.ceil(H / Math.max(4, tol * 20))));
   const as = [], bs = [];
   for (let i = 0; i <= nu; i++) {
     const u = i / nu;
     as.push(-1 + 2 * (0.5 - 0.5 * Math.cos(Math.PI * u)));
   }
-  for (let j = 0; j <= nv; j++) bs.push(-1 + 2 * (j / nv));
+  // Cluster rows near edges when rounding
+  if (edgeR > 0.01) {
+    const set = new Set();
+    for (let j = 0; j <= nv; j++) set.add(-1 + 2 * (j / nv));
+    const kf = Math.max(3, Math.min(8, Math.ceil((Math.PI / 2) / (2 * Math.acos(Math.max(-1, Math.min(1, 1 - tol / Math.max(edgeR, 1e-6))))))));
+    for (let k = 0; k <= kf; k++) {
+      const d = edgeR * (1 - Math.sin((k / kf) * (Math.PI / 2)));
+      const bEdge = 1 - (2 * d) / H;
+      if (bEdge > -1 && bEdge < 1) { set.add(bEdge); set.add(-bEdge); }
+    }
+    bs.push(...[...set].sort((a, b) => a - b));
+    nv = bs.length - 1;
+  } else {
+    for (let j = 0; j <= nv; j++) bs.push(-1 + 2 * (j / nv));
+  }
 
   function midPoint(a, b) {
     const s = a * (W / 2);
@@ -510,6 +541,18 @@ CAD.buildPanelPrim = function (opts) {
     if (n.lengthSq() < 1e-18) n.set(0, 0, 1); else n.normalize();
     return n;
   }
+  function flatDist(a, b) {
+    const s = a * (W / 2);
+    const halfH = fOutline(a) * (H / 2);
+    const v = b * halfH;
+    return Math.min(W / 2 - Math.abs(s), halfH - Math.abs(v));
+  }
+  function offsetAmt(d) {
+    if (edgeR < 1e-6) return t / 2;
+    if (d >= edgeR) return t / 2;
+    const x = edgeR - d;
+    return (t / 2 - edgeR) + Math.sqrt(Math.max(0, edgeR * edgeR - x * x));
+  }
 
   const top = [], bot = [];
   for (let i = 0; i <= nu; i++) {
@@ -517,8 +560,9 @@ CAD.buildPanelPrim = function (opts) {
     for (let j = 0; j <= nv; j++) {
       const p = midPoint(as[i], bs[j]);
       const n = midNormal(as[i], bs[j]);
-      top[i][j] = p.clone().addScaledVector(n, t / 2);
-      bot[i][j] = p.clone().addScaledVector(n, -t / 2);
+      const off = offsetAmt(flatDist(as[i], bs[j]));
+      top[i][j] = p.clone().addScaledVector(n, off);
+      bot[i][j] = p.clone().addScaledVector(n, -off);
     }
   }
 
@@ -530,22 +574,73 @@ CAD.buildPanelPrim = function (opts) {
     const a2 = bot[i][j], b2 = bot[i + 1][j], c2 = bot[i + 1][j + 1], d2 = bot[i][j + 1];
     push(a2, c2, b2); push(a2, d2, c2);
   }
-  // Single boundary loop so corner vertical edges appear once (manifold)
-  const loop = [];
-  for (let i = 0; i < nu; i++) loop.push([i, 0]);
-  for (let j = 0; j < nv; j++) loop.push([nu, j]);
-  for (let i = nu; i > 0; i--) loop.push([i, nv]);
-  for (let j = nv; j > 0; j--) loop.push([0, j]);
-  for (let k = 0; k < loop.length; k++) {
-    const [i0, j0] = loop[k], [i1, j1] = loop[(k + 1) % loop.length];
-    const a = top[i0][j0], b = top[i1][j1], c = bot[i1][j1], d = bot[i0][j0];
-    // Opposite winding to top/bottom boundary edges for manifold pairing
-    push(a, d, c); push(a, c, b);
+  const weld = edgeR >= t / 2 - 1e-6;
+  if (!weld) {
+    const loop = [];
+    for (let i = 0; i < nu; i++) loop.push([i, 0]);
+    for (let j = 0; j < nv; j++) loop.push([nu, j]);
+    for (let i = nu; i > 0; i--) loop.push([i, nv]);
+    for (let j = nv; j > 0; j--) loop.push([0, j]);
+    for (let k = 0; k < loop.length; k++) {
+      const [i0, j0] = loop[k], [i1, j1] = loop[(k + 1) % loop.length];
+      const a = top[i0][j0], b = top[i1][j1], c = bot[i1][j1], d = bot[i0][j0];
+      push(a, d, c); push(a, c, b);
+    }
   }
 
   const g = geomFrom(pos, null);
-  g.userData = g.userData || {};
-  g.userData.panelFlat = { W, H, t, R };
+  g.userData = { panelFlat: { W, H, t, R, edgeR }, prim: 'panel' };
+  return g;
+};
+
+/* ---------- seam (piping / welt on pillow outline) ---------- */
+CAD.buildSeamPrim = function (opts) {
+  opts = opts || {};
+  const size = opts.size;
+  if (!Array.isArray(size) || size.length < 3) throw new Error('seam.size [X,Y,Z] required (match pillow)');
+  const X = assertFinite(size[0], 'size.x'), Y = assertFinite(size[1], 'size.y'), Z = assertFinite(size[2], 'size.z');
+  const r = assertFinite(opts.r != null ? opts.r : 2.5, 'seam.r');
+  const inset = opts.inset != null ? opts.inset : Math.max(r * 2, 8);
+  let edgeR = opts.edgeR != null ? opts.edgeR : Math.min(X, Y, Z) * 0.15;
+  let planR = opts.planR != null ? opts.planR : Math.min(X, Y) * 0.2;
+  if (planR < edgeR) planR = edgeR;
+  const side = opts.side === 'bottom' ? -1 : 1;
+  const bulgeTop = (opts.bulge && opts.bulge.top) || 0;
+  const bulgeBot = (opts.bulge && opts.bulge.bottom) || 0;
+  const bend = opts.bend || 0;
+  const kTaper = (opts.taper && opts.taper.k != null) ? opts.taper.k : 0;
+  const n = Math.max(24, Math.min(96, Math.ceil(Math.PI * Math.max(X, Y) / 8)));
+  const hx = X / 2 - inset, hy = Y / 2 - inset;
+  const rc = Math.max(0, Math.min(planR, Math.min(hx, hy)) - 0.01);
+  const path = [];
+  const corners = [
+    [hx - rc, -hy + rc, -Math.PI / 2, 0],
+    [hx - rc, hy - rc, 0, Math.PI / 2],
+    [-hx + rc, hy - rc, Math.PI / 2, Math.PI],
+    [-hx + rc, -hy + rc, Math.PI, 3 * Math.PI / 2]
+  ];
+  const kf = Math.max(4, Math.floor(n / 4));
+  corners.forEach(([cx, cy, a0, a1]) => {
+    for (let k = 0; k <= kf; k++) {
+      if (k === 0 && path.length) continue;
+      const a = a0 + (a1 - a0) * (k / kf);
+      let x = cx + rc * Math.cos(a), y = cy + rc * Math.sin(a);
+      const fx = Math.max(0, 1 - Math.pow(2 * x / X, 2));
+      const fy = Math.max(0, 1 - Math.pow(2 * y / Y, 2));
+      let z = side * (Z / 2);
+      if (side > 0) z += bulgeTop * fx * fy; else z -= bulgeBot * fx * fy;
+      z += bend * Math.pow(2 * x / X, 2);
+      const ty = y / Y + 0.5;
+      x *= 1 - kTaper * ty;
+      z += side * r;
+      path.push([x, y, z]);
+    }
+  });
+  const g = CAD.buildSweepPrim({
+    path, curve: 'polyline', section: { type: 'ellipse', w: r * 2, h: r * 2 },
+    closed: true, caps: 'none', up: [0, 0, side], frame: 'up', tol: opts.tol
+  });
+  g.userData = Object.assign({}, g.userData, { prim: 'seam' });
   return g;
 };
 

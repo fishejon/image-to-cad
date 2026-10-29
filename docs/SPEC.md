@@ -103,18 +103,22 @@ One entry per **physical part type**; place it many times with `instances`.
     "bulge": { "top": 8, "bottom": 2 }, "taper": { "k": 0.05 }, "bend": 4 },
   { "type": "panel", "size": [420, 90], "t": 14,
     "outline": { "shape": "superellipse", "fmin": 0.55, "n": 2.5 },
-    "bend": { "radius": 520, "direction": 1 }, "arch": 6 }
+    "bend": { "radius": 520, "direction": 1 }, "edgeR": 4, "arch": 6 },
+  { "type": "seam", "size": [420, 400, 45], "r": 2.5, "inset": 14, "side": "top",
+    "planR": 40, "edgeR": 12, "bulge": { "top": 8, "bottom": 2 } }
 ]
 ```
 `axis` is one of `+x -x +y -y +z -z`. `revolve` profiles are `[radius, height-along-axis]` pairs. Optional box `rot` is Euler degrees about the box centre. `wedge` is a mitred board (AABB with one end bevelled in the XY plane; `tip` `+x`|`-x`|`+y`|`-y`; `angle` from square, default 45°).
 
-**`sweep`** — section (`rrect` | `ellipse` | `poly`) along `path` (`curve`: `catmull` | `polyline`). Optional `taper` keyframes `{t, scaleW, scaleH}`, `up`, `frame` (`up`|`rmf`), `twist` (deg), `caps`, `tol` (default 0.15 mm). Rejects paths that fold sharper than ~1.05× section half-extent.
+**`sweep`** — section (`rrect` | `ellipse` | `poly`) along `path` (`curve`: `catmull` | `polyline`). Optional `taper` keyframes `{t, scaleW, scaleH}`, `up`, `frame` (`up`|`rmf`), `twist` (deg), `caps`, `closed`, `tol` (default 0.15 mm). Rejects paths that fold sharper than ~1.05× section half-extent. Emits chunked AABBs for coarse interference.
 
 **`pillow`** — rounded cushion `size` [X,Y,Z] with independent `planR` / `edgeR`, then optional `bulge` `{top,bottom}`, `bend`, and `taper.k` ∈ [0, 0.6].
 
-**`panel`** — developable bent sheet: flat `size` [W,H] × thickness `t`, wrapped on a cylinder (`bend.radius` or `bend.sagitta`). Outline `rect` or `superellipse`. Square edge walls (rounded edges later). Cut-list hint: flat blank W×H×t plus bend radius.
+**`panel`** — developable bent sheet: flat `size` [W,H] × thickness `t`, wrapped on a cylinder (`bend.radius` or `bend.sagitta`). Outline `rect` or `superellipse`. Optional `edgeR` for rounded edges (≤ t/2). Spec string gets a flat-blank cut hint (W×H×t + bend R).
 
-One material per part. Mesh parts render, export to STL (whole) and count in mass. They participate in **coarse AABB interference** (flagged `coarse` in reports) but are still **excluded from exact joint-fill** (only solid↔solid fill checks). Keep rectilinear carcass as `kind: "solid"` for exact boolean checks.
+**`seam`** — thin piping/welt on a pillow outline. Reuse the pillow’s `size` / `planR` / `edgeR` / bulge params; set `r`, `inset`, `side` (`top`|`bottom`). **Must be its own part** (one material per part).
+
+One material per part. Mesh parts render, export to STL (whole; print-split for mesh is not enabled yet) and count in mass. They participate in **coarse AABB interference** (flagged `coarse` in reports; sweeps use chunked boxes) but are still **excluded from exact joint-fill** (only solid↔solid fill checks). Keep rectilinear carcass as `kind: "solid"` for exact boolean checks.
 
 
 ### instances
