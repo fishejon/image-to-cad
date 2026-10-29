@@ -86,6 +86,64 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     ok(M.defs.get('rail').vol > 0); ok(M.defs.get('rail').vol < 200 * 40 * 18, 'wedge volume less than full box');
     const man = CAD.manifoldReport(M).filter(r => r.bad); eq(man.length, 0, 'non-manifold ' + man.map(x => x.id));
   });
+  console.log('curved mesh prims (sweep, pillow, panel)');
+  await t('sweep: straight volume, taper integral, quarter-arc Pappus, watertight, fold guard', () => {
+    const straight = CAD.buildSpec({
+      name: 's', units: 'mm', parts: [{ id: 'p', kind: 'mesh', material: 'oak', prims: [{ type: 'sweep', path: [[0, 0, 0], [0, 0, 100]], curve: 'polyline', section: { type: 'rrect', w: 20, h: 10, r: 0 } }], instances: [{ pos: [0, 0, 0] }] }]
+    });
+    eq(straight.errors.length, 0, straight.errors.join('; '));
+    near(straight.defs.get('p').vol, 20000, 1, 'straight prism volume');
+    eq(CAD.manifoldReport(straight).filter(r => r.bad).length, 0, 'straight manifold');
+
+    const taper = CAD.buildSpec({
+      name: 't', units: 'mm', parts: [{ id: 'p', kind: 'mesh', material: 'oak', prims: [{ type: 'sweep', path: [[0, 0, 0], [0, 0, 100]], curve: 'polyline', section: { type: 'rrect', w: 20, h: 20, r: 0 }, taper: [{ t: 0, scaleW: 1, scaleH: 1 }, { t: 1, scaleW: 0.5, scaleH: 0.5 }] }], instances: [{ pos: [0, 0, 0] }] }]
+    });
+    eq(taper.errors.length, 0, taper.errors.join('; '));
+    near(taper.defs.get('p').vol, 23333.333, 50, 'linear taper integral');
+
+    const R = 100, w = 10, h = 8, path = [];
+    for (let i = 0; i <= 24; i++) { const a = i / 24 * Math.PI / 2; path.push([R * Math.cos(a), R * Math.sin(a), 0]); }
+    const arc = CAD.buildSpec({
+      name: 'a', units: 'mm', parts: [{ id: 'p', kind: 'mesh', material: 'oak', prims: [{ type: 'sweep', path, curve: 'polyline', section: { type: 'rrect', w, h, r: 0 }, up: [0, 0, 1] }], instances: [{ pos: [0, 0, 0] }] }]
+    });
+    eq(arc.errors.length, 0, arc.errors.join('; '));
+    near(arc.defs.get('p').vol, (Math.PI * R / 2) * w * h, (Math.PI * R / 2) * w * h * 0.04, 'Pappus quarter-arc');
+    eq(CAD.manifoldReport(arc).filter(r => r.bad).length, 0, 'arc manifold');
+
+    let folded = false;
+    try { CAD.buildSweepPrim({ path: [[0, 0, 0], [5, 0, 0], [0, 0, 0]], curve: 'polyline', section: { type: 'rrect', w: 40, h: 40, r: 0 } }); }
+    catch (e) { folded = /fold/i.test(e.message); }
+    ok(folded, 'fold guard rejects hairpin');
+  });
+  await t('pillow: Steiner volume when undeformed; watertight with bulge', () => {
+    const X = 200, Y = 150, Z = 40, r = 8;
+    const M = CAD.buildSpec({
+      name: 'pillow', units: 'mm', parts: [{ id: 'p', kind: 'mesh', material: 'oak', prims: [{ type: 'pillow', size: [X, Y, Z], planR: r, edgeR: r }], instances: [{ pos: [0, 0, 0] }] }]
+    });
+    eq(M.errors.length, 0, M.errors.join('; '));
+    const steiner = CAD.pillowSteinerVolume(X, Y, Z, r);
+    near(M.defs.get('p').vol, steiner, steiner * 0.05, 'Steiner volume');
+    eq(CAD.manifoldReport(M).filter(r => r.bad).length, 0, 'pillow manifold');
+    const bulged = CAD.buildSpec({
+      name: 'pillow2', units: 'mm', parts: [{ id: 'p', kind: 'mesh', material: 'oak', prims: [{ type: 'pillow', size: [X, Y, Z], planR: r, edgeR: r, bulge: { top: 6, bottom: 2 }, bend: 3, taper: { k: 0.1 } }], instances: [{ pos: [0, 0, 0] }] }]
+    });
+    eq(bulged.errors.length, 0, bulged.errors.join('; '));
+    ok(bulged.defs.get('p').vol > 0);
+    eq(CAD.manifoldReport(bulged).filter(r => r.bad).length, 0, 'bulged pillow manifold');
+  });
+  await t('panel: midsurface area≈flat, volume≈area×t, watertight', () => {
+    const W = 400, H = 80, t = 12, Rb = 500;
+    const M = CAD.buildSpec({
+      name: 'crest', units: 'mm', parts: [{ id: 'p', kind: 'mesh', material: 'oak', prims: [{ type: 'panel', size: [W, H], t, bend: { radius: Rb } }], instances: [{ pos: [0, 0, 0] }] }]
+    });
+    eq(M.errors.length, 0, M.errors.join('; '));
+    near(M.defs.get('p').vol, W * H * t, W * H * t * 0.02, 'volume ≈ flat area × t');
+    eq(CAD.manifoldReport(M).filter(r => r.bad).length, 0, 'panel manifold');
+    const bb = M.defs.get('p').box;
+    const depth = bb[5] - bb[2];
+    ok(depth > t * 1.5, 'bent panel has depth from curvature');
+    near(depth, Rb * (1 - Math.cos((W / 2) / Rb)) + t, 8, 'bbox Z ≈ R(1-cos(θ))+t');
+  });
   await t('coarse AABB interference reports mesh overlaps; exact solids unchanged', () => {
     const solidOk = CAD.buildSpec(V.EXAMPLE);
     eq(CAD.interference(solidOk).length, 0);
@@ -185,7 +243,7 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
   console.log('AI module (mock provider)');
   const INV = { object: 'Plant stand', aspect: { w: 1, d: 1, h: 1.4 }, counts: { legs: 4, drawers: 0, doors: 0, shelves: 0, slats: 0 }, parts: [{ role: 'leg', count: 4, shape: 'square' }, { role: 'top', count: 1, shape: 'panel' }] };
   await t('prompt example is itself a valid, clean spec (prompt cannot drift from the engine)', () => { const r = V.evaluate(V.EXAMPLE); ok(r.ok, r.text); ok(r.fillChecked >= 4); });
-  await t('prompt documents every primitive, op and top-level key the engine accepts', () => { for (const w of ['box', 'cylinder', 'cone', 'tube', 'sphere', 'revolve', 'extrude', 'wedge', '"add"', '"cut"', '"fill"', 'params', 'materials', 'groups', 'steps', 'kinematics', 'instances', 'repeat', 'explode', 'if(c,a,b)']) ok(V.SPEC_DOC.includes(w), 'doc missing ' + w); });
+  await t('prompt documents every primitive, op and top-level key the engine accepts', () => { for (const w of ['box', 'cylinder', 'cone', 'tube', 'sphere', 'revolve', 'extrude', 'wedge', 'sweep', 'pillow', 'panel', '"add"', '"cut"', '"fill"', 'params', 'materials', 'groups', 'steps', 'kinematics', 'instances', 'repeat', 'explode', 'if(c,a,b)']) ok(V.SPEC_DOC.includes(w), 'doc missing ' + w); });
   await t('extractJSON: fences, prose, braces inside strings, truncation', () => {
     eq(V.extractJSON('```json\n{"a":1}\n```').a, 1); eq(V.extractJSON('Here you go: {"a":{"b":"}{"}} thanks').a.b, '}{'); let threw = false; try { V.extractJSON('{"a":[1,2'); } catch (e) { threw = /truncated/.test(e.message); } ok(threw, 'truncation not detected'); threw = false; try { V.extractJSON('no json'); } catch (e) { threw = true; } ok(threw); });
   await t('evaluate flags overlap, unfilled joints and bad expressions with actionable text', () => {

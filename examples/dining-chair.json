@@ -1,0 +1,194 @@
+{
+  "name": "Dining chair",
+  "units": "mm",
+  "description": "MCM-style dining chair: tapered swept legs and back posts, bent crest panel, pillowed seat, rectilinear seat rails as solid boxes.",
+  "assumptions": [
+    "Curved members use mesh prims (sweep / panel / pillow): they render and export, but joint-fill is exact only for solid↔solid.",
+    "Seat rails butt to legs without modeled tenons in this example."
+  ],
+  "params": {
+    "W": { "value": 460, "min": 400, "max": 520, "step": 10, "label": "Seat width" },
+    "D": { "value": 440, "min": 380, "max": 500, "step": 10, "label": "Seat depth" },
+    "Hs": { "value": 440, "min": 400, "max": 480, "step": 5, "label": "Seat height" },
+    "Hb": { "value": 780, "min": 700, "max": 860, "step": 10, "label": "Overall height" },
+    "legW": { "expr": "36" },
+    "legD": { "expr": "22" },
+    "railT": { "expr": "22" },
+    "railH": { "expr": "55" },
+    "seatT": { "expr": "42" },
+    "crestH": { "expr": "85" },
+    "crestT": { "expr": "14" }
+  },
+  "materials": {
+    "oak": { "base": "oak", "name": "White oak", "color": "#c4a574" },
+    "leather": { "base": "rubber", "name": "Leather seat", "color": "#5c4033", "rho": 860 }
+  },
+  "groups": [
+    { "id": "frame", "name": "Frame" },
+    { "id": "seat", "name": "Seat" },
+    { "id": "back", "name": "Back" }
+  ],
+  "steps": [
+    "Dry-fit legs and seat rails",
+    "Glue the seat frame",
+    "Fit back posts and crest",
+    "Drop in the seat cushion"
+  ],
+  "parts": [
+    {
+      "id": "front_leg",
+      "name": "Front leg",
+      "group": "frame",
+      "material": "oak",
+      "grain": "z",
+      "kind": "mesh",
+      "spec": "Tapered rrect sweep, floor to seat",
+      "prims": [
+        {
+          "type": "sweep",
+          "path": [[0, 0, 0], [0, 8, "Hs*0.45"], [0, 4, "Hs"]],
+          "curve": "catmull",
+          "section": { "type": "rrect", "w": "legW", "h": "legD", "r": 5 },
+          "taper": [
+            { "t": 0, "scaleW": 1, "scaleH": 1 },
+            { "t": 1, "scaleW": 0.72, "scaleH": 0.85 }
+          ],
+          "up": [0, 1, 0],
+          "frame": "up"
+        }
+      ],
+      "instances": [
+        { "pos": ["legW/2", "legD/2", 0], "step": 0 },
+        { "pos": ["W-legW/2", "legD/2", 0], "step": 0 }
+      ]
+    },
+    {
+      "id": "back_post",
+      "name": "Back post",
+      "group": "frame",
+      "material": "oak",
+      "grain": "z",
+      "kind": "mesh",
+      "spec": "Continuous post: floor through seat to crest, gentle back curve",
+      "prims": [
+        {
+          "type": "sweep",
+          "path": [
+            [0, 0, 0],
+            [0, -6, "Hs*0.5"],
+            [0, 0, "Hs"],
+            [0, 35, "Hs+(Hb-Hs)*0.55"],
+            [0, 55, "Hb"]
+          ],
+          "curve": "catmull",
+          "section": { "type": "rrect", "w": "legW*0.95", "h": "legD*1.1", "r": 6 },
+          "taper": [
+            { "t": 0, "scaleW": 1, "scaleH": 1 },
+            { "t": 0.55, "scaleW": 0.85, "scaleH": 0.9 },
+            { "t": 1, "scaleW": 0.7, "scaleH": 0.75 }
+          ],
+          "up": [1, 0, 0],
+          "frame": "up"
+        }
+      ],
+      "instances": [
+        { "pos": ["legW/2", "D-legD/2", 0], "step": 2 },
+        { "pos": ["W-legW/2", "D-legD/2", 0], "step": 2 }
+      ]
+    },
+    {
+      "id": "side_rail",
+      "name": "Side rail",
+      "group": "frame",
+      "material": "oak",
+      "grain": "y",
+      "kind": "solid",
+      "spec": "Seat-side apron between front and back legs",
+      "ops": [
+        { "add": [0, 0, 0, "railT", "D-legD*2-railT*2-2", "railH"] }
+      ],
+      "instances": [
+        { "pos": ["legW+1", "legD+railT+1", "Hs-railH"], "step": 1 },
+        { "pos": ["W-legW-railT-1", "legD+railT+1", "Hs-railH"], "step": 1 }
+      ]
+    },
+    {
+      "id": "front_rail",
+      "name": "Front rail",
+      "group": "frame",
+      "material": "oak",
+      "grain": "x",
+      "kind": "solid",
+      "spec": "Front apron",
+      "ops": [
+        { "add": [0, 0, 0, "W-legW*2-2", "railT", "railH"] }
+      ],
+      "instances": [
+        { "pos": ["legW+1", "legD+1", "Hs-railH"], "step": 1 }
+      ]
+    },
+    {
+      "id": "back_rail",
+      "name": "Back rail",
+      "group": "frame",
+      "material": "oak",
+      "grain": "x",
+      "kind": "solid",
+      "spec": "Back apron under the seat",
+      "ops": [
+        { "add": [0, 0, 0, "W-legW*2-2", "railT", "railH"] }
+      ],
+      "instances": [
+        { "pos": ["legW+1", "D-legD-railT-1", "Hs-railH"], "step": 1 }
+      ]
+    },
+    {
+      "id": "crest",
+      "name": "Crest rail",
+      "group": "back",
+      "material": "oak",
+      "grain": "x",
+      "kind": "mesh",
+      "spec": "Bent crest panel; flat blank W×crestH×crestT",
+      "notes": [
+        "Cut flat blank, then bend to radius ≈ 0.55×seat width."
+      ],
+      "prims": [
+        {
+          "type": "panel",
+          "size": ["W-legW*1.6", "crestH"],
+          "t": "crestT",
+          "outline": { "shape": "superellipse", "fmin": 0.62, "n": 2.4 },
+          "bend": { "radius": "max(W*0.9, crestT*22)", "direction": 1 },
+          "arch": 4
+        }
+      ],
+      "instances": [
+        { "pos": ["W/2", "D+48", "Hb-crestH/2-8"], "rot": [0, 0, 0], "step": 2 }
+      ]
+    },
+    {
+      "id": "seat",
+      "name": "Seat cushion",
+      "group": "seat",
+      "material": "leather",
+      "grain": "x",
+      "kind": "mesh",
+      "spec": "Upholstered seat pillow",
+      "prims": [
+        {
+          "type": "pillow",
+          "size": ["W-legW*1.2", "D-legD*1.4", "seatT"],
+          "planR": 36,
+          "edgeR": 14,
+          "bulge": { "top": 7, "bottom": 2 },
+          "taper": { "k": 0.04 },
+          "bend": 3
+        }
+      ],
+      "instances": [
+        { "pos": ["W/2", "D/2+8", "Hs+seatT/2"], "step": 3 }
+      ]
+    }
+  ]
+}
