@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "furniture-cad"
+version = "0.1.0"
+description = "Offline build123d block library + chair/stool templates (not deployed to prod)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "fishejon" }]
+dependencies = [
+  "build123d>=0.8.0",
+  "trimesh>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+furniture-cad = "furniture_cad.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

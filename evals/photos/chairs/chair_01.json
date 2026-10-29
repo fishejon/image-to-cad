@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "template": "four_leg_chair",
+  "notes": "Stuhl.jpg (Commons, Romantiker, CC BY-SA 3.0). Seat height ~465 mm, overall back ~820 mm from floor per file description. Hand-guessed seat plan and leg diameters from photo. Chrome tube + bentwood — expect Wrong until back/tube/bent blocks exist.",
+  "source": {
+    "file": "chair_01.jpg",
+    "commons": "File:Stuhl.jpg",
+    "license": "CC BY-SA 3.0",
+    "attribution": "Romantiker"
+  },
+  "params": {
+    "seat_w": 420,
+    "seat_d": 400,
+    "seat_t": 18,
+    "seat_h": 465,
+    "leg_top": 22,
+    "leg_bot": 22,
+    "leg_section": "round",
+    "stretcher": false,
+    "back": true,
+    "back_h": 355,
+    "back_w": 400,
+    "back_t": 12,
+    "back_curve_mm": 0
+  }
+}
