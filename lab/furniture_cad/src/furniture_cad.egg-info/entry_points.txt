@@ -1,0 +1,2 @@
+[console_scripts]
+furniture-cad = furniture_cad.__main__:main

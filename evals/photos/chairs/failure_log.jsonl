@@ -1,0 +1,5 @@
+{"ts": "2026-10-29T03:10:32.303210+00:00", "kind": "missing_block", "need": "bent_panel", "photo_id": "chair_01", "template": "four_leg_chair", "notes": "backrest is horizontally curved bentwood; flat back_panel is only a stand-in"}
+{"ts": "2026-10-29T03:10:32.330759+00:00", "kind": "missing_block", "need": "seat_contour", "photo_id": "chair_01", "template": "four_leg_chair", "notes": "D-shaped seat with cylindrical leg cutouts; rectangular seat_panel wrong"}
+{"ts": "2026-10-29T17:43:46.612910+00:00", "kind": "missing_block", "need": "winged_top_rail", "photo_id": "chair_02", "template": "four_leg_chair", "notes": "bow-tie / winged curved top rail, not flat back_panel"}
+{"ts": "2026-10-29T17:43:46.642201+00:00", "kind": "missing_block", "need": "back_mid_slat", "photo_id": "chair_02", "template": "four_leg_chair", "notes": "horizontal mid back rail below top rail"}
+{"ts": "2026-10-29T17:43:46.671360+00:00", "kind": "missing_block", "need": "rounded_cushion", "photo_id": "chair_02", "template": "four_leg_chair", "notes": "upholstered seat pad; seat_t thickened as stand-in"}
