@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "template": "four_leg_chair",
+  "notes": "Guessed from photo by eye — not measured. Replace photo_id in filename.",
+  "params": {
+    "seat_w": 450,
+    "seat_d": 420,
+    "seat_t": 25,
+    "seat_h": 450,
+    "leg_top": 35,
+    "leg_bot": 28,
+    "leg_section": "square",
+    "stretcher": true,
+    "stretcher_section_w": 20,
+    "stretcher_section_h": 30,
+    "stretcher_z": 150
+  }
+}
