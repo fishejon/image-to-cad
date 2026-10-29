@@ -29,7 +29,7 @@ groups: [{"id":"carcass","name":"Carcass","color":"#6aa6ff"}]. steps: ["Glue the
 kinematics: { "drawer": {"label":"Drawer","axis":[0,-1,0],"range":[0,300],"unit":"mm"} }  or rotation: {"unit":"deg","axis":[0,0,1],"pivot":[x,y,z],"range":[0,110]}. Instances with "kin":"drawer" move with it.
 parts[]: each part is ONE physical piece type: { "id","name","group","material","kind":"solid"|"mesh","grain":"x"|"y"|"z","spec":"size text","notes":[...],"tools":[...], "vars":{...}, "instances":[...] }.
   kind "solid" (default; rectilinear parts, EXACT boolean geometry): "ops":[ {"add":[x0,y0,z0,x1,y1,z1]}, {"cut":[x0,y0,z0,x1,y1,z1],"tag":"mortise","label":"Mortise 24 × 8 × 40","fill":true} ]. Boxes are axis-aligned in the part's LOCAL frame. All "add" boxes are united, then all "cut" boxes removed. "fill":true means a mating part MUST completely occupy that void (mortise, dado, groove, rabbet). "tag"+"label" document a joint so the build guide can show it. Leave "fill" off for deliberate voids (finger pulls, door tracks).
-  kind "mesh" (round / turned / angled / non-rectilinear parts): "prims":[ {"type":"box","min":[..],"max":[..],"rot":[rx,ry,rz]}, {"type":"wedge","min":[..],"max":[..],"tip":"+x","angle":45}, {"type":"cylinder","base":[x,y,z],"axis":"+z","length":L,"r":R,"seg":32}, {"type":"cone","base","axis","length","r0","r1"}, {"type":"tube","base","axis","length","ro","ri"}, {"type":"sphere","r":R,"center":[..]}, {"type":"revolve","at":[x,y,z],"axis":"+z","profile":[[radius,height],...],"seg":48}, {"type":"extrude","plane":"xy"|"xz"|"yz","profile":[[u,v],...],"range":[w0,w1],"holes":[{"c":[u,v],"r":R}]}, {"type":"sweep","path":[[x,y,z],...],"curve":"catmull"|"polyline","section":{"type":"rrect"|"ellipse"|"poly","w":W,"h":H,"r":R},"taper":[{"t":0,"scaleW":1,"scaleH":1}],"up":[0,0,1],"frame":"up"|"rmf","twist":0,"caps":"both"|"none","tol":0.15}, {"type":"pillow","size":[X,Y,Z],"planR":R,"edgeR":R,"bulge":{"top":0,"bottom":0},"taper":{"k":0},"bend":0,"tol":0.15}, {"type":"panel","size":[W,H],"t":T,"outline":{"shape":"rect"|"superellipse","fmin":0.55,"n":2.5},"bend":{"radius":R,"sagitta":S,"direction":1},"arch":0,"tol":0.15} ]. Optional box "rot" is Euler degrees about the box centre. "wedge" is a mitred board (AABB with one end bevelled in the XY plane; tip +x|-x|+y|-y; angle from square, default 45). "sweep" extrudes a section along a Catmull/polyline path (taper keyframes, fold guard). "pillow" is a rounded cushion (independent planR/edgeR). "panel" is a developable bent sheet of thickness t (square edges). One material per part. Prefer kind "solid" for rectilinear carcass; use mesh for turned parts, continuous sculpted frames, mitres/angles, tapered curves, cushions, and bent panels.
+  kind "mesh" (round / turned / angled / non-rectilinear parts): "prims":[ {"type":"box","min":[..],"max":[..],"rot":[rx,ry,rz]}, {"type":"wedge","min":[..],"max":[..],"tip":"+x","angle":45}, {"type":"cylinder","base":[x,y,z],"axis":"+z","length":L,"r":R,"seg":32}, {"type":"cone","base","axis","length","r0","r1"}, {"type":"tube","base","axis","length","ro","ri"}, {"type":"sphere","r":R,"center":[..]}, {"type":"revolve","at":[x,y,z],"axis":"+z","profile":[[radius,height],...],"seg":48}, {"type":"extrude","plane":"xy"|"xz"|"yz","profile":[[u,v],...],"range":[w0,w1],"holes":[{"c":[u,v],"r":R}]}, {"type":"sweep","path":[[x,y,z],...],"curve":"catmull"|"polyline","section":{"type":"rrect"|"ellipse"|"poly","w":W,"h":H,"r":R},"taper":[{"t":0,"scaleW":1,"scaleH":1}],"up":[0,0,1],"frame":"up"|"rmf","twist":0,"caps":"both"|"none","tol":0.15}, {"type":"pillow","size":[X,Y,Z],"planR":R,"edgeR":R,"bulge":{"top":0,"bottom":0},"taper":{"k":0},"bend":0,"tol":0.15}, {"type":"panel","size":[W,H],"t":T,"outline":{"shape":"rect"|"superellipse","fmin":0.55,"n":2.5},"bend":{"radius":R,"sagitta":S,"direction":1},"edgeR":0,"arch":0,"tol":0.15}, {"type":"seam","size":[X,Y,Z],"r":2.5,"inset":12,"side":"top"|"bottom","planR":R,"edgeR":R,"bulge":{"top":0,"bottom":0}} ]. Optional box "rot" is Euler degrees about the box centre. "wedge" is a mitred board. "sweep" = tapered/curved members (fold guard rejects too-tight bends). "pillow" = cushions. "panel" = developable bent sheet (flat blank = cut size). "seam" = welt/piping as its OWN part (different material from the pillow). Prefer kind "solid" for rectilinear carcass so joint-fill stays exact; use mesh for curves, cushions, bent panels, seams.
   instances: [{"pos":[x,y,z],"rot":[rx,ry,rz],"step":0,"explode":[dx,dy,dz],"kin":"name","repeat":{"var":"i","count":4}}]. Placement = translate(pos) · Rz · Ry · Rx. Solid parts should be rotated only by multiples of 90°. "repeat" also works on ops and prims. Omit "explode" to get an automatic exploded view.
 Modelling rules: (1) Parts must NOT overlap each other except where a tenon/tongue fills a "fill":true void exactly. (2) Joint voids and the tenon that fills them must have identical dimensions. (3) Model the object as separate real-world parts joined the way the real object is built (mortise & tenon, dados, rabbets, box joints, mitres, bolted flanges...). (4) Use params for the main dimensions so the user can resize. (5) Prefer "solid" parts; use "mesh" for round/turned/sloped/mitred/continuous shapes. (6) Put the object on the floor (min z = 0). (7) Give each part a short real-world "spec" and, when there is a joint to cut, "notes" saying how. (8) Honor inventory.structure: if memberContinuity is continuous, model primary side/frame members as one piece (or mirrored pair), not separate stick legs+arms+posts with magic butt joints. (9) Match inventory section (round vs square vs tapered); do not mix cylinder legs with square posts unless inventory says mixed. (10) Every structural wood–wood meeting needs tag+label joinery (and fill:true on receiving cuts); unlabeled contacts fail the critic.
 `;
@@ -44,10 +44,11 @@ V.INVENTORY_DOC = `{
     "dominantSection": "round|square|rect|tapered|slab|mixed|unknown",
     "notes": "optional: how primary members are built (one-piece side frames vs separate legs/rails, etc.)"
   },
-  "parts": [{"role":"leg|top|side|drawer|door|shelf|rail|panel|stretcher|arm|seat|back|frame|cushion|other","count":N,"shape":"square|rect|turned|panel|tapered|slab|continuous","section":"round|square|rect|tapered|oval|unknown","continuity":"separate|continuous|unknown","notes":"optional"}],
+  "parts": [{"role":"leg|top|side|drawer|door|shelf|rail|panel|stretcher|arm|seat|back|frame|cushion|other","count":N,"shape":"square|rect|turned|panel|tapered|slab|continuous|curved","section":"round|square|rect|tapered|oval|unknown","continuity":"separate|continuous|unknown","curved":false,"upholstered":false,"provenance":"measured|assumed|unknown","notes":"optional"}],
   "materialsGuess": ["oak"],
   "joineryGuess": ["mortise and tenon legs into top"],
   "overallGuessMm": {"w":0,"d":0,"h":0},
+  "curvedFeatures": [{"part":"crest|leg|seat|back","kind":"sweep|panel|pillow|seam","note":"optional"}],
   "notes": "1–3 sentences on what stands out in the photo"
 }`;
 
@@ -140,8 +141,8 @@ V.buildInventoryPrompt = function (o) {
       : 'You are a careful visual inventory agent for furniture/product CAD. Study the attached picture and return ONE JSON object (no commentary, no markdown fences) with this shape:',
     V.INVENTORY_DOC,
     drawing
-      ? 'Rules: (1) Prefer dimensions readable on the drawing; put them in overallGuessMm (millimetres). (2) aspect ratios should match the drawing proportions; normalize so the smallest of w/d/h is about 1. (3) counts are integers for labeled or clearly drawn features. (4) If USER METRICS are provided, copy them into overallGuessMm and treat them as ground truth. (5) parts[].role should cover every distinct piece type needed in a CAD model. (6) structure.memberContinuity: continuous = primary members are one piece (e.g. side frame that is leg+arm+post); separate = discrete sticks joined; mixed = both. (7) structure.dominantSection and parts[].section must match visible cross-sections (do not invent round legs when the drawing shows square stock, or vice versa).'
-      : 'Rules: (1) Match what you SEE — do not invent a generic piece of the same category. (2) aspect ratios must reflect the photo; normalize so the smallest of w/d/h is about 1. (3) counts are integers for visible or strongly implied features; prefer under-counting hidden structure over inventing parts. (4) overallGuessMm is optional; leave zeros if scale is unknown — but if USER METRICS are provided, copy them into overallGuessMm. (5) parts[].role should cover every distinct piece type you will need in a CAD model. (6) structure.memberContinuity: continuous = primary members read as one sculpted/laminated piece; separate = discrete sticks; mixed = both. Never report separate stick construction when the photo shows continuous frames. (7) structure.dominantSection and parts[].section must match visible cross-sections (round vs square vs tapered vs slab).'
+      ? 'Rules: (1) Prefer dimensions readable on the drawing; put them in overallGuessMm (millimetres). (2) aspect ratios should match the drawing proportions; normalize so the smallest of w/d/h is about 1. (3) counts are integers for labeled or clearly drawn features. (4) If USER METRICS are provided, copy them into overallGuessMm and treat them as ground truth. (5) parts[].role should cover every distinct piece type needed in a CAD model. (6) structure.memberContinuity: continuous = primary members are one piece (e.g. side frame that is leg+arm+post); separate = discrete sticks joined; mixed = both. (7) structure.dominantSection and parts[].section must match visible cross-sections (do not invent round legs when the drawing shows square stock, or vice versa). (8) Mark curved/upholstered parts: curved:true for tapered/S-curve members and bent panels; upholstered:true for cushions; list them in curvedFeatures with kind sweep|panel|pillow|seam; set provenance measured vs assumed.'
+      : 'Rules: (1) Match what you SEE — do not invent a generic piece of the same category. (2) aspect ratios must reflect the photo; normalize so the smallest of w/d/h is about 1. (3) counts are integers for visible or strongly implied features; prefer under-counting hidden structure over inventing parts. (4) overallGuessMm is optional; leave zeros if scale is unknown — but if USER METRICS are provided, copy them into overallGuessMm. (5) parts[].role should cover every distinct piece type you will need in a CAD model. (6) structure.memberContinuity: continuous = primary members read as one sculpted/laminated piece; separate = discrete sticks; mixed = both. Never report separate stick construction when the photo shows continuous frames. (7) structure.dominantSection and parts[].section must match visible cross-sections (round vs square vs tapered vs slab). (8) Flag curved members and upholstery: parts[].curved / parts[].upholstered and curvedFeatures[{kind:sweep|panel|pillow|seam}]; mark provenance measured|assumed.'
   ];
   if (o.metrics && (o.metrics.wMm || o.metrics.dMm || o.metrics.hMm)) {
     parts.push('USER METRICS (ground truth overall size): ' + V.formatMetrics(o.metrics));
@@ -152,9 +153,9 @@ V.buildInventoryPrompt = function (o) {
 };
 
 V.STAGES = [
-  { id: 'carcass', label: 'carcass', focus: 'Build ONLY the primary structure: sides, top, bottom, back, legs, stretchers, rails, frames, and fixed panels. Honor inventory.structure (continuous vs separate members; dominant section). Do NOT add drawers, doors, shelves, slats, cushions, or hardware yet. Match inventory aspect ratios. Every wood–wood meeting needs labeled joinery (tag+label; fill:true on cuts).' },
-  { id: 'interiors', label: 'interiors', focus: 'ADD drawers, doors, shelves, dividers, cushions, arms (if separate), and other secondary parts from the inventory. Keep every carcass part that is still correct. Update mating joinery. Return the COMPLETE updated spec.' },
-  { id: 'refine', label: 'refine', focus: 'Polish the COMPLETE design: fix joinery fill, interference, unlabeled contacts, and inventory count/aspect/structure mismatches (section + continuity). Do not remove correct parts. Return the COMPLETE corrected spec.' }
+  { id: 'carcass', label: 'carcass', focus: 'Build ONLY the primary structure: sides, top, bottom, back, legs, stretchers, rails, frames, and fixed panels. Honor inventory.structure (continuous vs separate members; dominant section). Use mesh sweep for any tapered or curved member; panel for bent sheet crests/backs; keep rectilinear rails as solid boxes for joinery. Do NOT add drawers, doors, shelves, slats, cushions, or hardware yet. Match inventory aspect ratios. Every wood–wood meeting needs labeled joinery (tag+label; fill:true on cuts).' },
+  { id: 'interiors', label: 'interiors', focus: 'ADD drawers, doors, shelves, dividers, cushions (pillow prim), seams (separate part), arms (if separate), and other secondary parts from the inventory. Keep every carcass part that is still correct. Update mating joinery. Return the COMPLETE updated spec.' },
+  { id: 'refine', label: 'refine', focus: 'Polish the COMPLETE design: fix joinery fill, interference, unlabeled contacts, inventory mismatches, and curved-prim errors (sweep fold, panel radius below 20*t, pillow edgeR too large, triangle budget). Do not remove correct parts. Return the COMPLETE corrected spec.' }
 ];
 V.needsStages = function (inventory) {
   if (!inventory || typeof inventory !== 'object') return false;
@@ -470,7 +471,15 @@ V.evaluate = function (spec, o) {
   }
   r.ok = !r.errors.length && !r.nonmanifold.length && !r.interference.length && !r.underfilled.length;
   r.score = r.errors.length * 1000 + r.nonmanifold.length * 100 + r.interference.length * 50 + r.underfilled.length * 20 + r.warnings.length + (r.coarseInterference ? r.coarseInterference.length * 2 : 0);
-  const L = []; if (r.errors.length) { L.push('ERRORS (fix first):'); r.errors.slice(0, 20).forEach(e => L.push(' - ' + e)); }
+  const L = []; if (r.errors.length) {
+    L.push('ERRORS (fix first):');
+    r.errors.slice(0, 20).forEach(e => {
+      L.push(' - ' + e);
+      if (/sweep fold/i.test(e)) L.push('   hint: increase path curvature radius or shrink section; fold guard rejects rho < 1.05× half-extent.');
+      if (/bend radius below/i.test(e)) L.push('   hint: panel bend.radius must be ≥ 20×t (or reduce t).');
+      if (/edgeR too large|triangle budget/i.test(e)) L.push('   hint: reduce edgeR / planR / tol, or simplify the path.');
+    });
+  }
   if (r.warnings.length) { L.push('WARNINGS:'); r.warnings.slice(0, 10).forEach(e => L.push(' - ' + e)); }
   if (r.nonmanifold.length) L.push('NON-WATERTIGHT parts (degenerate or self-overlapping geometry): ' + r.nonmanifold.join(', '));
   if (r.interference.length) {
@@ -524,12 +533,46 @@ V.readAnthropicSSE = async function (res) {
   return text;
 };
 V.tokenBudget = function (task) {
-  if (task === 'inventory') return 2500;
+  if (task === 'inventory') return 3200;
   if (task === 'revise') return 10000;
-  if (task === 'carcass') return 12000;
+  if (task === 'carcass') return 14000;
   if (task === 'interiors') return 18000;
   if (task === 'refine') return 14000;
   return 16000;
+};
+
+/**
+ * Phase 7 (practical): coordinate-descent on numeric params to reduce aspect likeness error.
+ * Uses inventory aspect only (no render). Returns best overrides + trail.
+ */
+V.fitParams = function (spec, inventory, o) {
+  o = o || {};
+  const maxIters = o.maxIters || 40;
+  const M0 = CAD.buildSpec(spec);
+  if (!M0.paramDefs.length || !inventory || !inventory.aspect) return { overrides: {}, penalty: 0, iters: 0 };
+  const keys = M0.paramDefs.map(p => p.key);
+  const cur = {}; M0.paramDefs.forEach(p => { cur[p.key] = p.value; });
+  let best = Object.assign({}, cur);
+  let bestPen = (V.likeness(M0, inventory).penalty) || 0;
+  const trail = [{ overrides: Object.assign({}, best), penalty: bestPen }];
+  for (let it = 0; it < maxIters; it++) {
+    let improved = false;
+    for (let ki = 0; ki < keys.length; ki++) {
+      const def = M0.paramDefs[ki];
+      const step = def.step || 1;
+      for (const dir of [-1, 1]) {
+        const trial = Object.assign({}, best);
+        trial[def.key] = Math.max(def.min, Math.min(def.max, best[def.key] + dir * step));
+        if (trial[def.key] === best[def.key]) continue;
+        const M = CAD.buildSpec(spec, trial);
+        if (M.errors.length) continue;
+        const pen = V.likeness(M, inventory).penalty;
+        if (pen + 1e-6 < bestPen) { bestPen = pen; best = trial; improved = true; trail.push({ overrides: Object.assign({}, best), penalty: bestPen }); }
+      }
+    }
+    if (!improved) break;
+  }
+  return { overrides: best, penalty: bestPen, iters: trail.length - 1, trail };
 };
 V.providers = {
   anthropic: async o => {

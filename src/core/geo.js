@@ -45,6 +45,8 @@ function strip(g) {
   const n = g.index ? g.toNonIndexed() : g;
   const out = new T.BufferGeometry();
   out.setAttribute('position', new T.BufferAttribute(new Float32Array(n.attributes.position.array), 3));
+  if (n.attributes.uv) out.setAttribute('uv', new T.BufferAttribute(new Float32Array(n.attributes.uv.array), 2));
+  if (g.userData) out.userData = Object.assign({}, g.userData);
   return out;
 }
 function volume(g) {
@@ -57,20 +59,32 @@ function volume(g) {
   return v / 6;
 }
 function flipWinding(g) {
-  const p = g.attributes.position.array;
-  for (let i = 0; i < p.length; i += 9) for (let k = 0; k < 3; k++) { const t = p[i + 3 + k]; p[i + 3 + k] = p[i + 6 + k]; p[i + 6 + k] = t; }
+  const p = g.attributes.position.array, uv = g.attributes.uv && g.attributes.uv.array;
+  for (let i = 0; i < p.length; i += 9) {
+    for (let k = 0; k < 3; k++) { const t = p[i + 3 + k]; p[i + 3 + k] = p[i + 6 + k]; p[i + 6 + k] = t; }
+    if (uv) {
+      const ui = (i / 3) * 2;
+      for (let k = 0; k < 2; k++) { const t = uv[ui + 2 + k]; uv[ui + 2 + k] = uv[ui + 4 + k]; uv[ui + 4 + k] = t; }
+    }
+  }
 }
 function orient(g) { if (volume(g) < 0) flipWinding(g); return g; }
 function dropDegenerate(g) {
-  const p = g.attributes.position.array, out = [];
+  const p = g.attributes.position.array, uvA = g.attributes.uv && g.attributes.uv.array;
+  const out = [], outUv = uvA ? [] : null;
   for (let i = 0; i < p.length; i += 9) {
     const ux = p[i + 3] - p[i], uy = p[i + 4] - p[i + 1], uz = p[i + 5] - p[i + 2];
     const vx = p[i + 6] - p[i], vy = p[i + 7] - p[i + 1], vz = p[i + 8] - p[i + 2];
     const cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
-    if (cx * cx + cy * cy + cz * cz > 1e-10) for (let k = 0; k < 9; k++) out.push(p[i + k]);
+    if (cx * cx + cy * cy + cz * cz > 1e-10) {
+      for (let k = 0; k < 9; k++) out.push(p[i + k]);
+      if (outUv) { const ui = (i / 3) * 2; for (let k = 0; k < 6; k++) outUv.push(uvA[ui + k]); }
+    }
   }
   const r = new T.BufferGeometry();
   r.setAttribute('position', new T.BufferAttribute(new Float32Array(out), 3));
+  if (outUv) r.setAttribute('uv', new T.BufferAttribute(new Float32Array(outUv), 2));
+  if (g.userData) r.userData = Object.assign({}, g.userData);
   return r;
 }
 function creaseNormals(g, angleDeg) {
@@ -106,11 +120,122 @@ function creaseNormals(g, angleDeg) {
   return g;
 }
 function mergeGeoms(list) {
-  let n = 0; list.forEach(g => n += g.attributes.position.array.length);
+  let n = 0, hasUv = false, chunkBoxes = [];
+  list.forEach(g => {
+    n += g.attributes.position.array.length;
+    if (g.attributes.uv) hasUv = true;
+    if (g.userData && Array.isArray(g.userData.chunkBoxes)) chunkBoxes = chunkBoxes.concat(g.userData.chunkBoxes);
+  });
   const a = new Float32Array(n); let o = 0;
   list.forEach(g => { a.set(g.attributes.position.array, o); o += g.attributes.position.array.length; });
-  const r = new T.BufferGeometry(); r.setAttribute('position', new T.BufferAttribute(a, 3)); return r;
+  const r = new T.BufferGeometry(); r.setAttribute('position', new T.BufferAttribute(a, 3));
+  if (hasUv) {
+    const uv = new Float32Array(n / 3 * 2); let uo = 0;
+    list.forEach(g => {
+      const nV = g.attributes.position.array.length / 3;
+      if (g.attributes.uv) uv.set(g.attributes.uv.array, uo);
+      uo += nV * 2;
+    });
+    r.setAttribute('uv', new T.BufferAttribute(uv, 2));
+  }
+  if (chunkBoxes.length) r.userData = { chunkBoxes };
+  return r;
 }
+
+/* Clip triangle soup to an AABB [x0,y0,z0,x1,y1,z1] and cap cut faces (Option B, no WASM). */
+CAD.clipMeshAABB = function (posIn, clip) {
+  if (!clip) return { pos: posIn instanceof Float32Array ? posIn : new Float32Array(posIn) };
+  const x0 = Math.min(clip[0], clip[3]), y0 = Math.min(clip[1], clip[4]), z0 = Math.min(clip[2], clip[5]);
+  const x1 = Math.max(clip[0], clip[3]), y1 = Math.max(clip[1], clip[4]), z1 = Math.max(clip[2], clip[5]);
+  const planes = [
+    [1, 0, 0, -x0], [-1, 0, 0, x1],
+    [0, 1, 0, -y0], [0, -1, 0, y1],
+    [0, 0, 1, -z0], [0, 0, -1, z1]
+  ];
+  function dist(a, p) { return a[0] * p[0] + a[1] * p[1] + a[2] * p[2] + a[3]; }
+  function lerp(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+  function clipPoly(poly, plane) {
+    if (!poly.length) return [];
+    const out = [];
+    for (let i = 0; i < poly.length; i++) {
+      const cur = poly[i], prev = poly[(i + poly.length - 1) % poly.length];
+      const dc = dist(plane, cur), dp = dist(plane, prev);
+      const cin = dc >= -1e-9, pin = dp >= -1e-9;
+      if (cin !== pin) out.push(lerp(prev, cur, dp / (dp - dc || 1e-12)));
+      if (cin) out.push(cur);
+    }
+    return out;
+  }
+  const out = [];
+  const pushFan = (poly, flip) => {
+    if (poly.length < 3) return;
+    for (let i = 1; i < poly.length - 1; i++) {
+      const a = poly[0], b = poly[i], c = poly[i + 1];
+      if (flip) out.push(a[0], a[1], a[2], c[0], c[1], c[2], b[0], b[1], b[2]);
+      else out.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+    }
+  };
+  const qk = p => Math.round(p[0] * 50) + ',' + Math.round(p[1] * 50) + ',' + Math.round(p[2] * 50);
+  const edgeUse = new Map();
+  function addEdge(a, b) {
+    const ka = qk(a), kb = qk(b), f = ka + '>' + kb;
+    edgeUse.set(f, (edgeUse.get(f) || 0) + 1);
+  }
+  for (let t = 0; t < posIn.length; t += 9) {
+    let poly = [
+      [posIn[t], posIn[t + 1], posIn[t + 2]],
+      [posIn[t + 3], posIn[t + 4], posIn[t + 5]],
+      [posIn[t + 6], posIn[t + 7], posIn[t + 8]]
+    ];
+    for (let p = 0; p < planes.length && poly.length; p++) poly = clipPoly(poly, planes[p]);
+    if (poly.length < 3) continue;
+    pushFan(poly, false);
+    for (let i = 0; i < poly.length; i++) addEdge(poly[i], poly[(i + 1) % poly.length]);
+  }
+  /* Cap: boundary edges (no reverse twin) that lie on a clip plane → chain + fan */
+  const boundary = [];
+  edgeUse.forEach((c, k) => {
+    const [u, v] = k.split('>');
+    if (c !== (edgeUse.get(v + '>' + u) || 0)) {
+      const pa = u.split(',').map(Number).map(x => x / 50);
+      const pb = v.split(',').map(Number).map(x => x / 50);
+      boundary.push([pa, pb]);
+    }
+  });
+  function onPlane(p, pl, eps) { return Math.abs(dist(pl, p)) < eps; }
+  planes.forEach(pl => {
+    const segs = boundary.filter(([a, b]) => onPlane(a, pl, 0.05) && onPlane(b, pl, 0.05));
+    if (segs.length < 3) return;
+    /* Greedy chain into loops */
+    const used = new Set();
+    const key = p => qk(p);
+    for (let s0 = 0; s0 < segs.length; s0++) {
+      if (used.has(s0)) continue;
+      const loop = [segs[s0][0], segs[s0][1]]; used.add(s0);
+      let guard = 0;
+      while (guard++ < segs.length + 2) {
+        const tail = loop[loop.length - 1], tk = key(tail);
+        let found = -1;
+        for (let i = 0; i < segs.length; i++) if (!used.has(i)) {
+          if (key(segs[i][0]) === tk) { loop.push(segs[i][1]); used.add(i); found = i; break; }
+          if (key(segs[i][1]) === tk) { loop.push(segs[i][0]); used.add(i); found = i; break; }
+        }
+        if (found < 0 || key(loop[loop.length - 1]) === key(loop[0])) break;
+      }
+      if (loop.length >= 3) {
+        /* Winding: outward for clip box = opposite plane normal direction into solid */
+        const nrm = [-pl[0], -pl[1], -pl[2]];
+        const a = loop[0], b = loop[1], c = loop[2];
+        const cx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]);
+        const cy = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]);
+        const cz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+        const flip = cx * nrm[0] + cy * nrm[1] + cz * nrm[2] < 0;
+        pushFan(loop, flip);
+      }
+    }
+  });
+  return { pos: new Float32Array(out) };
+};
 function bbox(g) { g.computeBoundingBox(); return g.boundingBox.clone(); }
 
 /* axis → rotation taking local +Z onto the axis */

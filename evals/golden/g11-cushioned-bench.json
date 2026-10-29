@@ -1,0 +1,19 @@
+{
+  "id": "g11-cushioned-bench",
+  "title": "Upholstered bench with cushion",
+  "notes": "Inventory must surface upholstery (cushion/pillow); slab or rect base.",
+  "expected": {
+    "object": "bench",
+    "aspect": { "w": 2.2, "d": 1, "h": 0.85 },
+    "counts": { "legs": 4, "drawers": 0, "doors": 0, "shelves": 0, "slats": 0 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "rect" }
+  },
+  "actual": {
+    "object": "bench",
+    "aspect": { "w": 2.15, "d": 1, "h": 0.88 },
+    "counts": { "legs": 4 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "rect" },
+    "parts": [{ "role": "cushion", "count": 1, "upholstered": true, "curved": false }],
+    "curvedFeatures": [{ "part": "seat", "kind": "pillow" }]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "g09-dining-chair",
+  "title": "MCM dining chair with tapered posts and cushion",
+  "notes": "Curved/tapered back posts + upholstered seat; section tapered or rect, not round cylinders.",
+  "expected": {
+    "object": "dining chair",
+    "aspect": { "w": 1, "d": 1.05, "h": 1.7 },
+    "counts": { "legs": 4, "drawers": 0, "doors": 0, "shelves": 0, "slats": 0 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "tapered" }
+  },
+  "actual": {
+    "object": "dining chair",
+    "aspect": { "w": 1, "d": 1.02, "h": 1.68 },
+    "counts": { "legs": 4 },
+    "structure": { "memberContinuity": "separate", "dominantSection": "tapered" },
+    "curvedFeatures": [
+      { "part": "leg", "kind": "sweep" },
+      { "part": "crest", "kind": "panel" },
+      { "part": "seat", "kind": "pillow" }
+    ]
+  }
+}

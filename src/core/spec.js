@@ -65,21 +65,55 @@ const PALETTE = [0x6aa6ff, 0x7bd88f, 0xffb454, 0xc792ea, 0xf5d547, 0xe0a458, 0x5
 
 /* ---------- mesh-kind parts (cylinders, revolves, extrusions: exact only for display/export, not for joint checks) ---------- */
 class MeshSolid {
-  constructor(geoms, mat, grain) { this.mat = mat; this.grain = grain || 'x'; this.feat = []; this.exact = false; this.splittable = false; this.adds = []; this.g = CAD.mergeGeoms(geoms); CAD.creaseNormals(this.g, 38); }
-  mesh() {
-    const pos = this.g.attributes.position.array, nor = this.g.attributes.normal.array, uv = new Float32Array(pos.length / 3 * 2), S = 1 / 260;
-    for (let t = 0; t < pos.length; t += 9) { const ux = pos[t + 3] - pos[t], uy = pos[t + 4] - pos[t + 1], uz = pos[t + 5] - pos[t + 2], vx = pos[t + 6] - pos[t], vy = pos[t + 7] - pos[t + 1], vz = pos[t + 8] - pos[t + 2];
-      const n = [Math.abs(uy * vz - uz * vy), Math.abs(uz * vx - ux * vz), Math.abs(ux * vy - uy * vx)], a = n.indexOf(Math.max(...n)), ax = [0, 1, 2].filter(q => q !== a);
-      for (let k = 0; k < 3; k++) { const i = (t / 3 + k); uv[i * 2] = pos[t + k * 3 + ax[0]] * S; uv[i * 2 + 1] = pos[t + k * 3 + ax[1]] * S; } }
+  constructor(geoms, mat, grain, meta) {
+    this.mat = mat; this.grain = grain || 'x'; this.feat = (meta && meta.feat) || []; this.exact = false;
+    this.adds = []; this.g = CAD.mergeGeoms(geoms); CAD.creaseNormals(this.g, 38);
+    this._chunkBoxes = (this.g.userData && this.g.userData.chunkBoxes) || null;
+    this.panelFlat = null;
+    (geoms || []).forEach(g => { if (g.userData && g.userData.panelFlat) this.panelFlat = g.userData.panelFlat; });
+    /* Print-split via clipMeshAABB is experimental (caps not volume-safe yet). Chunked boxes() still improve coarse interference. */
+    this.splittable = false;
+    this.clippable = true;
+  }
+  mesh(opts) {
+    opts = opts || {};
+    let pos = this.g.attributes.position.array;
+    let nor = this.g.attributes.normal && this.g.attributes.normal.array;
+    let uvAttr = this.g.attributes.uv && this.g.attributes.uv.array;
+    if (opts.clip) {
+      const clipped = CAD.clipMeshAABB(pos, opts.clip);
+      pos = clipped.pos;
+      /* Recompute flat normals for clipped tris; skip alignment keys for mesh (Option B) */
+      nor = new Float32Array(pos.length);
+      for (let t = 0; t < pos.length; t += 9) {
+        const ux = pos[t + 3] - pos[t], uy = pos[t + 4] - pos[t + 1], uz = pos[t + 5] - pos[t + 2];
+        const vx = pos[t + 6] - pos[t], vy = pos[t + 7] - pos[t + 1], vz = pos[t + 8] - pos[t + 2];
+        let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        const L = Math.hypot(nx, ny, nz) || 1; nx /= L; ny /= L; nz /= L;
+        for (let k = 0; k < 3; k++) { nor[t + k * 3] = nx; nor[t + k * 3 + 1] = ny; nor[t + k * 3 + 2] = nz; }
+      }
+      uvAttr = null;
+    }
+    if (!nor) { const g = this.g; CAD.creaseNormals(g, 38); nor = g.attributes.normal.array; }
+    let uv;
+    if (uvAttr && !opts.clip) uv = uvAttr;
+    else {
+      uv = new Float32Array(pos.length / 3 * 2); const S = 1 / 260;
+      for (let t = 0; t < pos.length; t += 9) {
+        const ux = pos[t + 3] - pos[t], uy = pos[t + 4] - pos[t + 1], uz = pos[t + 5] - pos[t + 2], vx = pos[t + 6] - pos[t], vy = pos[t + 7] - pos[t + 1], vz = pos[t + 8] - pos[t + 2];
+        const n = [Math.abs(uy * vz - uz * vy), Math.abs(uz * vx - ux * vz), Math.abs(ux * vy - uy * vx)], a = n.indexOf(Math.max(...n)), ax = [0, 1, 2].filter(q => q !== a);
+        for (let k = 0; k < 3; k++) { const i = (t / 3 + k); uv[i * 2] = pos[t + k * 3 + ax[0]] * S; uv[i * 2 + 1] = pos[t + k * 3 + ax[1]] * S; }
+      }
+    }
     return { pos, nor, uv };
   }
   volume() { return Math.abs(CAD.volume(this.g)); }
   bbox() { this.g.computeBoundingBox(); const b = this.g.boundingBox; return [b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z]; }
-  boxes() { return [this.bbox()]; }
+  boxes() { return (this._chunkBoxes && this._chunkBoxes.length) ? this._chunkBoxes.slice() : [this.bbox()]; }
 }
 CAD.MeshSolid = MeshSolid;
 
-const PRIM_TYPES = ['box', 'cylinder', 'cone', 'tube', 'revolve', 'sphere', 'extrude', 'wedge', 'sweep', 'pillow', 'panel'];
+const PRIM_TYPES = ['box', 'cylinder', 'cone', 'tube', 'revolve', 'sphere', 'extrude', 'wedge', 'sweep', 'pillow', 'panel', 'seam'];
 function buildPrim(B, pr, sc, mat) {
   const e = k => ev(pr[k], sc), ax = pr.axis || '+z', seg = pr.seg || 32;
   switch (pr.type) {
@@ -139,11 +173,26 @@ function buildPrim(B, pr, sc, mat) {
       B.raw(CAD.buildPanelPrim({
         size: e('size'), t: pr.t !== undefined ? ev(pr.t, sc) : ev(pr.thickness, sc),
         outline, bend, arch: pr.arch !== undefined ? ev(pr.arch, sc) : 0,
+        edgeR: pr.edgeR !== undefined ? ev(pr.edgeR, sc) : 0,
         tol: pr.tol !== undefined ? ev(pr.tol, sc) : undefined
       }), mat);
       break;
     }
-    default: throw new Error('unknown prim type "' + pr.type + '" (box, cylinder, cone, tube, revolve, sphere, extrude, wedge, sweep, pillow, panel)');
+    case 'seam': {
+      const bulge = pr.bulge ? { top: pr.bulge.top !== undefined ? ev(pr.bulge.top, sc) : 0, bottom: pr.bulge.bottom !== undefined ? ev(pr.bulge.bottom, sc) : 0 } : undefined;
+      const taper = pr.taper ? { k: ev(pr.taper.k != null ? pr.taper.k : pr.taper, sc) } : undefined;
+      B.raw(CAD.buildSeamPrim({
+        size: e('size'), r: pr.r !== undefined ? ev(pr.r, sc) : 2.5,
+        inset: pr.inset !== undefined ? ev(pr.inset, sc) : undefined,
+        side: pr.side || 'top',
+        planR: pr.planR !== undefined ? ev(pr.planR, sc) : undefined,
+        edgeR: pr.edgeR !== undefined ? ev(pr.edgeR, sc) : undefined,
+        bulge, taper, bend: pr.bend !== undefined ? ev(pr.bend, sc) : 0,
+        tol: pr.tol !== undefined ? ev(pr.tol, sc) : undefined
+      }), mat);
+      break;
+    }
+    default: throw new Error('unknown prim type "' + pr.type + '" (box, cylinder, cone, tube, revolve, sphere, extrude, wedge, sweep, pillow, panel, seam)');
   }
 }
 /* placement: T(pos) · Rz · Ry · Rx, angles in degrees */
@@ -184,10 +233,24 @@ class SpecModel {
         if (!solid.adds.length) throw new Error('part has no "add" boxes');
       } else if (kind === 'mesh') {
         const B = new CAD.Builder(); if (!Array.isArray(p.prims) || !p.prims.length) throw new Error('mesh part needs a non-empty "prims" array');
-        p.prims.forEach((pr, qi) => this.at('parts[' + pi + '].prims[' + qi + ']', () => expand(pr, base, sc => buildPrim(B, pr, sc, 'm'))));
-        if (!B.items.length) throw new Error('no geometry produced'); solid = new MeshSolid(B.items.map(i => i.g), mat, p.grain);
+        const feat = [];
+        p.prims.forEach((pr, qi) => this.at('parts[' + pi + '].prims[' + qi + ']', () => expand(pr, base, sc => {
+          buildPrim(B, pr, sc, 'm');
+          if (pr.type === 'sweep' && pr.taper) feat.push({ kind: 'taper', label: 'tapered sweep' });
+          if (pr.type === 'panel') {
+            const flat = B.items.length && B.items[B.items.length - 1].g.userData && B.items[B.items.length - 1].g.userData.panelFlat;
+            if (flat) feat.push({ kind: 'panel', label: 'flat ' + Math.round(flat.W) + '×' + Math.round(flat.H) + '×' + Math.round(flat.t) + ' bend R' + Math.round(flat.R) });
+          }
+        })));
+        if (!B.items.length) throw new Error('no geometry produced'); solid = new MeshSolid(B.items.map(i => i.g), mat, p.grain, { feat });
       } else throw new Error('unknown kind "' + kind + '" (solid | mesh)');
-      this.defs.set(p.id, { id: p.id, name: p.name || p.id, grp: p.group || 'main', solid, spec: p.spec || '', note: (p.notes || []).join(' '), notes: p.notes || [], tools: p.tools || [], _scope: base });
+      let specNote = p.spec || '';
+      if (solid.panelFlat) {
+        const f = solid.panelFlat;
+        const hint = 'Flat blank ' + Math.round(f.W) + '×' + Math.round(f.H) + '×' + Math.round(f.t) + ' mm, bend R' + Math.round(f.R);
+        specNote = specNote ? specNote + '; ' + hint : hint;
+      }
+      this.defs.set(p.id, { id: p.id, name: p.name || p.id, grp: p.group || 'main', solid, spec: specNote, note: (p.notes || []).join(' '), notes: p.notes || [], tools: p.tools || [], _scope: base });
     }));
     sp.parts.forEach((p, pi) => { const d = p && this.defs.get(p.id); if (!d) return; this.at('parts[' + pi + '].instances', () => {
       (p.instances || [p.place || {}]).forEach(it => expand(it, d._scope, sc => { const pos = ev(it.pos || [0, 0, 0], sc), rot = ev(it.rot || [0, 0, 0], sc), inst = { def: p.id, m: MK(pos, rot), step: it.step !== undefined ? ev(it.step, sc) : 0, kin: it.kin, tag: it.tag };
@@ -259,6 +322,7 @@ CAD.validateSpec = function (spec) {
         }
         if (pr.type === 'sweep' && (!Array.isArray(pr.path) || pr.path.length < 2)) errors.push(path + '.prims[' + qi + ']: sweep needs path [[x,y,z],...]');
         if (pr.type === 'pillow' && (!Array.isArray(pr.size) || pr.size.length < 3)) errors.push(path + '.prims[' + qi + ']: pillow needs size [X,Y,Z]');
+        if (pr.type === 'seam' && (!Array.isArray(pr.size) || pr.size.length < 3)) errors.push(path + '.prims[' + qi + ']: seam needs size [X,Y,Z] (match pillow)');
         if (pr.type === 'panel' && (!Array.isArray(pr.size) || pr.size.length < 2)) errors.push(path + '.prims[' + qi + ']: panel needs size [W,H]');
         if (pr.type === 'panel' && pr.t === undefined && pr.thickness === undefined) errors.push(path + '.prims[' + qi + ']: panel needs t');
       });
@@ -302,12 +366,18 @@ CAD.scaleSpec = function (spec, sx, sy, sz) {
       if (Array.isArray(p.size) && p.size.length >= 2) p.size = [n(p.size[0], 0), n(p.size[1], 1)];
       if (typeof p.t === 'number') p.t *= Math.cbrt(sx * sy * sz);
       if (typeof p.thickness === 'number') p.thickness *= Math.cbrt(sx * sy * sz);
+      if (typeof p.edgeR === 'number') p.edgeR *= Math.cbrt(sx * sy * sz);
       if (typeof p.arch === 'number') p.arch *= sy;
       if (typeof p.tol === 'number') p.tol *= Math.cbrt(sx * sy * sz);
       if (p.bend) {
         if (typeof p.bend.radius === 'number') p.bend.radius *= Math.cbrt(sx * sy * sz);
         if (typeof p.bend.sagitta === 'number') p.bend.sagitta *= sz;
       }
+    }
+    if (p.type === 'seam') {
+      if (Array.isArray(p.size) && p.size.length >= 3) p.size = [n(p.size[0], 0), n(p.size[1], 1), n(p.size[2], 2)];
+      ['r', 'inset', 'planR', 'edgeR', 'bend', 'tol'].forEach(k => { if (typeof p[k] === 'number') p[k] *= Math.cbrt(sx * sy * sz); });
+      if (p.bulge) { if (typeof p.bulge.top === 'number') p.bulge.top *= sz; if (typeof p.bulge.bottom === 'number') p.bulge.bottom *= sz; }
     }
   };
   (s.parts || []).forEach(p => {

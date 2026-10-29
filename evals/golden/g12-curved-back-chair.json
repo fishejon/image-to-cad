@@ -1,0 +1,21 @@
+{
+  "id": "g12-curved-back-chair",
+  "title": "Chair with continuous curved back / crest",
+  "notes": "Continuous back frame or bent crest panel; continuity continuous or mixed.",
+  "expected": {
+    "object": "chair",
+    "aspect": { "w": 1, "d": 1.1, "h": 1.75 },
+    "counts": { "legs": 4, "drawers": 0, "doors": 0, "shelves": 0, "slats": 0 },
+    "structure": { "memberContinuity": "continuous", "dominantSection": "rect" }
+  },
+  "actual": {
+    "object": "chair",
+    "aspect": { "w": 1, "d": 1.08, "h": 1.72 },
+    "counts": { "legs": 4 },
+    "structure": { "memberContinuity": "continuous", "dominantSection": "rect" },
+    "curvedFeatures": [
+      { "part": "back", "kind": "sweep" },
+      { "part": "crest", "kind": "panel" }
+    ]
+  }
+}
