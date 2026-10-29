@@ -94,10 +94,27 @@ One entry per **physical part type**; place it many times with `instances`.
   { "type": "revolve", "at": [0,0,0], "axis": "+z", "profile": [[0,0],[80,0],[80,6],[0,48]] },
   { "type": "extrude", "plane": "xy", "profile": [[0,0],[100,0],[100,50]], "range": [0,20], "holes": [{ "c": [30,10], "r": 4 }] },
   { "type": "box", "min": [0,0,0], "max": [10,10,10], "rot": [0,0,45] },
-  { "type": "wedge", "min": [0,0,0], "max": [200,40,18], "tip": "+x", "angle": 45 }
+  { "type": "wedge", "min": [0,0,0], "max": [200,40,18], "tip": "+x", "angle": 45 },
+  { "type": "sweep", "path": [[0,0,0],[0,40,200],[0,20,450]], "curve": "catmull",
+    "section": { "type": "rrect", "w": 38, "h": 22, "r": 4 },
+    "taper": [{ "t": 0, "scaleW": 1, "scaleH": 1 }, { "t": 1, "scaleW": 0.7, "scaleH": 0.85 }],
+    "up": [0,1,0], "frame": "up", "twist": 0, "tol": 0.15 },
+  { "type": "pillow", "size": [420, 400, 45], "planR": 40, "edgeR": 12,
+    "bulge": { "top": 8, "bottom": 2 }, "taper": { "k": 0.05 }, "bend": 4 },
+  { "type": "panel", "size": [420, 90], "t": 14,
+    "outline": { "shape": "superellipse", "fmin": 0.55, "n": 2.5 },
+    "bend": { "radius": 520, "direction": 1 }, "arch": 6 }
 ]
 ```
-`axis` is one of `+x -x +y -y +z -z`. `revolve` profiles are `[radius, height-along-axis]` pairs. Optional box `rot` is Euler degrees about the box centre. `wedge` is a mitred board (AABB with one end bevelled in the XY plane; `tip` `+x`|`-x`|`+y`|`-y`; `angle` from square, default 45°). One material per part. Mesh parts render, export to STL (whole) and count in mass. They participate in **coarse AABB interference** (flagged `coarse` in reports) but are still **excluded from exact joint-fill** (only solid↔solid fill checks). Keep rectilinear carcass as `kind: "solid"` for exact boolean checks.
+`axis` is one of `+x -x +y -y +z -z`. `revolve` profiles are `[radius, height-along-axis]` pairs. Optional box `rot` is Euler degrees about the box centre. `wedge` is a mitred board (AABB with one end bevelled in the XY plane; `tip` `+x`|`-x`|`+y`|`-y`; `angle` from square, default 45°).
+
+**`sweep`** — section (`rrect` | `ellipse` | `poly`) along `path` (`curve`: `catmull` | `polyline`). Optional `taper` keyframes `{t, scaleW, scaleH}`, `up`, `frame` (`up`|`rmf`), `twist` (deg), `caps`, `tol` (default 0.15 mm). Rejects paths that fold sharper than ~1.05× section half-extent.
+
+**`pillow`** — rounded cushion `size` [X,Y,Z] with independent `planR` / `edgeR`, then optional `bulge` `{top,bottom}`, `bend`, and `taper.k` ∈ [0, 0.6].
+
+**`panel`** — developable bent sheet: flat `size` [W,H] × thickness `t`, wrapped on a cylinder (`bend.radius` or `bend.sagitta`). Outline `rect` or `superellipse`. Square edge walls (rounded edges later). Cut-list hint: flat blank W×H×t plus bend radius.
+
+One material per part. Mesh parts render, export to STL (whole) and count in mass. They participate in **coarse AABB interference** (flagged `coarse` in reports) but are still **excluded from exact joint-fill** (only solid↔solid fill checks). Keep rectilinear carcass as `kind: "solid"` for exact boolean checks.
 
 
 ### instances

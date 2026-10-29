@@ -79,7 +79,7 @@ class MeshSolid {
 }
 CAD.MeshSolid = MeshSolid;
 
-const PRIM_TYPES = ['box', 'cylinder', 'cone', 'tube', 'revolve', 'sphere', 'extrude', 'wedge'];
+const PRIM_TYPES = ['box', 'cylinder', 'cone', 'tube', 'revolve', 'sphere', 'extrude', 'wedge', 'sweep', 'pillow', 'panel'];
 function buildPrim(B, pr, sc, mat) {
   const e = k => ev(pr[k], sc), ax = pr.axis || '+z', seg = pr.seg || 32;
   switch (pr.type) {
@@ -96,7 +96,54 @@ function buildPrim(B, pr, sc, mat) {
     case 'revolve': B.rev(e('at') || [0, 0, 0], ax, e('profile'), mat, seg); break;
     case 'sphere': { const R = e('r'), c = e('center') || [0, 0, 0], pts = []; for (let i = 0; i <= 16; i++) { const a = (-90 + 180 * i / 16) * D2R; pts.push([Math.max(0, R * Math.cos(a)), R * Math.sin(a)]); } B.rev(c, '+z', pts, mat, seg); break; }
     case 'extrude': { const [w0, w1] = e('range'); B.ext(pr.plane || 'xy', e('profile'), w0, w1, mat, (pr.holes || []).map(h => h.poly ? { poly: ev(h.poly, sc) } : { c: ev(h.c, sc), r: ev(h.r, sc) }), seg); break; }
-    default: throw new Error('unknown prim type "' + pr.type + '" (box, cylinder, cone, tube, revolve, sphere, extrude, wedge)');
+    case 'sweep': {
+      const path = e('path');
+      if (!Array.isArray(path)) throw new Error('sweep.path must be an array of [x,y,z]');
+      const secIn = pr.section || { type: 'rrect', w: 20, h: 20, r: 2 };
+      const section = { type: secIn.type || 'rrect' };
+      ['w', 'h', 'r', 'width', 'height'].forEach(k => { if (secIn[k] !== undefined) section[k] = ev(secIn[k], sc); });
+      if (secIn.pts) section.pts = ev(secIn.pts, sc);
+      const taper = (pr.taper || []).map(k => ({
+        t: ev(k.t != null ? k.t : k[0], sc),
+        scaleW: ev(k.scaleW != null ? k.scaleW : (k[1] != null ? k[1] : 1), sc),
+        scaleH: ev(k.scaleH != null ? k.scaleH : (k[2] != null ? k[2] : (k.scaleW != null ? k.scaleW : 1)), sc)
+      }));
+      B.raw(CAD.buildSweepPrim({
+        path, curve: pr.curve || 'catmull', section, taper,
+        up: pr.up ? ev(pr.up, sc) : [0, 0, 1], frame: pr.frame || 'up',
+        twist: pr.twist !== undefined ? ev(pr.twist, sc) : 0,
+        caps: pr.caps, closed: !!pr.closed, tol: pr.tol !== undefined ? ev(pr.tol, sc) : undefined
+      }), mat);
+      break;
+    }
+    case 'pillow': {
+      const bulge = pr.bulge ? { top: pr.bulge.top !== undefined ? ev(pr.bulge.top, sc) : 0, bottom: pr.bulge.bottom !== undefined ? ev(pr.bulge.bottom, sc) : 0 } : undefined;
+      const taper = pr.taper ? { k: ev(pr.taper.k != null ? pr.taper.k : pr.taper, sc) } : undefined;
+      B.raw(CAD.buildPillowPrim({
+        size: e('size'), planR: pr.planR !== undefined ? ev(pr.planR, sc) : undefined,
+        edgeR: pr.edgeR !== undefined ? ev(pr.edgeR, sc) : undefined,
+        bulge, taper, bend: pr.bend !== undefined ? ev(pr.bend, sc) : 0,
+        tol: pr.tol !== undefined ? ev(pr.tol, sc) : undefined
+      }), mat);
+      break;
+    }
+    case 'panel': {
+      const outline = pr.outline ? Object.assign({}, pr.outline) : { shape: 'rect' };
+      if (outline.fmin !== undefined) outline.fmin = ev(outline.fmin, sc);
+      if (outline.n !== undefined) outline.n = ev(outline.n, sc);
+      const bend = pr.bend ? {
+        axis: pr.bend.axis, direction: pr.bend.direction,
+        radius: pr.bend.radius !== undefined ? ev(pr.bend.radius, sc) : undefined,
+        sagitta: pr.bend.sagitta !== undefined ? ev(pr.bend.sagitta, sc) : undefined
+      } : {};
+      B.raw(CAD.buildPanelPrim({
+        size: e('size'), t: pr.t !== undefined ? ev(pr.t, sc) : ev(pr.thickness, sc),
+        outline, bend, arch: pr.arch !== undefined ? ev(pr.arch, sc) : 0,
+        tol: pr.tol !== undefined ? ev(pr.tol, sc) : undefined
+      }), mat);
+      break;
+    }
+    default: throw new Error('unknown prim type "' + pr.type + '" (box, cylinder, cone, tube, revolve, sphere, extrude, wedge, sweep, pillow, panel)');
   }
 }
 /* placement: T(pos) · Rz · Ry · Rx, angles in degrees */
@@ -210,6 +257,10 @@ CAD.validateSpec = function (spec) {
           if (!Array.isArray(pr.min) || pr.min.length < 3) errors.push(path + '.prims[' + qi + ']: needs min [x,y,z]');
           if (!Array.isArray(pr.max) || pr.max.length < 3) errors.push(path + '.prims[' + qi + ']: needs max [x,y,z]');
         }
+        if (pr.type === 'sweep' && (!Array.isArray(pr.path) || pr.path.length < 2)) errors.push(path + '.prims[' + qi + ']: sweep needs path [[x,y,z],...]');
+        if (pr.type === 'pillow' && (!Array.isArray(pr.size) || pr.size.length < 3)) errors.push(path + '.prims[' + qi + ']: pillow needs size [X,Y,Z]');
+        if (pr.type === 'panel' && (!Array.isArray(pr.size) || pr.size.length < 2)) errors.push(path + '.prims[' + qi + ']: panel needs size [W,H]');
+        if (pr.type === 'panel' && pr.t === undefined && pr.thickness === undefined) errors.push(path + '.prims[' + qi + ']: panel needs t');
       });
     } else errors.push(path + ': unknown kind "' + kind + '" (solid | mesh)');
   });
@@ -233,6 +284,31 @@ CAD.scaleSpec = function (spec, sx, sy, sz) {
     ['r', 'r0', 'r1', 'ro', 'ri'].forEach(k => { if (typeof p[k] === 'number') p[k] *= Math.cbrt(sx * sy * sz); });
     if (Array.isArray(p.profile)) p.profile = p.profile.map(pt => Array.isArray(pt) ? pt.map((v, i) => typeof v === 'number' ? v * (i === 0 ? Math.sqrt(sx * sy) : sz) : v) : pt);
     if (Array.isArray(p.range) && p.range.length >= 2) { const pl = String(p.plane || 'xy'); const wi = pl.includes('x') && pl.includes('y') ? 2 : pl.includes('x') ? 1 : 0; p.range = [n(p.range[0], wi === 2 ? 2 : wi === 1 ? 1 : 0), n(p.range[1], wi === 2 ? 2 : wi === 1 ? 1 : 0)]; }
+    if (p.type === 'sweep') {
+      if (Array.isArray(p.path)) p.path = p.path.map(pt => v3(pt));
+      if (p.section) {
+        ['w', 'h', 'r', 'width', 'height'].forEach(k => { if (typeof p.section[k] === 'number') p.section[k] *= Math.cbrt(sx * sy * sz); });
+        if (Array.isArray(p.section.pts)) p.section.pts = p.section.pts.map(pt => Array.isArray(pt) ? [n(pt[0], 0), n(pt[1], 1)] : pt);
+      }
+      if (typeof p.tol === 'number') p.tol *= Math.cbrt(sx * sy * sz);
+      if (p.up) p.up = v3(p.up);
+    }
+    if (p.type === 'pillow') {
+      if (Array.isArray(p.size) && p.size.length >= 3) p.size = [n(p.size[0], 0), n(p.size[1], 1), n(p.size[2], 2)];
+      ['planR', 'edgeR', 'bend', 'tol'].forEach(k => { if (typeof p[k] === 'number') p[k] *= Math.cbrt(sx * sy * sz); });
+      if (p.bulge) { if (typeof p.bulge.top === 'number') p.bulge.top *= sz; if (typeof p.bulge.bottom === 'number') p.bulge.bottom *= sz; }
+    }
+    if (p.type === 'panel') {
+      if (Array.isArray(p.size) && p.size.length >= 2) p.size = [n(p.size[0], 0), n(p.size[1], 1)];
+      if (typeof p.t === 'number') p.t *= Math.cbrt(sx * sy * sz);
+      if (typeof p.thickness === 'number') p.thickness *= Math.cbrt(sx * sy * sz);
+      if (typeof p.arch === 'number') p.arch *= sy;
+      if (typeof p.tol === 'number') p.tol *= Math.cbrt(sx * sy * sz);
+      if (p.bend) {
+        if (typeof p.bend.radius === 'number') p.bend.radius *= Math.cbrt(sx * sy * sz);
+        if (typeof p.bend.sagitta === 'number') p.bend.sagitta *= sz;
+      }
+    }
   };
   (s.parts || []).forEach(p => {
     (p.ops || []).forEach(op => { if (op.add) op.add = box6(op.add); if (op.cut) op.cut = box6(op.cut); });

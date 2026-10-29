@@ -301,6 +301,8 @@ class Builder {
     const r = d / 2, h = hd / 2, rs = Math.max(r * .55, 1);
     return this.rev([0, 0, 0], '+z', [[0, -len], [r - .4, -len], [r, -len + .6], [r, 0], [h, 0], [h, hh - .4], [h - .4, hh], [rs, hh], [rs, hh - hh * .55], [0, hh - hh * .55]], m, 20);
   }
+  /* push a prebuilt BufferGeometry (sweep / pillow / panel) */
+  raw(g, m) { return this._push(g, m, null); }
   /* merge several builders' items */
   absorb(b) { this.items.push(...b.items); return this; }
 }
