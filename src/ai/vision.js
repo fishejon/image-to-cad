@@ -31,7 +31,7 @@ parts[]: each part is ONE physical piece type: { "id","name","group","material",
   kind "solid" (default; rectilinear parts, EXACT boolean geometry): "ops":[ {"add":[x0,y0,z0,x1,y1,z1]}, {"cut":[x0,y0,z0,x1,y1,z1],"tag":"mortise","label":"Mortise 24 × 8 × 40","fill":true} ]. Boxes are axis-aligned in the part's LOCAL frame. All "add" boxes are united, then all "cut" boxes removed. "fill":true means a mating part MUST completely occupy that void (mortise, dado, groove, rabbet). "tag"+"label" document a joint so the build guide can show it. Leave "fill" off for deliberate voids (finger pulls, door tracks).
   kind "mesh" (round / turned / angled / non-rectilinear parts): "prims":[ {"type":"box","min":[..],"max":[..],"rot":[rx,ry,rz]}, {"type":"wedge","min":[..],"max":[..],"tip":"+x","angle":45}, {"type":"cylinder","base":[x,y,z],"axis":"+z","length":L,"r":R,"seg":32}, {"type":"cone","base","axis","length","r0","r1"}, {"type":"tube","base","axis","length","ro","ri"}, {"type":"sphere","r":R,"center":[..]}, {"type":"revolve","at":[x,y,z],"axis":"+z","profile":[[radius,height],...],"seg":48}, {"type":"extrude","plane":"xy"|"xz"|"yz","profile":[[u,v],...],"range":[w0,w1],"holes":[{"c":[u,v],"r":R}]}, {"type":"sweep","path":[[x,y,z],...],"curve":"catmull"|"polyline","section":{"type":"rrect"|"ellipse"|"poly","w":W,"h":H,"r":R},"taper":[{"t":0,"scaleW":1,"scaleH":1}],"up":[0,0,1],"frame":"up"|"rmf","twist":0,"caps":"both"|"none","tol":0.15}, {"type":"pillow","size":[X,Y,Z],"planR":R,"edgeR":R,"bulge":{"top":0,"bottom":0},"taper":{"k":0},"bend":0,"tol":0.15}, {"type":"panel","size":[W,H],"t":T,"outline":{"shape":"rect"|"superellipse","fmin":0.55,"n":2.5},"bend":{"radius":R,"sagitta":S,"direction":1},"edgeR":0,"arch":0,"tol":0.15}, {"type":"seam","size":[X,Y,Z],"r":2.5,"inset":12,"side":"top"|"bottom","planR":R,"edgeR":R,"bulge":{"top":0,"bottom":0}} ]. Optional box "rot" is Euler degrees about the box centre. "wedge" is a mitred board. "sweep" = tapered/curved members (fold guard rejects too-tight bends). "pillow" = cushions. "panel" = developable bent sheet (flat blank = cut size). "seam" = welt/piping as its OWN part (different material from the pillow). Prefer kind "solid" for rectilinear carcass so joint-fill stays exact; use mesh for curves, cushions, bent panels, seams.
   instances: [{"pos":[x,y,z],"rot":[rx,ry,rz],"step":0,"explode":[dx,dy,dz],"kin":"name","repeat":{"var":"i","count":4}}]. Placement = translate(pos) · Rz · Ry · Rx. Solid parts should be rotated only by multiples of 90°. "repeat" also works on ops and prims. Omit "explode" to get an automatic exploded view.
-Modelling rules: (1) Parts must NOT overlap each other except where a tenon/tongue fills a "fill":true void exactly. (2) Joint voids and the tenon that fills them must have identical dimensions. (3) Model the object as separate real-world parts joined the way the real object is built (mortise & tenon, dados, rabbets, box joints, mitres, bolted flanges...). (4) Use params for the main dimensions so the user can resize. (5) Prefer "solid" parts; use "mesh" for round/turned/sloped/mitred/continuous shapes. (6) Put the object on the floor (min z = 0). (7) Give each part a short real-world "spec" and, when there is a joint to cut, "notes" saying how. (8) Honor inventory.structure: if memberContinuity is continuous, model primary side/frame members as one piece (or mirrored pair), not separate stick legs+arms+posts with magic butt joints. (9) Match inventory section (round vs square vs tapered); do not mix cylinder legs with square posts unless inventory says mixed. (10) Every structural wood–wood meeting needs tag+label joinery (and fill:true on receiving cuts); unlabeled contacts fail the critic. (11) STANCE / RAKE — never default raked or splayed members to vertical sticks. If inventory.structure.legStance is raked/splayed/canted or backRake is aft/forward, legs and posts MUST be mesh "sweep" (or cylinder with non-+Z axis / instance rot). Sweep path: +Z is up, FRONT is −Y, BACK is +Y. Aft rake above the seat means Y increases as Z rises (e.g. path [[0,0,0],[0,8,"Hs"],[0,55,"Hb"]]). Forward lean or front-leg slant uses negative Y as Z rises. Outward splay uses ±X along the path. Do NOT use solid AABB boxes or axis:"+z" cylinders for visibly leaning members.
+Modelling rules: (1) Parts must NOT overlap each other except where a tenon/tongue fills a "fill":true void exactly. (2) Joint voids and the tenon that fills them must have identical dimensions. (3) Model the object as separate real-world parts joined the way the real object is built (mortise & tenon, dados, rabbets, box joints, mitres, bolted flanges...). (4) Use params for the main dimensions so the user can resize. (5) Prefer "solid" parts; use "mesh" for round/turned/sloped/mitred/continuous shapes. (6) Put the object on the floor (min z = 0). (7) Give each part a short real-world "spec" and, when there is a joint to cut, "notes" saying how. (8) Honor inventory.structure: if memberContinuity is continuous, model primary side/frame members as one piece (or mirrored pair), not separate stick legs+arms+posts with magic butt joints. (9) Match inventory section (round vs square vs tapered); do not mix cylinder legs with square posts unless inventory says mixed. (10) Every structural wood–wood meeting needs tag+label joinery (and fill:true on receiving cuts); unlabeled contacts fail the critic. (11) STANCE PROFILE (any seating/legged piece) — never default leaning members to plumb sticks. Honor structure.frontLean, rearLean, backRake, rakeBreak, and legStance independently. Sweep coords: +Z up, FRONT = −Y, BACK = +Y. frontLean=forward → front legs (or front of a side-frame) use negative Y as Z rises below the seat. backRake=aft → rear posts / backrest ABOVE the seat use positive Y as Z rises. rakeBreak=seat → the knee/elbow where lean direction changes MUST be near seat height Hs (put a path node at/near Hs); do NOT one long diagonal floor→crest, and do NOT leave the crest plumb while only kicking the foot aft. Define params Hs (seat) and Hb (overall) when there is a seat. Outward splay uses ±X. Do NOT use solid AABB boxes or axis:"+z" cylinders for visibly leaning members.
 `;
 V.EXAMPLE_JSON = JSON.stringify(V.EXAMPLE);
 
@@ -43,8 +43,11 @@ V.INVENTORY_DOC = `{
     "memberContinuity": "continuous|separate|mixed|unknown",
     "dominantSection": "round|square|rect|tapered|slab|mixed|unknown",
     "legStance": "vertical|splayed|raked|canted|unknown",
+    "frontLean": "vertical|forward|outboard|aft|unknown",
+    "rearLean": "vertical|aft|outboard|forward|unknown",
     "backRake": "none|aft|forward|unknown",
-    "notes": "optional: continuity + stance (e.g. rear posts rake aft above seat; front legs slant outward)"
+    "rakeBreak": "seat|mid|floor|crest|none|unknown",
+    "notes": "optional: continuity + stance (e.g. front legs slant forward; rear posts rake aft above seat; break at seat)"
   },
   "parts": [{"role":"leg|top|side|drawer|door|shelf|rail|panel|stretcher|arm|seat|back|frame|cushion|other","count":N,"shape":"square|rect|turned|panel|tapered|slab|continuous|curved","section":"round|square|rect|tapered|oval|unknown","continuity":"separate|continuous|unknown","lean":"vertical|aft|forward|outboard|inboard|unknown","curved":false,"upholstered":false,"provenance":"measured|assumed|unknown","notes":"optional"}],
   "materialsGuess": ["oak"],
@@ -143,8 +146,8 @@ V.buildInventoryPrompt = function (o) {
       : 'You are a careful visual inventory agent for furniture/product CAD. Study the attached picture and return ONE JSON object (no commentary, no markdown fences) with this shape:',
     V.INVENTORY_DOC,
     drawing
-      ? 'Rules: (1) Prefer dimensions readable on the drawing; put them in overallGuessMm (millimetres). (2) aspect ratios should match the drawing proportions; normalize so the smallest of w/d/h is about 1. (3) counts are integers for labeled or clearly drawn features. (4) If USER METRICS are provided, copy them into overallGuessMm and treat them as ground truth. (5) parts[].role should cover every distinct piece type needed in a CAD model. (6) structure.memberContinuity: continuous = primary members are one piece (e.g. side frame that is leg+arm+post); separate = discrete sticks joined; mixed = both. (7) structure.dominantSection and parts[].section must match visible cross-sections. (8) STANCE: set structure.legStance (vertical|splayed|raked|canted) and structure.backRake (none|aft|forward); set parts[].lean when a member leans. (9) Mark curved/upholstered parts and curvedFeatures; set provenance measured vs assumed.'
-      : 'Rules: (1) Match what you SEE — do not invent a generic piece of the same category. (2) aspect ratios must reflect the photo; normalize so the smallest of w/d/h is about 1. (3) counts are integers for visible or strongly implied features; prefer under-counting hidden structure over inventing parts. (4) overallGuessMm is optional; leave zeros if scale is unknown — but if USER METRICS are provided, copy them into overallGuessMm. (5) parts[].role should cover every distinct piece type you will need in a CAD model. (6) structure.memberContinuity: continuous = primary members read as one sculpted/laminated piece; separate = discrete sticks; mixed = both. Never report separate stick construction when the photo shows continuous frames. (7) structure.dominantSection and parts[].section must match visible cross-sections. (8) STANCE (critical): if rear legs/posts lean backward above the seat, set backRake="aft" and legStance="raked" (not vertical). If legs flare outward toward the floor, legStance="splayed". Set parts[].lean when a member leans. Never mark vertical when the photo shows a clear rake or slant. (9) Flag curved/upholstery via curvedFeatures; mark provenance measured|assumed.'
+      ? 'Rules: (1) Prefer dimensions readable on the drawing; put them in overallGuessMm (millimetres). (2) aspect ratios should match the drawing proportions; normalize so the smallest of w/d/h is about 1. (3) counts are integers for labeled or clearly drawn features. (4) If USER METRICS are provided, copy them into overallGuessMm and treat them as ground truth. (5) parts[].role should cover every distinct piece type needed in a CAD model. (6) structure.memberContinuity: continuous = primary members are one piece (e.g. side frame that is leg+arm+post); separate = discrete sticks joined; mixed = both. (7) structure.dominantSection and parts[].section must match visible cross-sections. (8) STANCE PROFILE: set legStance; frontLean (front legs); rearLean (rear legs below/at seat); backRake (crest/posts above seat); rakeBreak = where the lean direction changes (seat|mid|floor|crest|none). Set parts[].lean when a member leans. (9) Mark curved/upholstered parts and curvedFeatures; set provenance measured vs assumed.'
+      : 'Rules: (1) Match what you SEE — do not invent a generic piece of the same category. (2) aspect ratios must reflect the photo; normalize so the smallest of w/d/h is about 1. (3) counts are integers for visible or strongly implied features; prefer under-counting hidden structure over inventing parts. (4) overallGuessMm is optional; leave zeros if scale is unknown — but if USER METRICS are provided, copy them into overallGuessMm. (5) parts[].role should cover every distinct piece type you will need in a CAD model. (6) structure.memberContinuity: continuous = primary members read as one sculpted/laminated piece; separate = discrete sticks; mixed = both. Never report separate stick construction when the photo shows continuous frames. (7) structure.dominantSection and parts[].section must match visible cross-sections. (8) STANCE PROFILE (critical, category-agnostic): set frontLean for front legs (forward if they slant toward −Y / the camera-front); rearLean for rear legs; backRake for the backrest/posts ABOVE the seat; rakeBreak for WHERE the angle changes (usually "seat" when posts are upright at the seat then lean aft above — not one continuous diagonal). Also set legStance (raked|splayed|canted|vertical). Never mark vertical when the photo shows a clear rake or slant. Set parts[].lean. (9) Flag curved/upholstery via curvedFeatures; mark provenance measured|assumed.'
   ];
   if (o.metrics && (o.metrics.wMm || o.metrics.dMm || o.metrics.hMm)) {
     parts.push('USER METRICS (ground truth overall size): ' + V.formatMetrics(o.metrics));
@@ -155,9 +158,9 @@ V.buildInventoryPrompt = function (o) {
 };
 
 V.STAGES = [
-  { id: 'carcass', label: 'carcass', focus: 'Build ONLY the primary structure: sides, top, bottom, back, legs, stretchers, rails, frames, and fixed panels. Honor inventory.structure (continuity, section, legStance, backRake). If memberContinuity is continuous: each side must be ONE mesh sweep (mirrored L/R) — NEVER four separate stick legs. RAKE/SPLAY: if legStance is raked/splayed/canted or backRake is aft/forward, every leaning leg/post is a mesh sweep whose path changes Y (aft = +Y, forward = −Y) and/or X (splay) as Z rises — never a vertical solid box or axis:+z cylinder. Example aft back post: path [[0,0,0],[0,10,"Hs"],[0,60,"Hb"]]. Use panel for bent backs; cross rails as solid boxes. No drawers/doors/shelves/cushions yet. Match aspect. Labeled joinery on meetings.' },
-  { id: 'interiors', label: 'interiors', focus: 'ADD drawers, doors, shelves, dividers, cushions (pillow prim), seams (separate part), arms (if separate), and other secondary parts from the inventory. Keep every carcass part that is still correct — do not straighten raked sweeps into vertical sticks. Pillow instance pos is the CENTER of the pillow (not a corner) — place it on the seat deck without floating forward. Update mating joinery. Return the COMPLETE updated spec.' },
-  { id: 'refine', label: 'refine', focus: 'Polish the COMPLETE design: fix joinery fill, interference, unlabeled contacts, inventory mismatches, floating cushions, missing rake/splay, and curved-prim errors. If inventory says continuous or raked, reject vertical stick legs. Do not remove correct parts. Return the COMPLETE corrected spec.' }
+  { id: 'carcass', label: 'carcass', focus: 'Build ONLY the primary structure: sides, top, bottom, back, legs, stretchers, rails, frames, and fixed panels. Honor inventory.structure (continuity, section, frontLean, rearLean, backRake, rakeBreak, legStance). If memberContinuity is continuous: each side is ONE mesh sweep (mirrored L/R) — NEVER four separate stick legs. STANCE: leaning members are mesh sweeps — never vertical solid boxes or axis:+z cylinders. FRONT = −Y, BACK = +Y, +Z up. If frontLean=forward: front legs (or front of the side-frame) must move −Y as Z rises below Hs. If backRake=aft: rear/crest ABOVE Hs must move +Y as Z rises. If rakeBreak=seat: put a path node at/near Hs and change lean there — not one floor→crest diagonal, not a plumb crest with only the foot kicked out. Example rear post with seat break: [[0,0,0],[0,12,"Hs*0.5"],[0,8,"Hs"],[0,50,"Hs+(Hb-Hs)*0.55"],[0,70,"Hb"]]. Define Hs and Hb for seating. Use panel for bent backs; cross rails as solid boxes. No drawers/doors/shelves/cushions yet. Match aspect. Labeled joinery on meetings.' },
+  { id: 'interiors', label: 'interiors', focus: 'ADD drawers, doors, shelves, dividers, cushions (pillow prim), seams (separate part), arms (if separate), and other secondary parts from the inventory. Keep every carcass part that is still correct — do not straighten raked sweeps into vertical sticks or move the rakeBreak off the seat. Pillow instance pos is the CENTER of the pillow (not a corner) — place it on the seat deck without floating forward. Update mating joinery. Return the COMPLETE updated spec.' },
+  { id: 'refine', label: 'refine', focus: 'Polish the COMPLETE design: fix joinery fill, interference, unlabeled contacts, inventory mismatches, floating cushions, missing frontLean/backRake/rakeBreak, and curved-prim errors. If inventory says continuous or raked, reject vertical stick legs. If rakeBreak is seat, ensure aft lean lives ABOVE Hs. Do not remove correct parts. Return the COMPLETE corrected spec.' }
 ];
 V.needsStages = function (inventory) {
   if (!inventory || typeof inventory !== 'object') return false;
@@ -304,39 +307,160 @@ V.countRoles = function (M) {
   });
   return roles;
 };
+/** Build a numeric param scope from spec.params (best-effort; skips broken exprs). */
+V.paramScope = function (spec) {
+  const scope = {};
+  if (!spec || !spec.params || typeof spec.params !== 'object') return scope;
+  const ev = CAD.expr && CAD.expr.ev;
+  Object.entries(spec.params).forEach(([k, v]) => {
+    try {
+      if (typeof v === 'number') scope[k] = v;
+      else if (typeof v === 'string' && ev) scope[k] = ev(v, scope);
+      else if (v && typeof v === 'object') {
+        if ('expr' in v && ev) scope[k] = ev(v.expr, scope);
+        else if (v.value != null) scope[k] = ev ? ev(v.value, scope) : +v.value;
+      }
+    } catch (e) { /* leave unset */ }
+  });
+  return scope;
+};
+/** Guess seat height Z from common param names, else ~55% of overall height. */
+V.guessSeatZ = function (scope, maxZ) {
+  if (!scope) return maxZ > 0 ? maxZ * 0.55 : 0;
+  const keys = ['Hs', 'Hseat', 'seatH', 'SH', 'SeatH', 'hs'];
+  for (let i = 0; i < keys.length; i++) {
+    const v = scope[keys[i]];
+    if (typeof v === 'number' && isFinite(v) && v > 0) return v;
+  }
+  const hb = scope.Hb || scope.H || scope.h || maxZ;
+  return (typeof hb === 'number' && hb > 0) ? hb * 0.55 : (maxZ > 0 ? maxZ * 0.55 : 0);
+};
 /**
  * Measure lean in a sweep path: lateral travel vs height (Y = depth, X = width, Z = up).
- * Returns { dy, dx, dz, aftLean, splay } in mm when numbers are numeric; exprs ignored as 0.
+ * Resolves param expressions when scope is provided. Zones split at seatZ when known.
  */
-V.pathLean = function (path) {
-  const num = (v) => { const n = +v; return isFinite(n) ? n : 0; };
-  if (!Array.isArray(path) || path.length < 2) return { dy: 0, dx: 0, dz: 0, aftLean: false, splay: false };
-  let minZ = Infinity, maxZ = -Infinity, yAtMin = 0, yAtMax = 0, xAtMin = 0, xAtMax = 0;
+V.pathLean = function (path, scope, seatZ) {
+  const empty = { dy: 0, dx: 0, dz: 0, aftLean: false, forwardLean: false, splay: false, dyBelow: 0, dyAbove: 0, aftAbove: false, forwardBelow: false, breakFrac: null, nearSeatBreak: false, pts: 0 };
+  if (!Array.isArray(path) || path.length < 2) return empty;
+  const ev = CAD.expr && CAD.expr.ev;
+  const num = (v) => {
+    if (typeof v === 'number' && isFinite(v)) return v;
+    if (typeof v === 'string' && scope && ev) {
+      try { const r = ev(v, scope); if (isFinite(r)) return r; } catch (e) { /* fall through */ }
+    }
+    const n = +v; return isFinite(n) ? n : NaN;
+  };
+  const pts = [];
   path.forEach(pt => {
     if (!Array.isArray(pt) || pt.length < 3) return;
     const x = num(pt[0]), y = num(pt[1]), z = num(pt[2]);
-    if (z <= minZ) { minZ = z; yAtMin = y; xAtMin = x; }
-    if (z >= maxZ) { maxZ = z; yAtMax = y; xAtMax = x; }
+    if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return;
+    pts.push({ x, y, z });
   });
-  const dz = maxZ - minZ, dy = yAtMax - yAtMin, dx = xAtMax - xAtMin;
-  return { dy, dx, dz, aftLean: dz > 20 && Math.abs(dy) / dz > 0.04, splay: dz > 20 && Math.abs(dx) / dz > 0.04 };
+  if (pts.length < 2) return empty;
+  pts.sort((a, b) => a.z - b.z);
+  const lo = pts[0], hi = pts[pts.length - 1];
+  const dz = hi.z - lo.z, dy = hi.y - lo.y, dx = hi.x - lo.x;
+  /* Subtle chair leans are often ~3% (e.g. 14 mm over 450). Also accept abs travel ≥ 10 mm. */
+  const leanish = (a, b) => b > 20 && (Math.abs(a) / b > 0.025 || Math.abs(a) >= 10);
+  const out = {
+    dy, dx, dz,
+    aftLean: leanish(dy, dz) && dy > 0,
+    forwardLean: leanish(dy, dz) && dy < 0,
+    splay: leanish(dx, dz),
+    dyBelow: 0, dyAbove: 0, aftAbove: false, forwardBelow: false,
+    breakFrac: null, nearSeatBreak: false, pts: pts.length
+  };
+  const sz = (seatZ != null && isFinite(seatZ) && seatZ > 0) ? seatZ : null;
+  if (sz != null && dz > 20) {
+    let ySeat = lo.y;
+    let best = Infinity;
+    pts.forEach(p => {
+      const d = Math.abs(p.z - sz);
+      if (d < best) { best = d; ySeat = p.y; }
+    });
+    const below = pts.filter(p => p.z <= sz + 1);
+    const above = pts.filter(p => p.z >= sz - 1);
+    const yLo = below.length ? below[0].y : lo.y;
+    const yHi = above.length ? above[above.length - 1].y : hi.y;
+    const zLo = below.length ? below[0].z : lo.z;
+    const zHi = above.length ? above[above.length - 1].z : hi.z;
+    out.dyBelow = ySeat - yLo;
+    out.dyAbove = yHi - ySeat;
+    const dzB = Math.max(Math.min(sz, hi.z) - zLo, 1), dzA = Math.max(zHi - sz, 1);
+    out.forwardBelow = leanish(out.dyBelow, dzB) && out.dyBelow < 0;
+    out.aftAbove = leanish(out.dyAbove, dzA) && out.dyAbove > 0;
+    /* Break = Z of largest |Δslope| in Y between consecutive segments */
+    let bestScore = 0, breakZ = sz;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const a = pts[i - 1], b = pts[i], c = pts[i + 1];
+      const dza = b.z - a.z || 1, dzb = c.z - b.z || 1;
+      const s0 = (b.y - a.y) / dza, s1 = (c.y - b.y) / dzb;
+      const score = Math.abs(s1 - s0);
+      if (score > bestScore) { bestScore = score; breakZ = b.z; }
+    }
+    const seatFrac = (sz - lo.z) / dz;
+    if (bestScore > 0.02) {
+      out.breakFrac = (breakZ - lo.z) / dz;
+      out.nearSeatBreak = Math.abs(out.breakFrac - seatFrac) <= 0.18;
+    } else {
+      /* Soft break: path has a node near seat and aft lean above */
+      const nearNode = pts.some(p => Math.abs(p.z - sz) / dz < 0.12);
+      out.nearSeatBreak = nearNode && out.aftAbove;
+      out.breakFrac = seatFrac;
+    }
+  }
+  return out;
 };
-/** Infer stance from the raw SPEC (sweep paths / vertical cylinders). */
+/** Infer stance from the raw SPEC (sweep paths / vertical cylinders). Category-agnostic. */
 V.analyzeStance = function (spec) {
-  const out = { leanSweeps: 0, verticalLegs: 0, stance: 'unknown', detail: [] };
+  const out = {
+    leanSweeps: 0, verticalLegs: 0, stance: 'unknown', detail: [],
+    frontForward: false, rearAft: false, aftAboveSeat: false, nearSeatBreak: false,
+    forwardLegs: 0, aftLegs: 0
+  };
   if (!spec || !Array.isArray(spec.parts)) return out;
+  const scope = V.paramScope(spec);
+  let maxZ = 0;
+  spec.parts.forEach(p => (p.prims || []).forEach(pr => {
+    if (pr && pr.type === 'sweep' && Array.isArray(pr.path)) {
+      pr.path.forEach(pt => {
+        if (!Array.isArray(pt) || pt.length < 3) return;
+        try {
+          const z = (CAD.expr && CAD.expr.ev) ? CAD.expr.ev(pt[2], scope) : +pt[2];
+          if (isFinite(z) && z > maxZ) maxZ = z;
+        } catch (e) { const n = +pt[2]; if (isFinite(n) && n > maxZ) maxZ = n; }
+      });
+    }
+  }));
+  if (scope.Hb > maxZ) maxZ = scope.Hb;
+  if (scope.H > maxZ) maxZ = scope.H;
+  const seatZ = V.guessSeatZ(scope, maxZ);
+
   spec.parts.forEach(p => {
     if (!p) return;
     const blob = ((p.id || '') + ' ' + (p.name || '') + ' ' + (p.role || '')).toLowerCase();
-    const isLeggy = /leg|post|stile|frame|upright/.test(blob);
+    const isLeggy = /leg|post|stile|frame|upright|back/.test(blob);
     if (!isLeggy) return;
+    const isFront = /front/.test(blob) && !/back|rear/.test(blob);
+    const isRear = /back|rear|post|stile/.test(blob) && !/front/.test(blob);
+    const isFrame = /frame|side.?frame|continuous/.test(blob) || (p.kind === 'mesh' && (p.prims || []).some(pr => pr && pr.type === 'sweep' && Array.isArray(pr.path) && pr.path.length >= 4));
     let leaned = false;
     (p.prims || []).forEach(pr => {
       if (!pr) return;
       if (pr.type === 'sweep' && Array.isArray(pr.path)) {
-        const lean = V.pathLean(pr.path);
-        if (lean.aftLean || lean.splay) { leaned = true; out.leanSweeps++; out.detail.push({ id: p.id, lean }); }
-        else if (lean.dz > 20) out.detail.push({ id: p.id, lean, verticalPath: true });
+        const lean = V.pathLean(pr.path, scope, seatZ);
+        const anyLean = lean.aftLean || lean.forwardLean || lean.splay || lean.aftAbove || lean.forwardBelow;
+        if (anyLean) {
+          leaned = true; out.leanSweeps++;
+          out.detail.push({ id: p.id, lean, front: isFront, rear: isRear || isFrame });
+          if (lean.forwardLean || lean.forwardBelow) { out.frontForward = true; out.forwardLegs++; }
+          if (lean.aftLean || lean.aftAbove) { out.rearAft = true; out.aftLegs++; }
+          if (lean.aftAbove) out.aftAboveSeat = true;
+          if (lean.nearSeatBreak) out.nearSeatBreak = true;
+          if (isFront && (lean.forwardLean || lean.forwardBelow)) out.frontForward = true;
+          if ((isRear || isFrame) && lean.aftAbove) out.aftAboveSeat = true;
+        } else if (lean.dz > 20) out.detail.push({ id: p.id, lean, verticalPath: true, front: isFront, rear: isRear });
       }
       if (pr.type === 'cylinder' || pr.type === 'cone' || pr.type === 'tube') {
         const ax = String(pr.axis || '+z').toLowerCase();
@@ -346,13 +470,15 @@ V.analyzeStance = function (spec) {
     if ((!p.prims || !p.prims.length) && (p.kind === 'solid' || p.ops) && isLeggy) out.verticalLegs += (p.instances && p.instances.length) || 1;
     if (leaned) return;
     if (p.kind === 'mesh' && (p.prims || []).some(pr => pr && pr.type === 'sweep')) {
-      /* sweep without measurable numeric lean (expr-heavy) — do not count as vertical */
+      /* sweep without measurable lean — do not count as vertical */
     } else if (isLeggy && !(p.prims || []).some(pr => pr && pr.type === 'sweep')) {
       out.verticalLegs += (p.instances && p.instances.length) || 1;
     }
   });
-  if (out.leanSweeps >= 1) out.stance = out.detail.some(d => d.lean && d.lean.splay && !d.lean.aftLean) ? 'splayed' : 'raked';
-  else if (out.verticalLegs >= 3) out.stance = 'vertical';
+  if (out.leanSweeps >= 1) {
+    out.stance = out.detail.some(d => d.lean && d.lean.splay && !d.lean.aftLean && !d.lean.forwardLean) ? 'splayed' : 'raked';
+  } else if (out.verticalLegs >= 3) out.stance = 'vertical';
+  out.seatZ = seatZ;
   return out;
 };
 /** Infer section / continuity signals from a built SpecModel (category-agnostic). */
@@ -472,18 +598,43 @@ V.likeness = function (M, inventory, o) {
       L.push('LIKENESS structure: inventory dominantSection is "' + wantSec + '" but model is mostly "' + gotDom + '".');
     }
   }
-  /* Stance / rake: inventory asked for lean but SPEC is plumb sticks */
+  /* Stance profile: plumb sticks, missing front lean, wrong rake break */
   const wantStance = String(wantSt.legStance || '').toLowerCase();
   const wantBack = String(wantSt.backRake || '').toLowerCase();
+  const wantFront = String(wantSt.frontLean || '').toLowerCase();
+  const wantRear = String(wantSt.rearLean || '').toLowerCase();
+  const wantBreak = String(wantSt.rakeBreak || '').toLowerCase();
   const wantsLean = /raked|splayed|canted/.test(wantStance) || /aft|forward/.test(wantBack)
+    || /forward|outboard|aft/.test(wantFront) || /aft|outboard|forward/.test(wantRear)
+    || (wantBreak && wantBreak !== 'none' && wantBreak !== 'unknown')
     || (Array.isArray(inventory.parts) && inventory.parts.some(p => p && /aft|forward|outboard|inboard/.test(String(p.lean || ''))));
   if (wantsLean && o.spec) {
     const gotStance = V.analyzeStance(o.spec);
     out.inferredStance = gotStance;
     if (gotStance.stance === 'vertical' || (gotStance.leanSweeps < 1 && gotStance.verticalLegs >= 2)) {
-      out.structureIssues.push({ kind: 'stance', want: wantStance || wantBack || 'raked', got: gotStance.stance || 'vertical' });
+      out.structureIssues.push({ kind: 'stance', want: wantStance || wantBack || wantFront || 'raked', got: gotStance.stance || 'vertical' });
       out.penalty += 32;
-      L.push('LIKENESS stance: inventory wants leaning members (legStance/backRake) but the model is plumb vertical sticks. Rebuild legs/posts as mesh sweeps whose path moves in Y (aft rake = +Y as Z rises) or X (splay) — do not use vertical solid boxes or axis:+z cylinders.');
+      L.push('LIKENESS stance: inventory wants leaning members but the model is plumb vertical sticks. Rebuild as mesh sweeps — FRONT=−Y, BACK=+Y; do not use vertical solid boxes or axis:+z cylinders.');
+    } else {
+      if (/forward/.test(wantFront) && !gotStance.frontForward && gotStance.forwardLegs < 1) {
+        out.structureIssues.push({ kind: 'frontLean', want: 'forward', got: 'missing' });
+        out.penalty += 22;
+        L.push('LIKENESS frontLean: inventory frontLean is "forward" but front legs (or the front of the side-frame below the seat) are plumb. Sweep those members with −Y as Z rises below Hs.');
+      }
+      if ((/aft/.test(wantBack) || /aft/.test(wantRear)) && !gotStance.aftAboveSeat && !gotStance.rearAft) {
+        out.structureIssues.push({ kind: 'backRake', want: wantBack || wantRear || 'aft', got: 'missing' });
+        out.penalty += 24;
+        L.push('LIKENESS backRake: inventory wants aft rake but rear posts/backrest lack +Y travel as Z rises. Rebuild the upper path so Y increases above the seat.');
+      } else if (/aft/.test(wantBack) && gotStance.rearAft && !gotStance.aftAboveSeat) {
+        out.structureIssues.push({ kind: 'backRake', want: 'aft above seat', got: 'lean only below seat' });
+        out.penalty += 20;
+        L.push('LIKENESS backRake: aft travel is only below the seat (kicked foot) while the crest stays plumb. Move the aft lean ABOVE Hs so the backrest angles backward.');
+      }
+      if (wantBreak === 'seat' && gotStance.leanSweeps >= 1 && !gotStance.nearSeatBreak) {
+        out.structureIssues.push({ kind: 'rakeBreak', want: 'seat', got: 'not near seat' });
+        out.penalty += 18;
+        L.push('LIKENESS rakeBreak: inventory rakeBreak is "seat" but the path knee is not near seat height. Put a sweep node at/near Hs and change lean there — not one long floor→crest diagonal.');
+      }
     }
   }
   if (o.iou != null && isFinite(o.iou)) {
@@ -743,7 +894,10 @@ V.summarizeInventory = function (inv) {
   if (st.memberContinuity && st.memberContinuity !== 'unknown') bits.push(st.memberContinuity + ' members');
   if (st.dominantSection && st.dominantSection !== 'unknown') bits.push(st.dominantSection + ' section');
   if (st.legStance && st.legStance !== 'unknown') bits.push(st.legStance + ' stance');
+  if (st.frontLean && st.frontLean !== 'unknown' && st.frontLean !== 'vertical') bits.push('front ' + st.frontLean);
+  if (st.rearLean && st.rearLean !== 'unknown' && st.rearLean !== 'vertical') bits.push('rear ' + st.rearLean);
   if (st.backRake && st.backRake !== 'unknown' && st.backRake !== 'none') bits.push('back rake ' + st.backRake);
+  if (st.rakeBreak && st.rakeBreak !== 'unknown' && st.rakeBreak !== 'none') bits.push('break at ' + st.rakeBreak);
   return bits.join(' · ');
 };
 

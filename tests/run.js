@@ -214,9 +214,11 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     ok(lakin && lakin.inventory.structure.memberContinuity === 'continuous');
     ok(/CONTINUOUS.*side frames/i.test(lakin.hints || ''));
     ok(lakin.inventory.structure.legStance === 'raked' && lakin.inventory.structure.backRake === 'aft');
+    ok(lakin.inventory.structure.frontLean === 'forward' && lakin.inventory.structure.rakeBreak === 'seat');
     eq(CAD.store.pickChairFewShotKind({ structure: { memberContinuity: 'continuous' } }), 'lakin');
     eq(CAD.store.pickChairFewShotKind({ structure: { memberContinuity: 'separate' } }), 'dining');
     eq(CAD.store.pickChairFewShotKind({ structure: { legStance: 'raked' } }), 'lakin');
+    eq(CAD.store.pickChairFewShotKind({ structure: { rakeBreak: 'seat' } }), 'lakin');
   });
   await t('vision token budgets leave room for staged chair SPECs', () => {
     ok(CAD.vision.MAX_OUTPUT_TOKENS >= 64000);
@@ -225,7 +227,7 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     ok(CAD.vision.tokenBudget('interiors') <= CAD.vision.MAX_OUTPUT_TOKENS);
     const staged = CAD.vision.buildPrompt({ stage: CAD.vision.STAGES[0], inventory: { object: 'chair', counts: { legs: 4 } } });
     ok(/OUTPUT COMPACTNESS/.test(staged));
-    ok(/RAKE\/SPLAY|aft rake|legStance/i.test(staged));
+    ok(/frontLean|rakeBreak|backRake|legStance/i.test(staged));
   });
   await t('stance analyzer detects aft rake vs vertical sticks', () => {
     const raked = {
@@ -252,6 +254,49 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     }, { spec: plumb });
     ok(like.penalty >= 32);
     ok(/LIKENESS stance/i.test(like.text));
+  });
+  await t('stance profile flags missing front lean and seat rake break', () => {
+    const kickedFootOnly = {
+      params: { Hs: { value: 450 }, Hb: { value: 800 } },
+      parts: [{
+        id: 'back_post', name: 'Back post', kind: 'mesh',
+        prims: [{ type: 'sweep', path: [[0, 0, 0], [0, 60, 200], [0, 8, 450], [0, 8, 800]] }],
+        instances: [{ pos: [0, 0, 0] }]
+      }, {
+        id: 'front_leg', name: 'Front leg', kind: 'mesh',
+        prims: [{ type: 'sweep', path: [[0, 0, 0], [0, 0, 450]] }],
+        instances: [{ pos: [0, 0, 0] }]
+      }]
+    };
+    const good = {
+      params: { Hs: { value: 450 }, Hb: { value: 800 } },
+      parts: [{
+        id: 'back_post', name: 'Back post', kind: 'mesh',
+        prims: [{ type: 'sweep', path: [[0, 0, 0], [0, 12, 220], [0, 8, 450], [0, 50, 650], [0, 70, 800]] }],
+        instances: [{ pos: [0, 0, 0] }]
+      }, {
+        id: 'front_leg', name: 'Front leg', kind: 'mesh',
+        prims: [{ type: 'sweep', path: [[0, 0, 0], [0, -10, 220], [0, -14, 450]] }],
+        instances: [{ pos: [0, 0, 0] }]
+      }]
+    };
+    const badStance = CAD.vision.analyzeStance(kickedFootOnly);
+    ok(!badStance.frontForward, 'bad: no front forward');
+    ok(!badStance.aftAboveSeat, 'bad: no aft above seat');
+    const goodStance = CAD.vision.analyzeStance(good);
+    ok(goodStance.frontForward, 'good: front forward');
+    ok(goodStance.aftAboveSeat, 'good: aft above seat');
+    ok(goodStance.nearSeatBreak, 'good: seat break');
+    const inv = {
+      structure: { frontLean: 'forward', backRake: 'aft', rakeBreak: 'seat', legStance: 'raked' },
+      counts: {}
+    };
+    const likeBad = CAD.vision.likeness({ size: [400, 500, 800], defs: new Map() }, inv, { spec: kickedFootOnly });
+    ok(likeBad.penalty >= 18, 'bad likeness penalty');
+    ok(/frontLean|backRake|rakeBreak/i.test(likeBad.text), 'bad likeness text');
+    const likeGood = CAD.vision.likeness({ size: [400, 500, 800], defs: new Map() }, inv, { spec: good });
+    ok(likeGood.penalty < likeBad.penalty, 'good better than bad');
+    ok(!/frontLean|rakeBreak/i.test(likeGood.text || ''), 'good likeness clean');
   });
   await t('coarse AABB interference reports mesh overlaps; exact solids unchanged', () => {
     const solidOk = CAD.buildSpec(V.EXAMPLE);
