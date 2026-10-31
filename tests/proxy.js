@@ -25,7 +25,7 @@ up.listen(0, async () => {
     body: raw || JSON.stringify(b)
   });
   let r = await post({ model: 'm', max_tokens: 999999, messages: [{ role: 'user', content: 'hi' }], evil: 'x', tools: [1] }); let j = await r.json();
-  check(r.status === 200 && j.content[0].text === '{"ok":true}', 'forwards a request and returns the answer'); check(up.last.headers['x-api-key'] === 'sk-ant-SERVERSIDE' && up.last.url === '/v1/messages', 'server-side key is attached upstream'); check(up.last.body.max_tokens === 32000 && !('evil' in up.last.body) && !('tools' in up.last.body), 'only whitelisted fields are forwarded and max_tokens is capped');
+  check(r.status === 200 && j.content[0].text === '{"ok":true}', 'forwards a request and returns the answer'); check(up.last.headers['x-api-key'] === 'sk-ant-SERVERSIDE' && up.last.url === '/v1/messages', 'server-side key is attached upstream'); check(up.last.body.max_tokens === 64000 && !('evil' in up.last.body) && !('tools' in up.last.body), 'only whitelisted fields are forwarded and max_tokens is capped');
   check(!JSON.stringify([...r.headers]).includes('SERVERSIDE') && !JSON.stringify(j).includes('SERVERSIDE'), 'the key never reaches the browser');
   r = await post({ model: 'm', messages: [{ role: 'user', content: 'hi' }], runId: 'r_body' });
   check(r.status === 200 && r.headers.get('x-run-id') === 'r_body', 'echoes runId from body as x-run-id');

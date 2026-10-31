@@ -153,9 +153,9 @@ V.buildInventoryPrompt = function (o) {
 };
 
 V.STAGES = [
-  { id: 'carcass', label: 'carcass', focus: 'Build ONLY the primary structure: sides, top, bottom, back, legs, stretchers, rails, frames, and fixed panels. Honor inventory.structure (continuous vs separate members; dominant section). Use mesh sweep for any tapered or curved member; panel for bent sheet crests/backs; keep rectilinear rails as solid boxes for joinery. Do NOT add drawers, doors, shelves, slats, cushions, or hardware yet. Match inventory aspect ratios. Every wood–wood meeting needs labeled joinery (tag+label; fill:true on cuts).' },
-  { id: 'interiors', label: 'interiors', focus: 'ADD drawers, doors, shelves, dividers, cushions (pillow prim), seams (separate part), arms (if separate), and other secondary parts from the inventory. Keep every carcass part that is still correct. Update mating joinery. Return the COMPLETE updated spec.' },
-  { id: 'refine', label: 'refine', focus: 'Polish the COMPLETE design: fix joinery fill, interference, unlabeled contacts, inventory mismatches, and curved-prim errors (sweep fold, panel radius below 20*t, pillow edgeR too large, triangle budget). Do not remove correct parts. Return the COMPLETE corrected spec.' }
+  { id: 'carcass', label: 'carcass', focus: 'Build ONLY the primary structure: sides, top, bottom, back, legs, stretchers, rails, frames, and fixed panels. Honor inventory.structure (continuous vs separate members; dominant section). If memberContinuity is continuous: each side must be ONE mesh sweep (or mirrored L/R pair) that includes front leg + side rail + rear post — NEVER four separate stick legs or separate posts. Use mesh sweep for tapered/curved members; panel for bent sheet crests/backs; keep cross rails as solid boxes. Do NOT add drawers, doors, shelves, slats, cushions, or hardware yet. Match inventory aspect ratios. Every wood–wood meeting needs labeled joinery (tag+label; fill:true on cuts).' },
+  { id: 'interiors', label: 'interiors', focus: 'ADD drawers, doors, shelves, dividers, cushions (pillow prim), seams (separate part), arms (if separate), and other secondary parts from the inventory. Keep every carcass part that is still correct. Pillow instance pos is the CENTER of the pillow (not a corner) — place it on the seat deck without floating forward. Update mating joinery. Return the COMPLETE updated spec.' },
+  { id: 'refine', label: 'refine', focus: 'Polish the COMPLETE design: fix joinery fill, interference, unlabeled contacts, inventory mismatches, floating cushions, and curved-prim errors (sweep fold, panel radius below 20*t, pillow edgeR too large, triangle budget). If inventory says continuous, do not leave stick-built legs. Do not remove correct parts. Return the COMPLETE corrected spec.' }
 ];
 V.needsStages = function (inventory) {
   if (!inventory || typeof inventory !== 'object') return false;
@@ -225,6 +225,7 @@ V.buildPrompt = function (o) {
     parts.push('You are an expert CAD engineer building a furniture/product design in stages. Current stage: ' + o.stage.label.toUpperCase() + '.');
     parts.push('STAGE FOCUS: ' + o.stage.focus);
     parts.push('Return ONE COMPLETE JSON design spec for this stage (no commentary, no markdown fences). Include "reasoning" describing what you added or changed in this stage.');
+    parts.push(V.COMPACT_JSON_RULES);
     if (o.inventory) parts.push('INVENTORY (authoritative for counts, proportions, and structure — honor memberContinuity and dominantSection):\n' + JSON.stringify(o.inventory));
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
     if (o.prevSpec) parts.push('SPEC SO FAR (build on this; keep correct parts):\n' + JSON.stringify(o.prevSpec));
@@ -234,11 +235,12 @@ V.buildPrompt = function (o) {
   } else if (o.round === 1 || !o.prevSpec) {
     if (drawing) {
       parts.push('You are an expert CAD engineer. The attached image is a TECHNICAL DRAWING or dimensioned sketch (not a photo). Read dimensions, callouts, and part counts carefully and write a design spec for THAT object as ONE JSON object that follows the DESIGN SPEC below.');
-      parts.push('Prefer printed/handwritten sizes over guessed scale. Match labeled overall width×depth×height when present. Count drawers/doors/legs/shelves from the drawing. Honor inventory.structure (continuous vs separate members; section). Where a dimension is missing, choose a plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what the drawing shows, (2) key dimensions you read, (3) major parts and continuity, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
+      parts.push('Prefer printed/handwritten sizes over guessed scale. Match labeled overall width×depth×height when present. Count drawers/doors/legs/shelves from the drawing. Honor inventory.structure (continuous vs separate members; section). Where a dimension is missing, choose a plausible construction and list it in "assumptions". Always include top-level "reasoning" (2–4 sentences) covering: (1) what the drawing shows, (2) key dimensions, (3) major parts and continuity, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
     } else {
       parts.push('You are an expert CAD engineer and furniture/product designer. Study the attached picture carefully and write a design spec for a 3D model of THAT object, as ONE JSON object that follows the DESIGN SPEC below.');
-      parts.push('Match what you SEE — not a generic piece in the same category. Count drawers/doors/legs/shelves/slats; match overall width:depth:height proportions from the photo; match member continuity and cross-section from inventory.structure; match leg shape, top overhang, and visible joinery or hardware. Where something is hidden, choose the most plausible construction and list it in "assumptions". Always include top-level "reasoning" (4–8 sentences) covering: (1) what object you see, (2) proportions you read from the image, (3) major parts and continuity/section, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
+      parts.push('Match what you SEE — not a generic piece in the same category. Count drawers/doors/legs/shelves/slats; match overall width:depth:height proportions from the photo; match member continuity and cross-section from inventory.structure; match leg shape, top overhang, and visible joinery or hardware. Where something is hidden, choose the most plausible construction and list it in "assumptions". Always include top-level "reasoning" (2–4 sentences) covering: (1) what object you see, (2) proportions, (3) major parts and continuity/section, (4) joinery assumptions. Return ONLY the JSON object: no commentary, no markdown fences.');
     }
+    parts.push(V.COMPACT_JSON_RULES);
     if (o.inventory) parts.push('INVENTORY (authoritative for object identity, part counts, proportions, and structure — your spec MUST match these counts, aspect ratios, memberContinuity, and dominantSection):\n' + JSON.stringify(o.inventory));
     parts.push(V.SPEC_DOC); parts.push('Minimal valid example:\n' + V.EXAMPLE_JSON);
     if (o.hints) parts.push('USER HINTS (they override anything you guess from the picture): ' + o.hints);
@@ -246,6 +248,7 @@ V.buildPrompt = function (o) {
     if (o.report) parts.push('YOUR PREVIOUS REPLY WAS REJECTED:\n' + o.report.text);
   } else {
     parts.push('You are the BUILDER in a builder/critic loop. Below are your previous spec and the CRITIC report from an exact geometry checker' + (o.mode === 'visual' ? ' plus a render of your model next to the reference picture' : '') + '. Fix every issue and return the COMPLETE corrected spec as ONE JSON object (no commentary, no fences). Keep everything that was already correct. Refresh "reasoning" if you change the design.');
+    parts.push(V.COMPACT_JSON_RULES);
     parts.push(V.SPEC_DOC); if (o.hints) parts.push('USER HINTS: ' + o.hints);
     pushMetrics(); pushPast();
     if (o.inventory) parts.push('INVENTORY (still authoritative for counts, proportions, and structure):\n' + JSON.stringify(o.inventory));
@@ -536,14 +539,20 @@ V.readAnthropicSSE = async function (res) {
   if (errMsg) throw new Error(errMsg);
   return text;
 };
+/** Max output tokens we ask Anthropic for (proxy also caps). Sonnet 4.5/5.5 support large outputs — do not starve staged chair SPECs. */
+V.MAX_OUTPUT_TOKENS = 64000;
 V.tokenBudget = function (task) {
-  if (task === 'inventory') return 3200;
-  if (task === 'revise') return 10000;
-  if (task === 'carcass') return 14000;
-  if (task === 'interiors') return 18000;
-  if (task === 'refine') return 14000;
-  return 16000;
+  if (task === 'inventory') return 4000;
+  if (task === 'revise') return 24000;
+  if (task === 'carcass') return 32000;
+  if (task === 'interiors') return 48000;
+  if (task === 'refine') return 32000;
+  if (task === 'design') return 32000;
+  return 24000;
 };
+/** Prompt fragment: keep JSON completable within the token budget. */
+V.COMPACT_JSON_RULES =
+  'OUTPUT COMPACTNESS (required): Return ONE complete JSON object that fits in the reply. Keep "reasoning" to 2–4 short sentences. Prefer short part ids (leg_fl, rail_f). Omit verbose notes/steps arrays unless essential. Prefer param expressions over duplicating large number lists. Do not paste the inventory or SPEC_DOC back into the JSON. Never leave the JSON unfinished.';
 
 /**
  * Unified photo-chair score (same rubric for lab + app).
@@ -611,26 +620,26 @@ V.fitParams = function (spec, inventory, o) {
 };
 V.providers = {
   anthropic: async o => {
-    const maxTok = Math.min(+o.max_tokens || V.tokenBudget(o.task), 32000);
+    const maxTok = Math.min(+o.max_tokens || V.tokenBudget(o.task), V.MAX_OUTPUT_TOKENS);
     const stream = o.stream !== false;
     const headers = { 'content-type': 'application/json', 'x-api-key': o.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
     if (o.runId) headers['x-run-id'] = String(o.runId);
     const r = await fetch((o.baseUrl || 'https://api.anthropic.com') + '/v1/messages', { method: 'POST', signal: o.signal, headers,
-      body: JSON.stringify({ model: o.model || 'claude-sonnet-4-5', max_tokens: maxTok, stream, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
+      body: JSON.stringify({ model: o.model || 'claude-sonnet-5-5', max_tokens: maxTok, stream, messages: [{ role: 'user', content: blocks(o.text, o.images) }] }) });
     if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error('Anthropic API ' + r.status + ': ' + ((j.error && j.error.message) || r.statusText)); }
     const ct = (r.headers.get('content-type') || '');
     if (stream && /event-stream/i.test(ct)) return V.readAnthropicSSE(r);
     const j = await r.json().catch(() => ({})); return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
   },
   proxy: async o => {
-    const maxTok = Math.min(+o.max_tokens || V.tokenBudget(o.task), 32000);
+    const maxTok = Math.min(+o.max_tokens || V.tokenBudget(o.task), V.MAX_OUTPUT_TOKENS);
     const stream = o.stream !== false;
     const headers = { 'content-type': 'application/json' };
     if (o.runId) headers['x-run-id'] = String(o.runId);
     if (o.task) headers['x-task'] = String(o.task);
     if (o.quality) headers['x-quality'] = String(o.quality);
     if (o.domain) headers['x-domain'] = String(o.domain);
-    const body = { model: o.model || 'claude-sonnet-4-5', max_tokens: maxTok, stream, messages: [{ role: 'user', content: blocks(o.text, o.images) }] };
+    const body = { model: o.model || 'claude-sonnet-5-5', max_tokens: maxTok, stream, messages: [{ role: 'user', content: blocks(o.text, o.images) }] };
     if (o.runId) body.runId = String(o.runId);
     body.metadata = {
       runId: o.runId || null,
@@ -726,13 +735,24 @@ V.run = async function (o) {
       const sum = V.summarizeInventory(inventory);
       log(sum ? 'Inventory: ' + sum : 'Inventory captured');
       if (o.onInventory) o.onInventory(inventory);
-      /* After inventory, inject dining-chair few-shot for seating objects if not already present. */
-      if (o.chairFewShot && CAD.store && CAD.store.looksLikeSeating && CAD.store.looksLikeSeating(inventory.object || '')) {
-        const chairText = CAD.store.formatExamplesForPrompt([o.chairFewShot]);
-        if (chairText && pastExampleText.indexOf('dining chair') < 0) {
-          pastExampleText = chairText + (pastExampleText ? '\n\n' + pastExampleText : '');
-          log('Few-shot: dining-chair curved prim patterns (sweep / panel / pillow)');
-        }
+      /* After inventory, inject the best seating few-shot (Lakin if continuous, else dining-chair). */
+      if (CAD.store && CAD.store.looksLikeSeating && CAD.store.looksLikeSeating(inventory.object || '')) {
+        let shot = o.chairFewShot;
+        try {
+          const kind = CAD.store.pickChairFewShotKind ? CAD.store.pickChairFewShotKind(inventory, hintText) : 'dining';
+          const ex = (typeof window !== 'undefined' && window.EXAMPLES) || {};
+          const src = (kind === 'lakin' && ex['lakin-chair']) || ex['dining-chair'] || ex['lakin-chair'];
+          if (src && CAD.store.chairFewShotFromExample) {
+            shot = CAD.store.chairFewShotFromExample(src, (kind === 'lakin' && ex['lakin-chair']) ? 'lakin' : 'dining');
+          }
+          if (shot) {
+            const chairText = CAD.store.formatExamplesForPrompt([shot]);
+            if (chairText) {
+              pastExampleText = chairText + (pastExampleText ? '\n\n' + pastExampleText : '');
+              log('Few-shot: ' + (kind === 'lakin' ? 'lakin continuous side-frame' : 'dining-chair') + ' patterns (sweep / panel / pillow)');
+            }
+          }
+        } catch (e) { /* optional */ }
       }
     } catch (e) {
       log('Inventory pass skipped: ' + e.message);
@@ -752,7 +772,13 @@ V.run = async function (o) {
         let raw; try { raw = await callModel({ text, images: refs.slice(), task: stage.id, max_tokens: V.tokenBudget(stage.id) }); } catch (e) { log('Model call failed: ' + e.message); throw e; }
         let spec; try { spec = V.extractJSON(raw); } catch (e) {
           log('Could not read JSON: ' + e.message);
-          stageReport = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object.' };
+          const trunc = /truncat/i.test(e.message);
+          stageReport = {
+            text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object.' +
+              (trunc
+                ? ' CRITICAL: prior reply was truncated — shorten reasoning to 2 sentences, use short ids, omit notes/steps, keep only essential parts for this stage, and finish the closing braces.'
+                : '')
+          };
           continue;
         }
         if (stagePrev) spec = V.mergeSpecs(stagePrev, spec);
@@ -779,7 +805,15 @@ V.run = async function (o) {
     const images = refs.slice(); if (mode === 'visual' && o.render) { const png = await o.render(prev); if (png) images.push(typeof png === 'string' ? V.dataUrlToImage(png) : png); }
     const text = V.buildPrompt(Object.assign({ round: wantStages ? round + 1 : round, prevSpec: prev, report, mode, task: o.task, focusParts: o.focusParts, focusJoint: o.focusJoint }, promptExtras(), { inventory }));
     let raw; try { raw = await callModel({ text, images, task: o.task === 'revise' ? 'revise' : 'design', max_tokens: V.tokenBudget(o.task === 'revise' ? 'revise' : 'design') }); } catch (e) { log('Model call failed: ' + e.message); throw e; }
-    let spec; try { spec = V.extractJSON(raw); } catch (e) { log('Could not read JSON: ' + e.message); report = { text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object with a "reasoning" field.' }; mode = 'fix'; continue; }
+    let spec; try { spec = V.extractJSON(raw); } catch (e) {
+      log('Could not read JSON: ' + e.message);
+      const trunc = /truncat/i.test(e.message);
+      report = {
+        text: 'Your last reply could not be parsed: ' + e.message + '. Return one complete, valid JSON object with a short "reasoning" field.' +
+          (trunc ? ' CRITICAL: prior reply was truncated — emit compact JSON and finish every brace.' : '')
+      };
+      mode = 'fix'; continue;
+    }
     if (prev && wantStages) spec = V.mergeSpecs(prev, spec);
     let iou = null;
     if (mode === 'visual' && typeof o.silhouetteIoU === 'function' && images.length >= 2) {
