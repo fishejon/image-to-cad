@@ -1,0 +1,8 @@
+{
+  "topology_ok": true,
+  "iou": null,
+  "ratingHint": "Close+",
+  "missing_block": null,
+  "notes": "Bespoke build123d + Gauntlet. Record silhouette IoU from app render vs photo to lock numeric score.",
+  "expectRating": "Close+"
+}

@@ -177,6 +177,29 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     ok(fit.overrides && typeof fit.penalty === 'number');
     ok(fit.iters >= 0);
   });
+  await t('scorePhotoChair uses silhouette IoU as primary rating', () => {
+    eq(V.scorePhotoChair({ topology_ok: true, iou: 0.75 }).rating, 'Match');
+    eq(V.scorePhotoChair({ topology_ok: true, iou: 0.6 }).rating, 'Close+');
+    eq(V.scorePhotoChair({ topology_ok: true, iou: 0.45 }).rating, 'Close');
+    eq(V.scorePhotoChair({ topology_ok: true, iou: 0.2 }).rating, 'Wrong');
+    eq(V.scorePhotoChair({ topology_ok: false, iou: 0.9 }).rating, 'Wrong');
+    eq(V.scorePhotoChair({ topology_ok: true, ratingHint: 'Close+' }).rating, 'Close+');
+  });
+  await t('likeness treats low silhouette IoU as a major penalty', () => {
+    const M = CAD.buildSpec(load('dining-chair'));
+    const inv = { object: 'chair', aspect: { w: 1, d: 1, h: 1.7 }, counts: { legs: 4 } };
+    const low = V.likeness(M, inv, { iou: 0.2 });
+    const high = V.likeness(M, inv, { iou: 0.8 });
+    ok(low.penalty > high.penalty + 10, 'low IoU should hurt more than high IoU');
+    ok(/silhouette/i.test(low.text));
+  });
+  await t('dining-chair includes stretchers and seat deck', () => {
+    const M = CAD.buildSpec(load('dining-chair'));
+    eq(M.errors.length, 0, M.errors.join('; '));
+    for (const id of ['side_stretcher', 'front_stretcher', 'seat_deck', 'mid_back_rail', 'crest', 'seat']) ok(M.defs.get(id), 'missing ' + id);
+    eq(CAD.manifoldReport(M).filter(r => r.bad).length, 0);
+    eq(CAD.interference(M).filter(h => !h.coarse || h.severe).length, 0);
+  });
   await t('coarse AABB interference reports mesh overlaps; exact solids unchanged', () => {
     const solidOk = CAD.buildSpec(V.EXAMPLE);
     eq(CAD.interference(solidOk).length, 0);

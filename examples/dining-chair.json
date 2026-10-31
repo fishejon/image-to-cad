@@ -1,10 +1,11 @@
 {
   "name": "Dining chair",
   "units": "mm",
-  "description": "MCM-style dining chair: tapered swept legs and back posts, bent crest panel, pillowed seat, rectilinear seat rails as solid boxes.",
+  "description": "MCM-style dining chair: tapered swept legs and back posts, side stretchers, seat deck + pillow, bent crest, mid back rail. (Seam/welt is a separate prim — use as its own part so AABB checks stay clean.)",
   "assumptions": [
     "Curved members use mesh prims (sweep / panel / pillow): they render and export, but joint-fill is exact only for solid↔solid.",
-    "Seat rails butt to legs without modeled tenons in this example."
+    "Rails and stretchers butt to legs without modeled tenons in this example.",
+    "For piping/welt, add a seam prim as its own part (do not merge into the pillow)."
   ],
   "params": {
     "W": { "value": 460, "min": 400, "max": 520, "step": 10, "label": "Seat width" },
@@ -15,7 +16,11 @@
     "legD": { "expr": "22" },
     "railT": { "expr": "22" },
     "railH": { "expr": "55" },
-    "seatT": { "expr": "42" },
+    "deckT": { "expr": "16" },
+    "seatT": { "expr": "36" },
+    "stretchZ": { "expr": "120" },
+    "stretchT": { "expr": "18" },
+    "stretchH": { "expr": "28" },
     "crestH": { "expr": "85" },
     "crestT": { "expr": "14" }
   },
@@ -29,9 +34,9 @@
     { "id": "back", "name": "Back" }
   ],
   "steps": [
-    "Dry-fit legs and seat rails",
-    "Glue the seat frame",
-    "Fit back posts and crest",
+    "Dry-fit legs, rails, and stretchers",
+    "Glue the seat frame and deck",
+    "Fit back posts, mid rail, and crest",
     "Drop in the seat cushion"
   ],
   "parts": [
@@ -143,6 +148,67 @@
       ]
     },
     {
+      "id": "side_stretcher",
+      "name": "Side stretcher",
+      "group": "frame",
+      "material": "oak",
+      "grain": "y",
+      "kind": "solid",
+      "spec": "Lower side stretcher between front and back legs",
+      "ops": [
+        { "add": [0, 0, 0, "stretchT", "D-legD*2-stretchT*2-2", "stretchH"] }
+      ],
+      "instances": [
+        { "pos": ["legW+1", "legD+stretchT+1", "stretchZ"], "step": 0 },
+        { "pos": ["W-legW-stretchT-1", "legD+stretchT+1", "stretchZ"], "step": 0 }
+      ]
+    },
+    {
+      "id": "front_stretcher",
+      "name": "Front stretcher",
+      "group": "frame",
+      "material": "oak",
+      "grain": "x",
+      "kind": "solid",
+      "spec": "Lower front stretcher",
+      "ops": [
+        { "add": [0, 0, 0, "W-legW*2-2", "stretchT", "stretchH"] }
+      ],
+      "instances": [
+        { "pos": ["legW+1", "legD+1", "stretchZ"], "step": 0 }
+      ]
+    },
+    {
+      "id": "seat_deck",
+      "name": "Seat deck",
+      "group": "seat",
+      "material": "oak",
+      "grain": "x",
+      "kind": "solid",
+      "spec": "Plywood / solid seat deck under the cushion",
+      "ops": [
+        { "add": [0, 0, 0, "W-legW*1.4", "D-legD*1.6", "deckT"] }
+      ],
+      "instances": [
+        { "pos": ["legW*0.7", "legD*0.8", "Hs"], "step": 1 }
+      ]
+    },
+    {
+      "id": "mid_back_rail",
+      "name": "Mid back rail",
+      "group": "back",
+      "material": "oak",
+      "grain": "x",
+      "kind": "solid",
+      "spec": "Horizontal back rail between posts below the crest",
+      "ops": [
+        { "add": [0, 0, 0, "W-legW*2-4", "railT*0.85", "railH*0.55"] }
+      ],
+      "instances": [
+        { "pos": ["legW+2", "D-legD-railT*0.85-2", "Hs+(Hb-Hs)*0.42"], "step": 2 }
+      ]
+    },
+    {
       "id": "crest",
       "name": "Crest rail",
       "group": "back",
@@ -187,7 +253,7 @@
         }
       ],
       "instances": [
-        { "pos": ["W/2", "D/2+8", "Hs+seatT/2"], "step": 3 }
+        { "pos": ["W/2", "D/2+8", "Hs+deckT+seatT/2"], "step": 3 }
       ]
     }
   ]

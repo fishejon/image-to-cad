@@ -22,4 +22,5 @@ A high-end wooden chair is a **joined assembly with intentional curves**, not a 
 
 - Brief: `evals/photos/chairs/chair_02.brief.md`
 - Bespoke model: `examples/bespoke/chair_02.py` → `out/chair_02_bespoke/chair_02.stl`
-- Gauntlet: R1 LOSE (sweep frame) → fixed. R2: back-post **WIN**; joinery/seat/rail LOSE → fixed front overhang, stretcher tenons, pill top rail, removed false spindles. Eyeball STL vs photo next.
+- Gauntlet: R1 LOSE (sweep frame) → fixed. R2: back-post **WIN**; joinery/seat/rail LOSE → fixed front overhang, stretcher tenons, pill top rail, removed false spindles.
+- Score with **silhouette-iou-v1** (same as the browser app): record IoU in `evals/photos/chairs/chair_02.score.json`, then `npm run score:photos`. See `evals/photos/chairs/SCORE.md`.

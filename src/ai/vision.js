@@ -418,9 +418,13 @@ V.likeness = function (M, inventory, o) {
   }
   if (o.iou != null && isFinite(o.iou)) {
     out.iou = o.iou;
-    if (o.iou < 0.45) {
-      out.penalty += Math.round((0.45 - o.iou) * 50);
-      L.push('LIKENESS silhouette IoU ' + o.iou.toFixed(2) + ' is low — overall outline does not match the reference. Adjust proportions and major parts.');
+    /* Silhouette is the primary photo-likeness signal (north star). Aspect/counts remain secondary. */
+    if (o.iou < 0.55) {
+      out.penalty += Math.round((0.55 - o.iou) * 80);
+      L.push('LIKENESS silhouette IoU ' + o.iou.toFixed(2) + ' is low — overall outline does not match the reference. Adjust proportions and major parts first.');
+    } else if (o.iou < 0.7) {
+      out.penalty += Math.round((0.7 - o.iou) * 25);
+      L.push('LIKENESS silhouette IoU ' + o.iou.toFixed(2) + ' is fair — refine outline (legs, back, seat mass) toward the photo.');
     }
   }
   const met = o.metrics;
@@ -542,6 +546,37 @@ V.tokenBudget = function (task) {
 };
 
 /**
+ * Unified photo-chair score (same rubric for lab + app).
+ * rating: Match | Close | Close+ | Wrong
+ * topology_ok: part set / construction is basically right
+ * iou: silhouette overlap in [0,1] (optional until a render exists)
+ */
+V.scorePhotoChair = function (o) {
+  o = o || {};
+  const topology_ok = !!o.topology_ok;
+  const iou = (o.iou != null && isFinite(o.iou)) ? +o.iou : null;
+  let rating = 'Wrong';
+  if (topology_ok && iou != null) {
+    if (iou >= 0.7) rating = 'Match';
+    else if (iou >= 0.55) rating = 'Close+';
+    else if (iou >= 0.4) rating = 'Close';
+    else rating = 'Wrong';
+  } else if (topology_ok && iou == null) {
+    rating = o.ratingHint || 'Close'; /* eyeball until IoU is measured */
+  } else if (!topology_ok) {
+    rating = 'Wrong';
+  }
+  return {
+    rating,
+    topology_ok,
+    iou,
+    missing_block: o.missing_block || null,
+    notes: o.notes || '',
+    method: 'silhouette-iou-v1'
+  };
+};
+
+/**
  * Phase 7 (practical): coordinate-descent on numeric params to reduce aspect likeness error.
  * Uses inventory aspect only (no render). Returns best overrides + trail.
  */
@@ -655,8 +690,11 @@ V.run = async function (o) {
   if (metrics.wMm || metrics.dMm || metrics.hMm) log('Metrics: ' + V.formatMetrics(metrics));
   if (inputMode === 'drawing') log('Input mode: drawing + dimensions');
   if (pastExampleText) log('Using ' + (o.pastExamples ? o.pastExamples.length : 1) + ' past success example(s) as few-shot guidance');
+  const wantSilhouette = o.silhouette !== false && typeof o.silhouetteIoU === 'function' && typeof o.render === 'function' && refs.length > 0;
   if (o.visual) log('Photo match (visual critic): on');
-  else log('Photo match (visual critic): off — enable in Quality or check the box to compare a render to your image');
+  else log('Photo match (visual critic): off — enable in Quality or check the box for LLM visual critique');
+  if (wantSilhouette) log('Silhouette score: on (outline IoU vs reference after a successful build)');
+  else if (refs.length && inputMode === 'photo') log('Silhouette score: off (need render + silhouetteIoU)');
 
   const noteCritic = (rep) => {
     const likeNote = rep.likeness && rep.likeness.penalty ? ', likeness −' + rep.likeness.penalty : '';
@@ -737,25 +775,54 @@ V.run = async function (o) {
     if (prev && wantStages) spec = V.mergeSpecs(prev, spec);
     let iou = null;
     if (mode === 'visual' && typeof o.silhouetteIoU === 'function' && images.length >= 2) {
-      try { iou = await o.silhouetteIoU(images[0], images[1]); lastIou = iou; if (iou != null) log('Photo match silhouette IoU: ' + iou.toFixed(2)); } catch (e) { log('Photo match silhouette skipped: ' + e.message); }
+      try { iou = await o.silhouetteIoU(images[0], images[1]); lastIou = iou; if (iou != null) log('Silhouette IoU: ' + iou.toFixed(2)); } catch (e) { log('Silhouette score skipped: ' + e.message); }
     }
-    const rep = V.evaluate(spec, Object.assign(critOpts(), { iou }));
+    let rep = V.evaluate(spec, Object.assign(critOpts(), { iou }));
+    /* North star: after geometry passes, always score silhouette vs the photo when we can render — even if LLM visual critic is off. */
+    if (rep.ok && wantSilhouette && lastIou == null) {
+      try {
+        log('Silhouette score: rendering model for outline comparison…');
+        const png = await o.render(spec);
+        if (png) {
+          const modelImg = typeof png === 'string' ? V.dataUrlToImage(png) : png;
+          iou = await o.silhouetteIoU(refs[0], modelImg);
+          lastIou = iou;
+          if (iou != null) log('Silhouette IoU: ' + iou.toFixed(2));
+          rep = V.evaluate(spec, Object.assign(critOpts(), { iou }));
+        }
+      } catch (e) { log('Silhouette score skipped: ' + e.message); }
+    }
     adopt(spec, rep);
     if (rep.ok && !likenessRetryDone && rep.likeness && rep.likeness.penalty >= 20 && round < max) {
       likenessRetryDone = true; mode = 'fix'; prev = spec; report = rep; continue;
     }
     if (rep.ok && o.visual && !visualDone && round < max && o.render) {
       visualDone = true; mode = 'visual'; prev = spec; report = rep;
-      log('Photo match: comparing a render of the model to your reference…');
+      log('Photo match: LLM visual critique against the reference…');
       continue;
     }
     if (rep.ok && o.visual && !visualDone && !(round < max && o.render)) {
-      log('Photo match: could not run — ' + (!o.render ? 'no renderer available' : 'no rounds left; raise Quality to Careful'));
+      log('Photo match: could not run LLM visual — ' + (!o.render ? 'no renderer available' : 'no rounds left; raise Quality to Careful'));
     }
     if (rep.ok) break; prev = spec; report = rep; mode = 'fix';
   }
   if (!best) throw new Error('The model never returned a usable spec. See the log.');
   const final = lastOk || best;
+  /* If we exited early (e.g. staged seed OK), still measure silhouette once. */
+  if (wantSilhouette && lastIou == null && final.spec) {
+    try {
+      log('Silhouette score: rendering final model…');
+      const png = await o.render(final.spec);
+      if (png) {
+        const modelImg = typeof png === 'string' ? V.dataUrlToImage(png) : png;
+        lastIou = await o.silhouetteIoU(refs[0], modelImg);
+        if (lastIou != null) {
+          log('Silhouette IoU: ' + lastIou.toFixed(2));
+          final.rep = V.evaluate(final.spec, Object.assign(critOpts(), { iou: lastIou }));
+        }
+      }
+    } catch (e) { log('Silhouette score skipped: ' + e.message); }
+  }
   final.inventory = inventory;
   final.metrics = metrics;
   final.staged = !!wantStages;
@@ -763,10 +830,18 @@ V.run = async function (o) {
     requested: !!o.visual,
     ran: !!visualDone,
     iou: lastIou,
+    silhouette: wantSilhouette,
     skippedReason: o.visual ? (visualDone ? null : (!o.render ? 'no-renderer' : 'not-enough-rounds-or-geometry-failed')) : 'off'
   };
-  if (final.visualCritic.requested && final.visualCritic.ran) log('Photo match: finished' + (lastIou != null ? ' (IoU ' + lastIou.toFixed(2) + ')' : ''));
-  else if (!final.visualCritic.requested) log('Photo match: skipped (turned off)');
+  final.photoScore = V.scorePhotoChair({
+    topology_ok: !!(final.rep && final.rep.ok),
+    iou: lastIou,
+    notes: final.rep && final.rep.ok ? 'geometry checks passed' : 'geometry still failing'
+  });
+  if (lastIou != null) log('Silhouette score: ' + lastIou.toFixed(2) + ' → ' + final.photoScore.rating);
+  else if (wantSilhouette) log('Silhouette score: no IoU measured');
+  if (final.visualCritic.requested && final.visualCritic.ran) log('LLM visual critic: finished');
+  else if (!final.visualCritic.requested) log('LLM visual critic: off');
   log(final.rep.ok ? 'Done: design passes every check (round ' + final.round + ').' : 'Stopped after ' + max + ' rounds: best design still has issues. You can fix it in the Spec tab.');
   return final;
 };
