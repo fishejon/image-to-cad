@@ -21,6 +21,16 @@ Start params from [`_params.template.json`](_params.template.json).
 4. Write IoU into `chair_NN.score.json` (`"iou": 0.62`, `"topology_ok": true`).
 5. Run `npm run score:photos` and update the row in [`SCORE.md`](SCORE.md).
 
+Optional headless smoke tool (photo vs a built-in EXAMPLE mesh — **not** Create-from-photo likeness; prints fill stats and requires `--write` to touch score JSON):
+
+```bash
+npm run build
+npm i -D puppeteer-core   # once; uses local Chrome or CHROME_PATH
+npm run measure:chair-iou -- chair_02 --example dining-chair
+```
+
+Real scores still come from an in-app Create/revise run with the photo as reference. Slots `chair_03`–`chair_05` are reserved (`status: awaiting_photo`) and skipped by `score:photos` until you add a photo and clear that status.
+
 Rubric: IoU ≥ 0.70 Match · ≥ 0.55 Close+ · ≥ 0.40 Close · else Wrong (or topology_ok false → Wrong).
 
 ## Privacy

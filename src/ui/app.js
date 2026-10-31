@@ -1032,9 +1032,17 @@ async function runAI(task) {
   const focusParts = focusIds.map(id => ({ id, name: (S.M.defs.get(id) || {}).name || id }));
   if ($('#aiRem') && $('#aiRem').checked) { try { localStorage.setItem('image-to-cad.key', key); } catch (e) { } }
   let pastExamples = [];
+  let chairFewShot = null;
   try {
     const bank = await CAD.store.readExamples();
     pastExamples = CAD.store.pickExamples(bank, { n: 1, object: hints });
+  } catch (e) { /* optional */ }
+  try {
+    const dining = (window.EXAMPLES && window.EXAMPLES['dining-chair']) || null;
+    if (dining && CAD.store.chairFewShotFromExample) chairFewShot = CAD.store.chairFewShotFromExample(dining);
+    if (chairFewShot && task === 'design' && (CAD.store.looksLikeSeating(hints) || !pastExamples.length)) {
+      pastExamples = [chairFewShot].concat(pastExamples).slice(0, 2);
+    }
   } catch (e) { /* optional */ }
   let aiDocId = null;
   if (task === 'design') { persistActive(); aiDocId = addDoc(blankSpec('AI design'), { name: 'AI design' }); refreshDocSel(); }
@@ -1062,7 +1070,7 @@ async function runAI(task) {
   }
   try {
     const res = await CAD.vision.run({
-      image: S.ai.img, hints, metrics, dimFields, inputMode, task, focusParts, focusJoint, pastExamples, runId,
+      image: S.ai.img, hints, metrics, dimFields, inputMode, task, focusParts, focusJoint, pastExamples, chairFewShot, runId,
       quality: preset.id, domain: 'furniture',
       prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model },
       maxRounds, visual, signal: ac.signal, onLog: (m) => { aiLog(m); setAIStatus('<b>Status:</b> ' + esc(m), true); },

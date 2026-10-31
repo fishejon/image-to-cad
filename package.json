@@ -13,6 +13,7 @@
     "migrate": "node tools/migrate.js",
     "score:golden": "node tools/score-golden.js",
     "score:photos": "node tools/score-photo-chairs.js",
+    "measure:chair-iou": "node tools/measure-chair-iou.mjs",
     "export:sideboard": "node tools/export-sideboard-spec.js"
   },
   "dependencies": {

@@ -200,6 +200,17 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     eq(CAD.manifoldReport(M).filter(r => r.bad).length, 0);
     eq(CAD.interference(M).filter(h => !h.coarse || h.severe).length, 0);
   });
+  await t('chair few-shot from dining-chair example exposes curved prims', () => {
+    const shot = CAD.store.chairFewShotFromExample(load('dining-chair'));
+    ok(shot && shot.inventory && /chair/i.test(shot.object));
+    ok((shot.inventory.curvedFeatures || []).some(f => f.kind === 'sweep'));
+    ok((shot.inventory.curvedFeatures || []).some(f => f.kind === 'panel'));
+    ok((shot.inventory.curvedFeatures || []).some(f => f.kind === 'pillow'));
+    ok(CAD.store.looksLikeSeating('MCM dining chair'));
+    ok(!CAD.store.looksLikeSeating('bookshelf'));
+    const text = CAD.store.formatExamplesForPrompt([shot]);
+    ok(/SIMILAR PAST SUCCESS/.test(text) && /sweep/.test(text));
+  });
   await t('coarse AABB interference reports mesh overlaps; exact solids unchanged', () => {
     const solidOk = CAD.buildSpec(V.EXAMPLE);
     eq(CAD.interference(solidOk).length, 0);

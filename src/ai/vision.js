@@ -677,7 +677,7 @@ V.run = async function (o) {
   const inputMode = o.inputMode === 'drawing' ? 'drawing' : 'photo';
   const metrics = o.metrics || V.parseDims(o.hints, o.dimFields);
   const hintText = V.composeHints(o.hints, metrics);
-  const pastExampleText = o.pastExampleText || (o.pastExamples && CAD.store && CAD.store.formatExamplesForPrompt
+  let pastExampleText = o.pastExampleText || (o.pastExamples && CAD.store && CAD.store.formatExamplesForPrompt
     ? CAD.store.formatExamplesForPrompt(o.pastExamples) : '') || '';
   const callModel = (extra) => call(Object.assign({}, o.provider, {
     signal: o.signal, runId: o.runId, quality: o.quality, domain: o.domain || 'furniture'
@@ -726,6 +726,14 @@ V.run = async function (o) {
       const sum = V.summarizeInventory(inventory);
       log(sum ? 'Inventory: ' + sum : 'Inventory captured');
       if (o.onInventory) o.onInventory(inventory);
+      /* After inventory, inject dining-chair few-shot for seating objects if not already present. */
+      if (o.chairFewShot && CAD.store && CAD.store.looksLikeSeating && CAD.store.looksLikeSeating(inventory.object || '')) {
+        const chairText = CAD.store.formatExamplesForPrompt([o.chairFewShot]);
+        if (chairText && pastExampleText.indexOf('dining chair') < 0) {
+          pastExampleText = chairText + (pastExampleText ? '\n\n' + pastExampleText : '');
+          log('Few-shot: dining-chair curved prim patterns (sweep / panel / pillow)');
+        }
+      }
     } catch (e) {
       log('Inventory pass skipped: ' + e.message);
       inventory = null;
