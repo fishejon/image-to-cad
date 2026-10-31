@@ -1,5 +1,41 @@
 {
+  "schemaVersion": 1,
   "id": "chair_05",
-  "status": "awaiting_photo",
-  "notes": "Add chair_05.jpg + brief, then build and record silhouette IoU."
+  "status": "ready",
+  "template": null,
+  "notes": "Walnut MCM side chair — organic tapered legs, crisscrossed under-seat frame, elongated rear posts cradling a floating oval back cushion; mounded roundish seat. Dual views: chair_05.jpg (¾ front), chair_05_rear.jpg (¾ rear). Catalog dims. Bespoke-first.",
+  "source": {
+    "file": "chair_05.jpg",
+    "file_alt": "chair_05_rear.jpg",
+    "license": "product-photo-local-eval-only",
+    "dims_in": {
+      "overall_w": 18,
+      "overall_d": 22,
+      "overall_h": 30.5,
+      "seat_h": 19,
+      "seat_d": 16.75,
+      "weight_lb": 14.7
+    },
+    "dims_mm": {
+      "overall_w": 457,
+      "overall_d": 559,
+      "overall_h": 775,
+      "seat_h": 483,
+      "seat_d": 425
+    }
+  },
+  "params": {
+    "seat_w": 457,
+    "seat_d": 425,
+    "seat_t": 80,
+    "seat_h": 483,
+    "overall_h": 775,
+    "overall_d": 559,
+    "leg_section": "organic_taper",
+    "back": true,
+    "back_cushion_oval": true,
+    "floating_back": true,
+    "crisscross_underframe": true,
+    "continuous_rear": true
+  }
 }

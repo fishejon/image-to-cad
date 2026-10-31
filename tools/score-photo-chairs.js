@@ -20,7 +20,8 @@ const V = {
   scorePhotoChair(o) {
     o = o || {};
     const topology_ok = !!o.topology_ok;
-    const iou = (o.iou != null && isFinite(o.iou)) ? +o.iou : null;
+    const trusted = o.iou_quality !== 'untrusted_room_background';
+    const iou = (trusted && o.iou != null && isFinite(o.iou)) ? +o.iou : null;
     let rating = 'Wrong';
     if (topology_ok && iou != null) {
       if (iou >= 0.7) rating = 'Match';
@@ -30,7 +31,7 @@ const V = {
     } else if (topology_ok && iou == null) {
       rating = o.ratingHint || 'Close';
     } else rating = 'Wrong';
-    return { rating, topology_ok, iou, missing_block: o.missing_block || null, notes: o.notes || '', method: 'silhouette-iou-v1' };
+    return { rating, topology_ok, iou: (o.iou != null && isFinite(o.iou)) ? +o.iou : null, missing_block: o.missing_block || null, notes: o.notes || '', method: 'silhouette-iou-v1' };
   }
 };
 
@@ -72,11 +73,12 @@ listChairs().forEach(id => {
   const scored = V.scorePhotoChair({
     topology_ok: pred.topology_ok,
     iou: pred.iou,
+    iou_quality: pred.iou_quality,
     missing_block: pred.missing_block,
     notes: pred.notes,
     ratingHint: pred.ratingHint || pred.rating
   });
-  const iouStr = scored.iou == null ? '—' : scored.iou.toFixed(2);
+  const iouStr = scored.iou == null ? '—' : scored.iou.toFixed(2) + (pred.iou_quality === 'untrusted_room_background' ? '*' : '');
   const miss = scored.missing_block || '—';
   const notes = (scored.notes || pred.notes || '').replace(/\|/g, '/');
   console.log('| ' + id + ' | ' + scored.rating + ' | ' + (scored.topology_ok ? 'Y' : 'N') + ' | ' + iouStr + ' | ' + miss + ' | ' + notes + ' |');
