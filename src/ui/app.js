@@ -990,12 +990,20 @@ function noteReasoning(spec) {
 }
 addEventListener('paste', e => { const f = [...(e.clipboardData ? e.clipboardData.files : [])].find(f => /^image\//.test(f.type)); if (f) { S.aiPanel = 'create'; openAI('create'); setImage(f); } });
 function viewNow(name) { viewTo(name); if (tween) { camera.position.copy(tween.p1); controls.target.copy(tween.t1); tween = null; controls.update(); S.need = true; } }
-function visualStatusHtml(vc) {
-  if (!vc) return '';
-  if (!vc.requested) return '<b>Photo match:</b> skipped (off for this Quality setting).';
-  if (vc.ran) return '<b>Photo match:</b> ran' + (vc.iou != null ? ' · outline IoU ' + vc.iou.toFixed(2) : '') + '.';
-  const why = vc.skippedReason === 'no-renderer' ? 'no renderer available' : 'not enough rounds or geometry never passed — try Careful';
-  return '<b>Photo match:</b> <span class="fail">could not run</span> (' + esc(why) + ').';
+function visualStatusHtml(vc, photoScore) {
+  const bits = [];
+  if (photoScore && (photoScore.iou != null || photoScore.rating)) {
+    bits.push('<b>Silhouette score:</b> ' + esc(photoScore.rating || '—') +
+      (photoScore.iou != null ? ' · IoU ' + Number(photoScore.iou).toFixed(2) : ' · IoU not measured'));
+  }
+  if (!vc) return bits.join('<br>');
+  if (!vc.requested) bits.push('<b>LLM visual critic:</b> off for this Quality setting.');
+  else if (vc.ran) bits.push('<b>LLM visual critic:</b> ran' + (vc.iou != null && !photoScore ? ' · IoU ' + vc.iou.toFixed(2) : '') + '.');
+  else {
+    const why = vc.skippedReason === 'no-renderer' ? 'no renderer available' : 'not enough rounds or geometry never passed — try Careful';
+    bits.push('<b>LLM visual critic:</b> <span class="fail">could not run</span> (' + esc(why) + ').');
+  }
+  return bits.join('<br>');
 }
 async function runAI(task) {
   if (S.ai.busy) return; task = task || 'design';
@@ -1066,7 +1074,7 @@ async function runAI(task) {
     S.ai.refOpen = true; syncRefPane();
     const unlabeled = (res.rep && res.rep.unlabeledContacts && res.rep.unlabeledContacts.length) || 0;
     S.lastRun = {
-      runId, task, visualCritic: res.visualCritic || null, at: Date.now(), hints, metrics,
+      runId, task, visualCritic: res.visualCritic || null, photoScore: res.photoScore || null, at: Date.now(), hints, metrics,
       inventory: res.inventory || null, model, quality: preset.id,
       geometryOk: !!(res.rep && res.rep.ok),
       likenessPenalty: res.rep && res.rep.likeness ? res.rep.likeness.penalty : null,
@@ -1078,7 +1086,8 @@ async function runAI(task) {
         geometryOk: !!(res.rep && res.rep.ok),
         rounds: res.round || null,
         likenessPenalty: S.lastRun.likenessPenalty,
-        iou: res.visualCritic && res.visualCritic.iou != null ? res.visualCritic.iou : null,
+        iou: res.photoScore && res.photoScore.iou != null ? res.photoScore.iou : (res.visualCritic && res.visualCritic.iou != null ? res.visualCritic.iou : null),
+        photoRating: res.photoScore && res.photoScore.rating ? res.photoScore.rating : null,
         unlabeledContacts: unlabeled,
         durationMs: Date.now() - t0
       });
@@ -1087,13 +1096,15 @@ async function runAI(task) {
       const props = {
         runId, geometryOk: !!(res.rep && res.rep.ok), rounds: res.round || null,
         likenessPenalty: S.lastRun.likenessPenalty, unlabeledContacts: unlabeled,
-        durationMs: Date.now() - t0, quality: preset.id
+        durationMs: Date.now() - t0, quality: preset.id,
+        iou: res.photoScore && res.photoScore.iou != null ? res.photoScore.iou : null,
+        photoRating: res.photoScore && res.photoScore.rating ? res.photoScore.rating : null
       };
       if (task === 'revise') CAD.analytics.capture('revise_applied', props);
       else CAD.analytics.capture('create_finished', props);
     }
     S.feedback = { rating: null, tags: [], note: '', pending: true };
-    const vcMsg = visualStatusHtml(res.visualCritic);
+    const vcMsg = visualStatusHtml(res.visualCritic, res.photoScore);
     setAIStatus('<b>Status:</b> ' + (res.rep.ok ? 'geometry checks passed' : 'loaded with remaining issues') + (vcMsg ? '<br>' + vcMsg : '') + '<br>Rate the match in Inspect.', true);
     toast(res.rep.ok ? 'Design ready — rate how well it matches in Inspect' : 'Design loaded with issues — see Check / log');
     closeAI(); setTab('insp'); renderInspect();
@@ -1181,7 +1192,7 @@ function feedbackCardHtml() {
       <button type="button" class="btn sm pri" id="fbCorrect">Mark correct for training</button>
     </div>
     <div class="card" style="margin-top:6px;font-size:12px;color:var(--dim)">“Mark correct” stores a compact example used as few-shot guidance on later generates (stays in this browser). It does not fine-tune the cloud model.</div>
-    ${S.lastRun && S.lastRun.visualCritic ? `<div class="card" style="margin-top:6px">${visualStatusHtml(S.lastRun.visualCritic)}</div>` : ''}`;
+    ${S.lastRun && (S.lastRun.visualCritic || S.lastRun.photoScore) ? `<div class="card" style="margin-top:6px">${visualStatusHtml(S.lastRun.visualCritic, S.lastRun.photoScore)}</div>` : ''}`;
 }
 function bindFeedbackCard() {
   $$('#fbRates [data-rate]').forEach(b => b.onclick = () => { S.feedback.rating = b.dataset.rate; renderInspect(); });

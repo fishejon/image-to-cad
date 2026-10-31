@@ -6,12 +6,13 @@
   "author": "fishejon",
   "private": false,
   "scripts": {
-    "test": "node tests/run.js && node tests/telemetry.js && node tests/langfuse.js && node tests/hitl.js && node tests/proxy.js && node tools/score-golden.js",
+    "test": "node tests/run.js && node tests/telemetry.js && node tests/langfuse.js && node tests/hitl.js && node tests/proxy.js && node tools/score-golden.js && node tools/score-photo-chairs.js",
     "test:browser": "node tests/browser.mjs && node tests/browser-ai.mjs && node tests/browser-guide.mjs",
     "build": "node tools/build.js",
     "serve": "node server/proxy.js",
     "migrate": "node tools/migrate.js",
     "score:golden": "node tools/score-golden.js",
+    "score:photos": "node tools/score-photo-chairs.js",
     "export:sideboard": "node tools/export-sideboard-spec.js"
   },
   "dependencies": {

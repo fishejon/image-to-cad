@@ -1,0 +1,8 @@
+{
+  "topology_ok": false,
+  "iou": null,
+  "ratingHint": "Wrong",
+  "missing_block": "bent_panel, seat_contour",
+  "notes": "Commons Stuhl — chrome tube + bentwood; template four_leg_chair cannot express. Measure IoU in-app when a curved SPEC/bespoke exists.",
+  "expectRating": "Wrong"
+}
