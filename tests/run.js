@@ -210,6 +210,19 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     ok(!CAD.store.looksLikeSeating('bookshelf'));
     const text = CAD.store.formatExamplesForPrompt([shot]);
     ok(/SIMILAR PAST SUCCESS/.test(text) && /sweep/.test(text));
+    const lakin = CAD.store.chairFewShotFromExample(load('lakin-chair'), 'lakin');
+    ok(lakin && lakin.inventory.structure.memberContinuity === 'continuous');
+    ok(/CONTINUOUS side frames/i.test(lakin.hints || ''));
+    eq(CAD.store.pickChairFewShotKind({ structure: { memberContinuity: 'continuous' } }), 'lakin');
+    eq(CAD.store.pickChairFewShotKind({ structure: { memberContinuity: 'separate' } }), 'dining');
+  });
+  await t('vision token budgets leave room for staged chair SPECs', () => {
+    ok(CAD.vision.MAX_OUTPUT_TOKENS >= 64000);
+    ok(CAD.vision.tokenBudget('carcass') >= 32000);
+    ok(CAD.vision.tokenBudget('interiors') >= 48000);
+    ok(CAD.vision.tokenBudget('interiors') <= CAD.vision.MAX_OUTPUT_TOKENS);
+    const staged = CAD.vision.buildPrompt({ stage: CAD.vision.STAGES[0], inventory: { object: 'chair', counts: { legs: 4 } } });
+    ok(/OUTPUT COMPACTNESS/.test(staged));
   });
   await t('coarse AABB interference reports mesh overlaps; exact solids unchanged', () => {
     const solidOk = CAD.buildSpec(V.EXAMPLE);

@@ -192,9 +192,35 @@ Store.summarizeSpec = function (spec) {
   };
 };
 
-/** Built-in curved dining-chair few-shot (from EXAMPLES) for photo Create of chairs/stools. */
-Store.chairFewShotFromExample = function (spec) {
+/** Built-in seating few-shot from an EXAMPLES spec. Pass kind 'lakin' | 'dining' (default). */
+Store.chairFewShotFromExample = function (spec, kind) {
   if (!spec || typeof spec !== 'object') return null;
+  const lakin = kind === 'lakin' || /lakin/i.test(spec.name || '');
+  if (lakin) {
+    return {
+      object: 'dining side chair',
+      inventory: {
+        object: 'upholstered wood dining side chair',
+        aspect: { w: 1, d: 1.15, h: 1.78 },
+        counts: { legs: 4, drawers: 0, doors: 0, shelves: 0, slats: 0 },
+        structure: { memberContinuity: 'continuous', dominantSection: 'tapered' },
+        curvedFeatures: [
+          { part: 'frame', kind: 'sweep' },
+          { part: 'back', kind: 'panel' },
+          { part: 'seat', kind: 'pillow' }
+        ],
+        parts: [
+          { role: 'frame', count: 2, curved: true, section: 'tapered', continuity: 'continuous', shape: 'continuous' },
+          { role: 'rail', count: 2, curved: false, section: 'rect' },
+          { role: 'back', count: 1, curved: true, section: 'slab', shape: 'panel' },
+          { role: 'seat', count: 1, upholstered: true, curved: false },
+          { role: 'cushion', count: 1, upholstered: true, curved: false }
+        ]
+      },
+      specSummary: Store.summarizeSpec(spec),
+      hints: 'CONTINUOUS side frames: each side is ONE mesh sweep (front leg + side rail + rear post), mirrored L/R — never four separate stick legs. Back = panel between posts. Inset pillow on a thin seat deck; pillow instance is the pillow CENTER (not a corner). Rails are solid boxes between the frames.'
+    };
+  }
   return {
     object: 'dining chair',
     inventory: {
@@ -215,8 +241,17 @@ Store.chairFewShotFromExample = function (spec) {
       ]
     },
     specSummary: Store.summarizeSpec(spec),
-    hints: 'Use mesh sweep for tapered/curved legs and posts, panel for bent crest, pillow for cushion; keep seat rails/stretchers as solid boxes.'
+    hints: 'Use mesh sweep for tapered/curved legs and posts, panel for bent crest, pillow for cushion; keep seat rails/stretchers as solid boxes. Pillow instance position is the CENTER of the pillow.'
   };
+};
+
+/** Prefer Lakin-style few-shot when inventory says continuous / sculpted side frames. */
+Store.pickChairFewShotKind = function (inventory, hints) {
+  const cont = String((inventory && inventory.structure && inventory.structure.memberContinuity) || '').toLowerCase();
+  if (cont === 'continuous' || cont === 'mixed') return 'lakin';
+  const blob = String(hints || '') + ' ' + String((inventory && inventory.object) || '');
+  if (/lakin|side.?frame|sculpted|continuous|danish|scandinavian/i.test(blob)) return 'lakin';
+  return 'dining';
 };
 
 Store.looksLikeSeating = function (text) {

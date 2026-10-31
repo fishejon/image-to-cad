@@ -40,7 +40,7 @@ async function handleMessagesRequest({ body, ip, runId: headerRunId, headers: re
   const rid = runIdFrom(b, headerRunId);
   const meta = langfuse.metaFrom(b, reqHeaders || {});
   const wantStream = !!b.stream;
-  const payload = { model: String(b.model || 'claude-sonnet-4-5'), max_tokens: Math.min(+b.max_tokens || 16000, 32000), messages: b.messages, stream: wantStream };
+  const payload = { model: String(b.model || 'claude-sonnet-5-5'), max_tokens: Math.min(+b.max_tokens || 24000, 64000), messages: b.messages, stream: wantStream };
   if (b.system) payload.system = String(b.system);
   if (!Array.isArray(payload.messages)) return { status: 400, json: { error: { message: 'messages must be an array' } } };
   const ctrl = new AbortController();

@@ -786,8 +786,8 @@ function renderSpecErrors() { const el = $('#specErr'); if (!el) return; el.inne
 
 /* ---------------- AI: picture → design (builder ⇄ critic loop) ---------------- */
 const AI_MODELS = [
-  { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5', hint: 'Recommended' },
-  { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', hint: 'Newest Sonnet' },
+  { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', hint: 'Recommended' },
+  { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5', hint: 'Previous Sonnet' },
   { id: 'claude-opus-4-6', label: 'Claude Opus 4.6', hint: 'Highest quality' },
   { id: 'claude-opus-4-5', label: 'Claude Opus 4.5', hint: 'High quality' },
   { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', hint: 'Faster / cheaper' }
@@ -1038,8 +1038,12 @@ async function runAI(task) {
     pastExamples = CAD.store.pickExamples(bank, { n: 1, object: hints });
   } catch (e) { /* optional */ }
   try {
-    const dining = (window.EXAMPLES && window.EXAMPLES['dining-chair']) || null;
-    if (dining && CAD.store.chairFewShotFromExample) chairFewShot = CAD.store.chairFewShotFromExample(dining);
+    const ex = window.EXAMPLES || {};
+    const kind = CAD.store.pickChairFewShotKind ? CAD.store.pickChairFewShotKind(null, hints) : 'dining';
+    const src = (kind === 'lakin' && ex['lakin-chair']) || ex['dining-chair'] || ex['lakin-chair'] || null;
+    if (src && CAD.store.chairFewShotFromExample) {
+      chairFewShot = CAD.store.chairFewShotFromExample(src, (kind === 'lakin' && ex['lakin-chair']) ? 'lakin' : 'dining');
+    }
     if (chairFewShot && task === 'design' && (CAD.store.looksLikeSeating(hints) || !pastExamples.length)) {
       pastExamples = [chairFewShot].concat(pastExamples).slice(0, 2);
     }

@@ -19,7 +19,7 @@ const log = await page.evaluate(() => document.getElementById('aiLog').innerText
 check(seen.length === 3, 'three model calls (inventory + draft + fix): ' + seen.length); check(/passes every check/.test(log) || /Inventory/.test(log), 'loop reports progress'); check(name === 'Bookshelf with drawers', 'final design is loaded in the viewer: ' + name);
 const r0 = seen[0]; check(r0.headers['x-api-key'] === 'sk-ant-TEST' && r0.headers['anthropic-version'] === '2023-06-01' && r0.headers['anthropic-dangerous-direct-browser-access'] === 'true', 'API headers correct');
 check(/inventory|aspect|counts/i.test(r0.body.messages[0].content.slice(-1)[0].text), 'first call is inventory');
-const r1 = seen[1]; check(r1.body.model === 'claude-sonnet-4-5' && r1.body.max_tokens > 8000, 'model and max_tokens sent');
+const r1 = seen[1]; check(r1.body.model === 'claude-sonnet-5-5' && r1.body.max_tokens > 8000, 'model and max_tokens sent');
 const c1 = r1.body.messages[0].content; check(c1[0].type === 'image' && c1[0].source.type === 'base64' && c1[0].source.media_type === 'image/jpeg' && c1[0].source.data.length > 100, 'picture sent as a base64 image block'); check(c1[c1.length - 1].type === 'text' && /height 1800 mm, oak/.test(c1[c1.length - 1].text) && /DESIGN SPEC/.test(c1[c1.length - 1].text), 'prompt carries the brief and the spec language');
 const t2 = seen[2].body.messages[0].content.slice(-1)[0].text; check(/CRITIC REPORT/.test(t2) && /INTERFERENCE/.test(t2) && /divider/.test(t2) && /PREVIOUS SPEC/.test(t2), 'critic findings reach the model in round 2');
 await page.screenshot({ path: path.join(out, 'ai.png') });
