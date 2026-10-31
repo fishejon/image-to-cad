@@ -1,0 +1,201 @@
+{
+  "name": "Lakin-style dining chair",
+  "units": "mm",
+  "description": "Approx of Crate & Barrel Lakin: continuous raked rear posts, tapered front legs, inset oatmeal cushion, horizontal back panel. Catalog W18 D20.63 H32 seatH19.5 seatD18.5.",
+  "assumptions": [
+    "Approx for silhouette / few-shot — front leg↔apron fillet is simplified (no organic carve).",
+    "Mesh posts/legs: no exact joint-fill.",
+    "Inset cushion sits inside the seat frame outline."
+  ],
+  "params": {
+    "W": { "value": 457, "min": 420, "max": 500, "step": 5, "label": "Overall width" },
+    "D": { "value": 524, "min": 480, "max": 580, "step": 5, "label": "Overall depth" },
+    "Hs": { "value": 495, "min": 460, "max": 520, "step": 5, "label": "Seat height" },
+    "Hb": { "value": 813, "min": 760, "max": 860, "step": 5, "label": "Overall height" },
+    "seatD": { "value": 470, "min": 430, "max": 500, "step": 5, "label": "Seat depth" },
+    "legW": { "expr": "42" },
+    "legD": { "expr": "28" },
+    "railT": { "expr": "22" },
+    "railH": { "expr": "48" },
+    "deckT": { "expr": "14" },
+    "seatT": { "expr": "42" },
+    "panelH": { "expr": "110" },
+    "panelT": { "expr": "14" }
+  },
+  "materials": {
+    "oak": { "base": "oak", "name": "White oak", "color": "#d4b896" },
+    "fabric": { "base": "rubber", "name": "Oatmeal fabric", "color": "#e8e0d4", "rho": 400 }
+  },
+  "groups": [
+    { "id": "frame", "name": "Frame" },
+    { "id": "seat", "name": "Seat" },
+    { "id": "back", "name": "Back" }
+  ],
+  "steps": [
+    "Assemble seat frame and front legs",
+    "Fit continuous rear posts",
+    "Install back panel",
+    "Drop in inset cushion"
+  ],
+  "parts": [
+    {
+      "id": "front_leg",
+      "name": "Front leg",
+      "group": "frame",
+      "material": "oak",
+      "grain": "z",
+      "kind": "mesh",
+      "spec": "Tapered rrect, slight outward slant",
+      "prims": [
+        {
+          "type": "sweep",
+          "path": [[0, 0, 0], [8, -10, "Hs*0.5"], [12, -14, "Hs"]],
+          "curve": "catmull",
+          "section": { "type": "rrect", "w": "legW", "h": "legD", "r": 8 },
+          "taper": [
+            { "t": 0, "scaleW": 0.55, "scaleH": 0.65 },
+            { "t": 1, "scaleW": 1, "scaleH": 1 }
+          ],
+          "up": [0, 1, 0],
+          "frame": "up"
+        }
+      ],
+      "instances": [
+        { "pos": ["legW/2+8", "legD/2+16", 0], "step": 0 },
+        { "pos": ["W-legW/2-8", "legD/2+16", 0], "step": 0 }
+      ]
+    },
+    {
+      "id": "back_post",
+      "name": "Back post",
+      "group": "frame",
+      "material": "oak",
+      "grain": "z",
+      "kind": "mesh",
+      "spec": "Continuous: flare out below seat, rake aft above",
+      "prims": [
+        {
+          "type": "sweep",
+          "path": [
+            [0, 0, 0],
+            [0, 18, "Hs*0.45"],
+            [0, 8, "Hs"],
+            [0, 45, "Hs+(Hb-Hs)*0.55"],
+            [0, 70, "Hb"]
+          ],
+          "curve": "catmull",
+          "section": { "type": "rrect", "w": "legW*0.95", "h": "legD*1.15", "r": 8 },
+          "taper": [
+            { "t": 0, "scaleW": 0.6, "scaleH": 0.7 },
+            { "t": 0.5, "scaleW": 1, "scaleH": 1 },
+            { "t": 1, "scaleW": 0.72, "scaleH": 0.8 }
+          ],
+          "up": [1, 0, 0],
+          "frame": "up"
+        }
+      ],
+      "instances": [
+        { "pos": ["legW/2+6", "D-legD/2-20", 0], "step": 1 },
+        { "pos": ["W-legW/2-6", "D-legD/2-20", 0], "step": 1 }
+      ]
+    },
+    {
+      "id": "side_rail",
+      "name": "Side rail",
+      "group": "frame",
+      "material": "oak",
+      "grain": "y",
+      "kind": "solid",
+      "spec": "Seat side apron",
+      "ops": [{ "add": [0, 0, 0, "railT", "seatD-legD*2.2-railT*2-4", "railH"] }],
+      "instances": [
+        { "pos": ["legW+4", "legD+24+railT+2", "Hs-railH"], "step": 0 },
+        { "pos": ["W-legW-railT-4", "legD+24+railT+2", "Hs-railH"], "step": 0 }
+      ]
+    },
+    {
+      "id": "front_rail",
+      "name": "Front rail",
+      "group": "frame",
+      "material": "oak",
+      "grain": "x",
+      "kind": "solid",
+      "spec": "Front apron",
+      "ops": [{ "add": [0, 0, 0, "W-legW*2-20", "railT", "railH"] }],
+      "instances": [
+        { "pos": ["legW+10", "legD+20", "Hs-railH"], "step": 0 }
+      ]
+    },
+    {
+      "id": "back_rail",
+      "name": "Back rail",
+      "group": "frame",
+      "material": "oak",
+      "grain": "x",
+      "kind": "solid",
+      "spec": "Rear seat apron",
+      "ops": [{ "add": [0, 0, 0, "W-legW*2-20", "railT", "railH"] }],
+      "instances": [
+        { "pos": ["legW+10", "legD+24+railT+2+(seatD-legD*2.2-railT*2-4)+2", "Hs-railH"], "step": 0 }
+      ]
+    },
+    {
+      "id": "seat_deck",
+      "name": "Seat deck",
+      "group": "seat",
+      "material": "oak",
+      "grain": "x",
+      "kind": "solid",
+      "spec": "Deck under inset cushion",
+      "ops": [{ "add": [0, 0, 0, "W-legW*2-20", "seatD-legD*1.8", "deckT"] }],
+      "instances": [
+        { "pos": ["legW+10", "legD+28", "Hs"], "step": 0 }
+      ]
+    },
+    {
+      "id": "back_panel",
+      "name": "Back panel",
+      "group": "back",
+      "material": "oak",
+      "grain": "x",
+      "kind": "mesh",
+      "spec": "Horizontal oak panel, slight scoop",
+      "prims": [
+        {
+          "type": "panel",
+          "size": ["W-legW*2.2", "panelH"],
+          "t": "panelT",
+          "outline": { "shape": "superellipse", "fmin": 0.85, "n": 3.2 },
+          "bend": { "radius": "max(W*1.4, panelT*22)", "direction": 1 },
+          "arch": 2
+        }
+      ],
+      "instances": [
+        { "pos": ["W/2", "D-8", "Hs+(Hb-Hs)*0.62"], "rot": [0, 0, 0], "step": 2 }
+      ]
+    },
+    {
+      "id": "seat",
+      "name": "Inset cushion",
+      "group": "seat",
+      "material": "fabric",
+      "grain": "x",
+      "kind": "mesh",
+      "spec": "Inset oatmeal cushion — smaller than outer frame",
+      "prims": [
+        {
+          "type": "pillow",
+          "size": ["W-legW*2.4", "seatD-legD*2.4", "seatT"],
+          "planR": 28,
+          "edgeR": 12,
+          "bulge": { "top": 5, "bottom": 1 },
+          "taper": { "k": 0.02 },
+          "bend": 1
+        }
+      ],
+      "instances": [
+        { "pos": ["W/2", "legD+28+(seatD-legD*1.8)/2", "Hs+deckT+seatT/2"], "step": 3 }
+      ]
+    }
+  ]
+}

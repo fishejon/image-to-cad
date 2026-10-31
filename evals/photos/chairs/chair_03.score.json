@@ -2,7 +2,7 @@
   "topology_ok": false,
   "iou": null,
   "ratingHint": "Wrong",
-  "missing_block": null,
-  "notes": "Slot reserved — add photo and score before counting toward 5–10 chairs.",
+  "missing_block": "tube_frame, panel_seat_back, footrest_ring",
+  "notes": "Photo + tape ready. Awaiting Create or bespoke build, then measured silhouette IoU.",
   "expectRating": "Wrong"
 }

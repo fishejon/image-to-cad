@@ -3,5 +3,6 @@
   { "id": "bookshelf", "file": "bookshelf.json" },
   { "id": "stool", "file": "stool.json" },
   { "id": "lamp", "file": "lamp.json" },
-  { "id": "dining-chair", "file": "dining-chair.json" }
+  { "id": "dining-chair", "file": "dining-chair.json" },
+  { "id": "lakin-chair", "file": "lakin-chair.json" }
 ]

@@ -1,5 +1,39 @@
 {
+  "schemaVersion": 1,
   "id": "chair_03",
-  "status": "awaiting_photo",
-  "notes": "Add chair_03.jpg + brief, then build (app Create or lab bespoke) and record silhouette IoU in chair_03.score.json."
+  "status": "ready",
+  "template": null,
+  "notes": "Standard-height bar stool — black round-tube metal frame + light wood seat and back panels. Not a four_leg_chair wood template fit: continuous rear uprights curve into back supports; square footrest ring; separate laminated seat/back plates. Prefer bespoke or SPEC sweeps (tube) + thin panels.",
+  "source": {
+    "file": "chair_03.jpg",
+    "license": "user-provided",
+    "dims_in": {
+      "overall_h": 37.25,
+      "seat_h": 24.5,
+      "seat_d": 12.5,
+      "overall_d": 17,
+      "seat_w": 15.25
+    },
+    "dims_mm": {
+      "overall_h": 946,
+      "seat_h": 622,
+      "seat_d": 318,
+      "overall_d": 432,
+      "seat_w": 387
+    }
+  },
+  "params": {
+    "seat_w": 387,
+    "seat_d": 318,
+    "seat_t": 16,
+    "seat_h": 622,
+    "overall_h": 946,
+    "overall_d": 432,
+    "leg_section": "round",
+    "leg_dia": 16,
+    "stretcher": true,
+    "stretcher_ring": true,
+    "back": true,
+    "back_panel": true
+  }
 }

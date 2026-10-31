@@ -1,8 +1,9 @@
 {
   "topology_ok": true,
-  "iou": null,
+  "iou": 0.11,
   "ratingHint": "Close+",
   "missing_block": null,
-  "notes": "Bespoke build123d + Gauntlet. Record silhouette IoU from app render vs photo to lock numeric score.",
-  "expectRating": "Close+"
+  "notes": "Bespoke build123d + Gauntlet. Raw STL silhouette IoU=0.11 vs room photo is not trusted (photo mask fill 6912/9216 — background clutter). Keep Close+ until subject-masked IoU or studio reshoot. Measured: measure-stl-iou.mjs vs lab/furniture_cad/out/chair_02_bespoke/chair_02.stl.",
+  "expectRating": "Close+",
+  "iou_quality": "untrusted_room_background"
 }

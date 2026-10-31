@@ -1,5 +1,42 @@
 {
+  "schemaVersion": 1,
   "id": "chair_04",
-  "status": "awaiting_photo",
-  "notes": "Add chair_04.jpg + brief, then build and record silhouette IoU."
+  "status": "ready",
+  "template": null,
+  "notes": "Crate & Barrel Lakin oak dining side chair. Continuous rear posts with rake; tapered front legs; organic front-leg↔apron sweep; inset oatmeal cushion. Catalog dims. Prefer bespoke or SPEC sweeps + pillow — not stick four_leg_chair.",
+  "source": {
+    "file": "chair_04.jpg",
+    "license": "product-photo-local-eval-only",
+    "product": "Lakin Oak Wood Dining Chair",
+    "retailer": "Crate & Barrel",
+    "dims_in": {
+      "overall_w": 18,
+      "overall_d": 20.63,
+      "overall_h": 32,
+      "seat_h": 19.5,
+      "seat_d": 18.5,
+      "weight_lb": 12.7
+    },
+    "dims_mm": {
+      "overall_w": 457,
+      "overall_d": 524,
+      "overall_h": 813,
+      "seat_h": 495,
+      "seat_d": 470
+    }
+  },
+  "params": {
+    "seat_w": 457,
+    "seat_d": 470,
+    "seat_t": 40,
+    "seat_h": 495,
+    "overall_h": 813,
+    "overall_d": 524,
+    "leg_section": "rrect",
+    "leg_taper": true,
+    "back": true,
+    "back_panel": true,
+    "cushion": true,
+    "continuous_rear": true
+  }
 }

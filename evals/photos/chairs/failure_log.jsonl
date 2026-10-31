@@ -3,3 +3,12 @@
 {"ts": "2026-10-29T17:43:46.612910+00:00", "kind": "missing_block", "need": "winged_top_rail", "photo_id": "chair_02", "template": "four_leg_chair", "notes": "bow-tie / winged curved top rail, not flat back_panel"}
 {"ts": "2026-10-29T17:43:46.642201+00:00", "kind": "missing_block", "need": "back_mid_slat", "photo_id": "chair_02", "template": "four_leg_chair", "notes": "horizontal mid back rail below top rail"}
 {"ts": "2026-10-29T17:43:46.671360+00:00", "kind": "missing_block", "need": "rounded_cushion", "photo_id": "chair_02", "template": "four_leg_chair", "notes": "upholstered seat pad; seat_t thickened as stand-in"}
+{"ts":"2026-10-31T17:37:00+00:00","kind":"missing_block","need":"tube_frame","photo_id":"chair_03","template":null,"notes":"continuous black round-tube rear uprights bend into backrest supports; square footrest ring"}
+{"ts":"2026-10-31T17:37:00+00:00","kind":"missing_block","need":"panel_seat_back","photo_id":"chair_03","template":null,"notes":"thin wood laminate seat + pill back panels on metal, not pillow cushions"}
+{"ts":"2026-10-31T17:37:00+00:00","kind":"missing_block","need":"footrest_ring","photo_id":"chair_03","template":null,"notes":"square perimeter stretcher ~1/3 leg height for bar stool footrest"}
+{"ts":"2026-10-31T17:40:00+00:00","kind":"missing_block","need":"continuous_raked_post","photo_id":"chair_04","template":null,"notes":"rear leg continuous into raked stile; flare below seat"}
+{"ts":"2026-10-31T17:40:00+00:00","kind":"missing_block","need":"leg_apron_fillet","photo_id":"chair_04","template":null,"notes":"organic curved front leg to apron junction"}
+{"ts":"2026-10-31T17:40:00+00:00","kind":"missing_block","need":"inset_cushion","photo_id":"chair_04","template":null,"notes":"cushion inset in frame, not overhang pillow"}
+{"ts":"2026-10-31T17:42:00+00:00","kind":"missing_block","need":"organic_taper_leg","photo_id":"chair_05","template":null,"notes":"sculptural variable-section legs, thick mid"}
+{"ts":"2026-10-31T17:42:00+00:00","kind":"missing_block","need":"crisscross_underframe","photo_id":"chair_05","template":null,"notes":"crossed members under seat tying four legs"}
+{"ts":"2026-10-31T17:42:00+00:00","kind":"missing_block","need":"floating_oval_back","photo_id":"chair_05","template":null,"notes":"oval back cushion cradled by posts with gap above seat"}

@@ -1,8 +1,8 @@
 {
-  "topology_ok": false,
-  "iou": null,
-  "ratingHint": "Wrong",
-  "missing_block": null,
-  "notes": "Slot reserved — awaiting photo.",
-  "expectRating": "Wrong"
+  "topology_ok": true,
+  "iou": 0.641,
+  "ratingHint": "Close+",
+  "missing_block": "leg_apron_fillet",
+  "notes": "Silhouette vs examples/lakin-chair.json (catalog dims). IoU=0.641 Close+. Organic front fillet still approximate. measure-chair-iou.mjs --example lakin-chair.",
+  "expectRating": "Close+"
 }
