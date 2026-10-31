@@ -212,9 +212,11 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     ok(/SIMILAR PAST SUCCESS/.test(text) && /sweep/.test(text));
     const lakin = CAD.store.chairFewShotFromExample(load('lakin-chair'), 'lakin');
     ok(lakin && lakin.inventory.structure.memberContinuity === 'continuous');
-    ok(/CONTINUOUS side frames/i.test(lakin.hints || ''));
+    ok(/CONTINUOUS.*side frames/i.test(lakin.hints || ''));
+    ok(lakin.inventory.structure.legStance === 'raked' && lakin.inventory.structure.backRake === 'aft');
     eq(CAD.store.pickChairFewShotKind({ structure: { memberContinuity: 'continuous' } }), 'lakin');
     eq(CAD.store.pickChairFewShotKind({ structure: { memberContinuity: 'separate' } }), 'dining');
+    eq(CAD.store.pickChairFewShotKind({ structure: { legStance: 'raked' } }), 'lakin');
   });
   await t('vision token budgets leave room for staged chair SPECs', () => {
     ok(CAD.vision.MAX_OUTPUT_TOKENS >= 64000);
@@ -223,6 +225,33 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     ok(CAD.vision.tokenBudget('interiors') <= CAD.vision.MAX_OUTPUT_TOKENS);
     const staged = CAD.vision.buildPrompt({ stage: CAD.vision.STAGES[0], inventory: { object: 'chair', counts: { legs: 4 } } });
     ok(/OUTPUT COMPACTNESS/.test(staged));
+    ok(/RAKE\/SPLAY|aft rake|legStance/i.test(staged));
+  });
+  await t('stance analyzer detects aft rake vs vertical sticks', () => {
+    const raked = {
+      parts: [{
+        id: 'back_post', name: 'Back post', kind: 'mesh',
+        prims: [{ type: 'sweep', path: [[0, 0, 0], [0, 20, 400], [0, 70, 800]] }],
+        instances: [{ pos: [0, 0, 0] }, { pos: [100, 0, 0] }]
+      }]
+    };
+    const plumb = {
+      parts: [{
+        id: 'leg', name: 'Leg', kind: 'solid',
+        ops: [{ add: [0, 0, 0, 40, 40, 700] }],
+        instances: [{ pos: [0, 0, 0] }, { pos: [1, 0, 0] }, { pos: [2, 0, 0] }, { pos: [3, 0, 0] }]
+      }]
+    };
+    const a = CAD.vision.analyzeStance(raked);
+    ok(a.leanSweeps >= 1 && a.stance === 'raked');
+    const b = CAD.vision.analyzeStance(plumb);
+    ok(b.verticalLegs >= 3 && b.stance === 'vertical');
+    const like = CAD.vision.likeness({ size: [400, 500, 800], defs: new Map() }, {
+      structure: { legStance: 'raked', backRake: 'aft', memberContinuity: 'separate' },
+      counts: {}
+    }, { spec: plumb });
+    ok(like.penalty >= 32);
+    ok(/LIKENESS stance/i.test(like.text));
   });
   await t('coarse AABB interference reports mesh overlaps; exact solids unchanged', () => {
     const solidOk = CAD.buildSpec(V.EXAMPLE);
