@@ -203,14 +203,14 @@ Store.chairFewShotFromExample = function (spec, kind) {
         object: 'upholstered wood dining side chair',
         aspect: { w: 1, d: 1.15, h: 1.78 },
         counts: { legs: 4, drawers: 0, doors: 0, shelves: 0, slats: 0 },
-        structure: { memberContinuity: 'continuous', dominantSection: 'tapered' },
+        structure: { memberContinuity: 'continuous', dominantSection: 'tapered', legStance: 'raked', backRake: 'aft' },
         curvedFeatures: [
           { part: 'frame', kind: 'sweep' },
           { part: 'back', kind: 'panel' },
           { part: 'seat', kind: 'pillow' }
         ],
         parts: [
-          { role: 'frame', count: 2, curved: true, section: 'tapered', continuity: 'continuous', shape: 'continuous' },
+          { role: 'frame', count: 2, curved: true, section: 'tapered', continuity: 'continuous', shape: 'continuous', lean: 'aft' },
           { role: 'rail', count: 2, curved: false, section: 'rect' },
           { role: 'back', count: 1, curved: true, section: 'slab', shape: 'panel' },
           { role: 'seat', count: 1, upholstered: true, curved: false },
@@ -218,7 +218,7 @@ Store.chairFewShotFromExample = function (spec, kind) {
         ]
       },
       specSummary: Store.summarizeSpec(spec),
-      hints: 'CONTINUOUS side frames: each side is ONE mesh sweep (front leg + side rail + rear post), mirrored L/R — never four separate stick legs. Back = panel between posts. Inset pillow on a thin seat deck; pillow instance is the pillow CENTER (not a corner). Rails are solid boxes between the frames.'
+      hints: 'CONTINUOUS raked side frames: each side is ONE mesh sweep (front leg + side rail + rear post), mirrored L/R — never four vertical stick legs. Rear of the sweep must rake AFT (+Y as Z rises) above the seat; front may slant slightly. Example rear path: [[0,0,0],[0,8,"Hs"],[0,55,"Hb"]]. Back = panel between posts. Inset pillow CENTER on seat deck. Rails = solid boxes.'
     };
   }
   return {
@@ -247,10 +247,13 @@ Store.chairFewShotFromExample = function (spec, kind) {
 
 /** Prefer Lakin-style few-shot when inventory says continuous / sculpted side frames. */
 Store.pickChairFewShotKind = function (inventory, hints) {
-  const cont = String((inventory && inventory.structure && inventory.structure.memberContinuity) || '').toLowerCase();
+  const st = (inventory && inventory.structure) || {};
+  const cont = String(st.memberContinuity || '').toLowerCase();
   if (cont === 'continuous' || cont === 'mixed') return 'lakin';
+  if (/raked|splayed|canted/.test(String(st.legStance || ''))) return 'lakin';
+  if (/aft|forward/.test(String(st.backRake || ''))) return 'lakin';
   const blob = String(hints || '') + ' ' + String((inventory && inventory.object) || '');
-  if (/lakin|side.?frame|sculpted|continuous|danish|scandinavian/i.test(blob)) return 'lakin';
+  if (/lakin|side.?frame|sculpted|continuous|danish|scandinavian|rake|splay/i.test(blob)) return 'lakin';
   return 'dining';
 };
 
