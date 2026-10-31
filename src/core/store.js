@@ -203,7 +203,10 @@ Store.chairFewShotFromExample = function (spec, kind) {
         object: 'upholstered wood dining side chair',
         aspect: { w: 1, d: 1.15, h: 1.78 },
         counts: { legs: 4, drawers: 0, doors: 0, shelves: 0, slats: 0 },
-        structure: { memberContinuity: 'continuous', dominantSection: 'tapered', legStance: 'raked', backRake: 'aft' },
+        structure: {
+          memberContinuity: 'continuous', dominantSection: 'tapered', legStance: 'raked',
+          frontLean: 'forward', rearLean: 'aft', backRake: 'aft', rakeBreak: 'seat'
+        },
         curvedFeatures: [
           { part: 'frame', kind: 'sweep' },
           { part: 'back', kind: 'panel' },
@@ -218,7 +221,7 @@ Store.chairFewShotFromExample = function (spec, kind) {
         ]
       },
       specSummary: Store.summarizeSpec(spec),
-      hints: 'CONTINUOUS raked side frames: each side is ONE mesh sweep (front leg + side rail + rear post), mirrored L/R — never four vertical stick legs. Rear of the sweep must rake AFT (+Y as Z rises) above the seat; front may slant slightly. Example rear path: [[0,0,0],[0,8,"Hs"],[0,55,"Hb"]]. Back = panel between posts. Inset pillow CENTER on seat deck. Rails = solid boxes.'
+      hints: 'STANCE PROFILE: frontLean=forward below Hs (−Y as Z rises); backRake=aft above Hs (+Y as Z rises); rakeBreak=seat (path node at Hs). CONTINUOUS side frames = ONE mesh sweep per side (mirrored), never four plumb sticks. Example rear: [[0,0,0],[0,12,"Hs*0.5"],[0,8,"Hs"],[0,50,"Hs+(Hb-Hs)*0.55"],[0,70,"Hb"]]. Front leg sweep e.g. [[0,0,0],[0,-10,"Hs*0.5"],[0,-14,"Hs"]]. Back = panel. Pillow CENTER on seat deck. Rails = solid boxes.'
     };
   }
   return {
@@ -241,17 +244,19 @@ Store.chairFewShotFromExample = function (spec, kind) {
       ]
     },
     specSummary: Store.summarizeSpec(spec),
-    hints: 'Use mesh sweep for tapered/curved legs and posts, panel for bent crest, pillow for cushion; keep seat rails/stretchers as solid boxes. Pillow instance position is the CENTER of the pillow.'
+    hints: 'Use mesh sweep for tapered/curved legs and posts, panel for bent crest, pillow for cushion; keep seat rails/stretchers as solid boxes. If inventory.structure sets frontLean/backRake/rakeBreak, honor those with sweep path lean (−Y forward, +Y aft, knee near Hs when rakeBreak=seat). Pillow instance position is the CENTER of the pillow.'
   };
 };
 
-/** Prefer Lakin-style few-shot when inventory says continuous / sculpted side frames. */
+/** Prefer continuous/raked few-shot when inventory signals sculpted frames or lean profile. */
 Store.pickChairFewShotKind = function (inventory, hints) {
   const st = (inventory && inventory.structure) || {};
   const cont = String(st.memberContinuity || '').toLowerCase();
   if (cont === 'continuous' || cont === 'mixed') return 'lakin';
   if (/raked|splayed|canted/.test(String(st.legStance || ''))) return 'lakin';
   if (/aft|forward/.test(String(st.backRake || ''))) return 'lakin';
+  if (/forward|aft|outboard/.test(String(st.frontLean || ''))) return 'lakin';
+  if (String(st.rakeBreak || '').toLowerCase() === 'seat') return 'lakin';
   const blob = String(hints || '') + ' ' + String((inventory && inventory.object) || '');
   if (/lakin|side.?frame|sculpted|continuous|danish|scandinavian|rake|splay/i.test(blob)) return 'lakin';
   return 'dining';
