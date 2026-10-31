@@ -5,6 +5,11 @@ tests/out/
 .vercel
 *.log
 .DS_Store
+image-to-cad.zip
+image-to-cad*.zip
+* 2.js
+* 2.json
+* 2.md
 
 # Offline build123d lab
 lab/**/out/

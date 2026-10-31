@@ -1,5 +1,0 @@
-build123d>=0.8.0
-trimesh>=4.0.0
-
-[dev]
-pytest>=8.0.0

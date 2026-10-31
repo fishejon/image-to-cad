@@ -9,16 +9,21 @@
 | **iou** | Silhouette overlap vs the reference photo (app render, iso). `—` until measured |
 | **missing_block** | Construction gap to log in `failure_log.jsonl` |
 
-Until IoU is measured, `ratingHint` in `chair_NN.score.json` stands in (eyeball). After an app run, paste IoU into that file (or `--predictions`) and re-score.
+Until IoU is measured, `ratingHint` in `chair_NN.score.json` stands in (eyeball). After an app **Create/revise** run against that photo, paste IoU into that file (or `--predictions`) and re-score.
 
 ```bash
 npm run score:photos
-# or: node tools/score-photo-chairs.js --predictions evals/photos/chairs/predictions.json
+# optional headless baseline (photo vs EXAMPLE mesh — not Create likeness; needs puppeteer-core + Chrome):
+# npm run measure:chair-iou -- chair_02 --example dining-chair
+# add --write only after you trust the fill stats
 ```
 
 | id | template / path | rating | topology_ok | iou | missing_block? | notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| chair_01 | four_leg_chair | Wrong | N | — | `bent_panel`, `seat_contour` | Commons Stuhl. Chrome tube + bentwood. |
-| chair_02 | **bespoke** `examples/bespoke/chair_02.py` | Close+ | Y | — | — | Designer + Gauntlet. Measure IoU next. |
+| chair_01 | four_leg_chair | Wrong | N | — | `bent_panel`, `seat_contour` | Commons Stuhl. Chrome tube + bentwood. Local photo: `chair_01.jpg` (gitignored). |
+| chair_02 | **bespoke** `examples/bespoke/chair_02.py` | Close+ | Y | — | — | Designer + Gauntlet. Measure IoU in app next. |
+| chair_03 | — | — | — | — | — | **Slot** — add photo + score |
+| chair_04 | — | — | — | — | — | **Slot** — add photo + score |
+| chair_05 | — | — | — | — | — | **Slot** — add photo + score |
 
-**Goal:** 5–10 chairs scored with this table before widening furniture categories. Prefer SPEC/`dining-chair` language in the browser path; keep bespoke scripts as gold corpus.
+**Goal:** 5–10 chairs scored with measured IoU before widening furniture categories. Browser Create now injects the curved `dining-chair` example as few-shot for seating. Keep bespoke lab scripts as gold corpus.

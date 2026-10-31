@@ -44,6 +44,13 @@ function listChairs() {
   return fs.readdirSync(dir)
     .filter(f => /^chair_\d+\.json$/.test(f))
     .map(f => f.replace(/\.json$/, ''))
+    .filter(id => {
+      try {
+        const meta = JSON.parse(fs.readFileSync(path.join(dir, id + '.json'), 'utf8'));
+        if (meta && meta.status === 'awaiting_photo') return false;
+      } catch (e) { /* score anyway */ }
+      return fs.existsSync(path.join(dir, id + '.score.json'));
+    })
     .sort();
 }
 

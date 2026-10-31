@@ -192,6 +192,37 @@ Store.summarizeSpec = function (spec) {
   };
 };
 
+/** Built-in curved dining-chair few-shot (from EXAMPLES) for photo Create of chairs/stools. */
+Store.chairFewShotFromExample = function (spec) {
+  if (!spec || typeof spec !== 'object') return null;
+  return {
+    object: 'dining chair',
+    inventory: {
+      object: 'dining chair',
+      aspect: { w: 1, d: 0.96, h: 1.7 },
+      counts: { legs: 4, drawers: 0, doors: 0, shelves: 0, slats: 0 },
+      structure: { memberContinuity: 'separate', dominantSection: 'tapered' },
+      curvedFeatures: [
+        { part: 'leg', kind: 'sweep' },
+        { part: 'crest', kind: 'panel' },
+        { part: 'seat', kind: 'pillow' }
+      ],
+      parts: [
+        { role: 'leg', count: 2, curved: true, section: 'tapered', shape: 'tapered' },
+        { role: 'back', count: 2, curved: true, section: 'tapered', continuity: 'continuous' },
+        { role: 'seat', count: 1, upholstered: true, curved: false },
+        { role: 'panel', count: 1, curved: true, shape: 'panel' }
+      ]
+    },
+    specSummary: Store.summarizeSpec(spec),
+    hints: 'Use mesh sweep for tapered/curved legs and posts, panel for bent crest, pillow for cushion; keep seat rails/stretchers as solid boxes.'
+  };
+};
+
+Store.looksLikeSeating = function (text) {
+  return /chair|stool|seat|bench|dining/i.test(String(text || ''));
+};
+
 /** Pick up to `n` past successes for prompt injection (most recent; prefer same object name). */
 Store.pickExamples = function (items, o) {
   o = o || {};
