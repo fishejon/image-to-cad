@@ -13,12 +13,16 @@ Drop **your** photos here. Nothing uploads to the server.
 
 Start params from [`_params.template.json`](_params.template.json).
 
+## Product wedge
+
+Dining / side chairs with **visible rake or continuous frames**. Weekly Create process: [`CREATE_SCORECARD.md`](CREATE_SCORECARD.md). Tube stools and organic underframes stay in the pack for `missing_block` logging but do not gate the wedge.
+
 ## How to score (same method every time)
 
-1. Build the chair (app Create from photo, or lab bespoke → STL).
-2. In the app, load the model, set the reference image, run with photo match / silhouette (any Quality that can render).
+1. Build the chair (app Create from photo, `npm run create:photos`, or lab bespoke → STL).
+2. In the app, load the model, set the reference image, run with photo match / silhouette (any Quality that can render) — or `measure:chair-iou --spec …`.
 3. Read **Silhouette score** (IoU + Match/Close+/Close/Wrong) from the status / Inspect card.
-4. Write IoU into `chair_NN.score.json` (`"iou": 0.62`, `"topology_ok": true`).
+4. Write IoU into `chair_NN.score.json` (`"iou": 0.62`, `"topology_ok": true`) or let Create tooling fill `create`.
 5. Run `npm run score:photos` and update the row in [`SCORE.md`](SCORE.md).
 
 Optional headless tools (`npm i -D puppeteer-core` once; local Chrome or `CHROME_PATH`):

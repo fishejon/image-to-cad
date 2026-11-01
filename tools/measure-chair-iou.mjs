@@ -18,11 +18,13 @@ import { fileURLToPath } from 'url';
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const id = process.argv[2];
 const exIdx = process.argv.indexOf('--example');
+const specIdx = process.argv.indexOf('--spec');
 const exampleId = exIdx >= 0 ? process.argv[exIdx + 1] : 'dining-chair';
+const specPathArg = specIdx >= 0 ? process.argv[specIdx + 1] : null;
 const write = process.argv.includes('--write');
 
 if (!id) {
-  console.error('Usage: node tools/measure-chair-iou.mjs <chair_id> [--example dining-chair] [--write]');
+  console.error('Usage: node tools/measure-chair-iou.mjs <chair_id> [--example dining-chair | --spec path/to.json] [--write]');
   process.exit(1);
 }
 
@@ -92,13 +94,30 @@ page.on('request', r => {
 
 await page.goto('file://' + dist);
 await page.waitForFunction(() => window.__cad && document.getElementById('loading').style.display === 'none', { timeout: 120000 });
-const hasEx = await page.evaluate((exampleId) => !!(window.EXAMPLES && window.EXAMPLES[exampleId]), exampleId);
-if (!hasEx) {
-  await browser.close();
-  console.error('Example not found: ' + exampleId);
-  process.exit(6);
+
+let sourceLabel = 'example ' + exampleId;
+if (specPathArg) {
+  const abs = path.isAbsolute(specPathArg) ? specPathArg : path.join(root, specPathArg);
+  if (!fs.existsSync(abs)) {
+    await browser.close();
+    console.error('Spec not found: ' + abs);
+    process.exit(6);
+  }
+  const spec = JSON.parse(fs.readFileSync(abs, 'utf8'));
+  sourceLabel = 'spec ' + path.relative(root, abs);
+  await page.evaluate((spec) => {
+    if (typeof __cad.loadSpec === 'function') __cad.loadSpec(spec, {});
+    else throw new Error('loadSpec missing');
+  }, spec);
+} else {
+  const hasEx = await page.evaluate((exampleId) => !!(window.EXAMPLES && window.EXAMPLES[exampleId]), exampleId);
+  if (!hasEx) {
+    await browser.close();
+    console.error('Example not found: ' + exampleId);
+    process.exit(6);
+  }
+  await page.evaluate((exampleId) => __cad.loadExample(exampleId), exampleId);
 }
-await page.evaluate((exampleId) => __cad.loadExample(exampleId), exampleId);
 await new Promise(r => setTimeout(r, 1200));
 await page.evaluate(() => {
   __cad.viewNow('iso');
@@ -177,7 +196,8 @@ const rated = (() => {
   return 'Wrong';
 })();
 console.log(id + ' IoU=' + iou + ' → ' + rated + ' (photo fill ' + result.refFill + ', model fill ' + result.modelFill + ')');
-console.log('Note: photo vs EXAMPLE mesh is a tooling baseline, not photo→Create likeness.');
+console.log('Source: ' + sourceLabel);
+if (!specPathArg) console.log('Note: photo vs EXAMPLE mesh is a tooling baseline, not photo→Create likeness.');
 
 if (!write) {
   console.log('Pass --write to update evals/photos/chairs/' + id + '.score.json');
@@ -186,12 +206,23 @@ if (!write) {
 
 const scorePath = path.join(root, 'evals/photos/chairs', id + '.score.json');
 const score = fs.existsSync(scorePath) ? JSON.parse(fs.readFileSync(scorePath, 'utf8')) : {};
-score.iou = iou;
-if (score.topology_ok == null) score.topology_ok = true;
-score.notes = ((score.notes || '').replace(/\s*IoU measured via measure-chair-iou\.mjs[^.]*\./g, '').trim()
-  + ' IoU measured via measure-chair-iou.mjs vs example ' + exampleId + '.').trim();
 const finalRated = score.topology_ok === false ? 'Wrong' : rated;
-score.ratingHint = finalRated;
-score.expectRating = finalRated;
+if (specPathArg) {
+  score.create = score.create || {};
+  score.create.iou = iou;
+  score.create.rating = finalRated;
+  score.create.ratingHint = finalRated;
+  score.create.measuredAt = new Date().toISOString();
+  score.create.specPath = score.create.specPath || path.relative(root, path.isAbsolute(specPathArg) ? specPathArg : path.join(root, specPathArg));
+  score.notes = ((score.notes || '').replace(/\s*Create IoU via measure-chair-iou\.mjs[^.]*\./g, '').trim()
+    + ' Create IoU via measure-chair-iou.mjs --spec (' + iou + ' → ' + finalRated + ').').trim();
+} else {
+  score.iou = iou;
+  if (score.topology_ok == null) score.topology_ok = true;
+  score.notes = ((score.notes || '').replace(/\s*IoU measured via measure-chair-iou\.mjs[^.]*\./g, '').trim()
+    + ' IoU measured via measure-chair-iou.mjs vs example ' + exampleId + '.').trim();
+  score.ratingHint = finalRated;
+  score.expectRating = finalRated;
+}
 fs.writeFileSync(scorePath, JSON.stringify(score, null, 2) + '\n');
 console.log('Wrote ' + path.relative(root, scorePath));

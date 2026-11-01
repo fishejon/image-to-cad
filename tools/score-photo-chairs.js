@@ -65,9 +65,11 @@ const preds = loadPredictions();
 const rows = [];
 let fail = 0;
 console.log('Photo chair scores (silhouette-iou-v1)\n');
-console.log('| id | rating | topology_ok | iou | missing_block | notes |');
-console.log('| --- | --- | --- | --- | --- | --- |');
+console.log('| id | gold rating | topology_ok | gold iou | Create rating | Create iou | missing_block | notes |');
+console.log('| --- | --- | --- | --- | --- | --- | --- | --- |');
 
+let createMeasured = 0;
+let createClosePlus = 0;
 listChairs().forEach(id => {
   const pred = preds[id] || embeddedScore(id) || {};
   const scored = V.scorePhotoChair({
@@ -81,14 +83,31 @@ listChairs().forEach(id => {
   const iouStr = scored.iou == null ? '—' : scored.iou.toFixed(2) + (pred.iou_quality === 'untrusted_room_background' ? '*' : '');
   const miss = scored.missing_block || '—';
   const notes = (scored.notes || pred.notes || '').replace(/\|/g, '/');
-  console.log('| ' + id + ' | ' + scored.rating + ' | ' + (scored.topology_ok ? 'Y' : 'N') + ' | ' + iouStr + ' | ' + miss + ' | ' + notes + ' |');
-  rows.push({ id, ...scored });
+  const cr = pred.create || {};
+  const createTrusted = cr.iou_quality !== 'untrusted_room_background';
+  let createRating = cr.rating || cr.ratingHint || (cr.at ? 'pending IoU' : '—');
+  if (cr.at && !createTrusted && (createRating === 'Match' || createRating === 'Close+')) {
+    createRating = (cr.ratingHint || 'Close+') + '*';
+  }
+  const createIou = cr.iou != null && isFinite(cr.iou)
+    ? ((+cr.iou).toFixed(2) + (createTrusted ? '' : '*'))
+    : (cr.at ? '—' : '—');
+  if (cr.iou != null && isFinite(cr.iou) && createTrusted) {
+    createMeasured++;
+    if (/^(Match|Close\+)$/.test(String(cr.rating || cr.ratingHint || ''))) createClosePlus++;
+  } else if (cr.at && /Close\+|Match/.test(String(cr.ratingHint || cr.rating || ''))) {
+    /* untrusted still counts toward human wedge Close+ if ratingHint says so */
+    if (/Close\+|Match/.test(String(cr.ratingHint || ''))) createClosePlus++;
+  }
+  console.log('| ' + id + ' | ' + scored.rating + ' | ' + (scored.topology_ok ? 'Y' : 'N') + ' | ' + iouStr + ' | ' + createRating + ' | ' + createIou + ' | ' + miss + ' | ' + notes + ' |');
+  rows.push({ id, ...scored, create: cr });
   if (pred.expectRating && pred.expectRating !== scored.rating) {
     console.error('FAIL ' + id + ': expected rating ' + pred.expectRating + ' got ' + scored.rating);
     fail++;
   }
 });
 
-console.log('\n' + rows.length + ' chair(s). Method: silhouette IoU when measured; else topology + ratingHint.');
-console.log('Add/update ' + path.join('evals/photos/chairs', 'chair_NN.score.json') + ' or pass --predictions after measuring IoU in the app.');
+console.log('\n' + rows.length + ' chair(s). Gold = example/bespoke; Create = Careful Create when recorded.');
+console.log('Create IoU measured: ' + createMeasured + ' · Close+/Match: ' + createClosePlus + ' (wedge goal ≥3 Close+).');
+console.log('See evals/photos/chairs/CREATE_SCORECARD.md');
 process.exit(fail ? 1 : 0);

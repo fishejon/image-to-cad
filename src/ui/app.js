@@ -1184,11 +1184,32 @@ async function markExampleCorrect() {
     renderInspect();
   } catch (e) { toast('Could not save example: ' + e.message); }
 }
+function stanceFixAvailable() {
+  if (!S.spec || !CAD.vision.stanceReviseHints) return false;
+  const inv = (S.lastRun && S.lastRun.inventory) || S.ai.inventory;
+  const hints = CAD.vision.stanceReviseHints(inv, S.spec);
+  if (hints) return true;
+  const r = S.lastRun && S.lastRun.photoScore && S.lastRun.photoScore.rating;
+  return r === 'Close' || r === 'Close+';
+}
+function startStanceRevise() {
+  const inv = (S.lastRun && S.lastRun.inventory) || S.ai.inventory;
+  let text = CAD.vision.stanceReviseHints ? CAD.vision.stanceReviseHints(inv, S.spec) : '';
+  if (!text) {
+    text = 'Improve likeness to the reference photo: fix front leg lean, backrest rake, and put the rake break near seat height Hs. Keep overall size and parts that already match.';
+  }
+  if (S.feedback && S.feedback.note) text += ' User note: ' + S.feedback.note.trim();
+  openAI('revise');
+  const ta = $('#aiRevise'); if (ta) { ta.value = text; ta.focus(); }
+  const q = $('#aiQuality'); if (q) { q.value = 'careful'; S.aiQuality = 'careful'; }
+  toast('Revise prefilled for stance — review and Apply changes');
+}
 function feedbackCardHtml() {
   if (!S.feedback.pending && !S.lastRun) return '';
   const tags = CAD.store.FAILURE_TAGS || [];
   const selected = new Set(S.feedback.tags || []);
   const rate = S.feedback.rating;
+  const showStance = stanceFixAvailable();
   return `<h3>Does this match your image?</h3>
     <div class="grid2" id="fbRates">
       <button type="button" class="btn sm${rate === 'match' ? ' on' : ''}" data-rate="match">Match</button>
@@ -1203,6 +1224,7 @@ function feedbackCardHtml() {
       <button type="button" class="btn sm" id="fbSave">Save feedback</button>
       <button type="button" class="btn sm pri" id="fbCorrect">Mark correct for training</button>
     </div>
+    ${showStance ? `<button type="button" class="btn sm pri" id="fbFixStance" style="width:100%;margin-top:8px">Fix stance with Revise…</button>` : ''}
     <div class="card" style="margin-top:6px;font-size:12px;color:var(--dim)">“Mark correct” stores a compact example used as few-shot guidance on later generates (stays in this browser). It does not fine-tune the cloud model.</div>
     ${S.lastRun && (S.lastRun.visualCritic || S.lastRun.photoScore) ? `<div class="card" style="margin-top:6px">${visualStatusHtml(S.lastRun.visualCritic, S.lastRun.photoScore)}</div>` : ''}`;
 }
@@ -1217,6 +1239,7 @@ function bindFeedbackCard() {
   const note = $('#fbNote'); if (note) note.oninput = () => { S.feedback.note = note.value; };
   const save = $('#fbSave'); if (save) save.onclick = () => { if (!S.feedback.rating) return toast('Pick Match, Close, or Wrong first'); submitFeedback(S.feedback.rating); };
   const ok = $('#fbCorrect'); if (ok) ok.onclick = () => markExampleCorrect();
+  const fix = $('#fbFixStance'); if (fix) fix.onclick = () => startStanceRevise();
 }
 
 

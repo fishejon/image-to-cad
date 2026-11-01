@@ -3,7 +3,41 @@
   "iou": 0.11,
   "ratingHint": "Close+",
   "missing_block": null,
-  "notes": "Bespoke build123d + Gauntlet. Raw STL silhouette IoU=0.11 vs room photo is not trusted (photo mask fill 6912/9216 — background clutter). Keep Close+ until subject-masked IoU or studio reshoot. Measured: measure-stl-iou.mjs vs lab/furniture_cad/out/chair_02_bespoke/chair_02.stl.",
+  "notes": "Bespoke build123d + Gauntlet. Raw STL silhouette IoU=0.11 vs room photo is not trusted (photo mask fill 6912/9216 — background clutter). Keep Close+ until subject-masked IoU or studio reshoot. Measured: measure-stl-iou.mjs vs lab/furniture_cad/out/chair_02_bespoke/chair_02.stl. Create IoU via measure-chair-iou.mjs --spec (0.948 → Match).",
   "expectRating": "Close+",
-  "iou_quality": "untrusted_room_background"
+  "iou_quality": "untrusted_room_background",
+  "create": {
+    "at": "2026-11-01T22:34:37.197Z",
+    "quality": "careful",
+    "model": "claude-sonnet-5-5",
+    "durationMs": 390465,
+    "geometryOk": true,
+    "round": 2,
+    "likenessPenalty": 22,
+    "inventoryStance": {
+      "legStance": "raked",
+      "frontLean": "forward",
+      "rearLean": "aft",
+      "backRake": "aft",
+      "rakeBreak": "seat",
+      "memberContinuity": "mixed"
+    },
+    "inferredStance": {
+      "stance": "raked",
+      "frontForward": true,
+      "aftAboveSeat": true,
+      "nearSeatBreak": true,
+      "leanSweeps": 2,
+      "verticalLegs": 1
+    },
+    "inventorySummary": "mid-century modern dining side chair · aspect 1.05:1.10:1.75 · 4 legs · mixed members · rect section · raked stance · front forward · rear aft · back rake aft · break at seat",
+    "specPath": "evals/photos/chairs/out/chair_02.create.json",
+    "iou": 0.948,
+    "iou_quality": "untrusted_room_background",
+    "rating": "Close+",
+    "ratingHint": "Close+",
+    "wedge": true,
+    "measuredAt": "2026-11-01T22:35:11.603Z",
+    "notes": "Raw Create IoU=0.948 vs room photo is not trusted (same mask saturation issue as gold STL). Keep Close+ until subject-masked IoU. Stance profile correct (front forward, aft above seat, break at seat)."
+  }
 }

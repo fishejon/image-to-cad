@@ -30,4 +30,5 @@ evals/photos/**/*.png
 evals/photos/**/*.webp
 evals/photos/**/*.heic
 evals/photos/**/failure_log.jsonl
+evals/photos/**/out/
 

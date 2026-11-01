@@ -901,6 +901,43 @@ V.summarizeInventory = function (inv) {
   return bits.join(' · ');
 };
 
+/**
+ * Build a Revise prompt that closes the gap from Close+/Close → Match for stance.
+ * Category-agnostic: uses inventory.structure + optional analyzeStance(spec).
+ */
+V.stanceReviseHints = function (inventory, spec) {
+  const st = (inventory && inventory.structure) || {};
+  const lines = [];
+  const front = String(st.frontLean || '').toLowerCase();
+  const rear = String(st.rearLean || '').toLowerCase();
+  const back = String(st.backRake || '').toLowerCase();
+  const brk = String(st.rakeBreak || '').toLowerCase();
+  const stance = String(st.legStance || '').toLowerCase();
+  const got = spec ? V.analyzeStance(spec) : null;
+  if (/forward/.test(front) && (!got || !got.frontForward)) {
+    lines.push('Front legs (or the front of each side-frame below the seat): lean FORWARD — mesh sweep with −Y as Z rises below Hs. Do not leave them plumb boxes.');
+  }
+  if ((/aft/.test(back) || /aft/.test(rear)) && (!got || (!got.aftAboveSeat && !got.rearAft))) {
+    lines.push('Rear posts / backrest ABOVE the seat: rake AFT — +Y as Z rises above Hs.');
+  } else if (/aft/.test(back) && got && got.rearAft && !got.aftAboveSeat) {
+    lines.push('Aft lean is only below the seat (kicked foot). Move the aft rake ABOVE Hs so the crest angles backward; keep a path node at Hs.');
+  }
+  if (brk === 'seat' && (!got || !got.nearSeatBreak)) {
+    lines.push('rakeBreak is at the seat: put a sweep control point at/near Hs and change lean there — not one long floor→crest diagonal, and not a plumb crest.');
+  }
+  if (/raked|splayed|canted/.test(stance) && got && got.stance === 'vertical') {
+    lines.push('Inventory legStance is ' + stance + ' but members are plumb. Rebuild leaning members as mesh sweeps (never vertical solid boxes or axis:+z cylinders).');
+  }
+  if (!lines.length) {
+    if (/forward/.test(front) || /aft/.test(back) || brk === 'seat') {
+      lines.push('Preserve current stance. Only refine frontLean / backRake / rakeBreak to better match the photo silhouette.');
+    } else return '';
+  }
+  lines.unshift('Fix STANCE PROFILE only (keep overall size, cushion, and joinery that already work):');
+  lines.push('Define or keep params Hs (seat height) and Hb (overall height). FRONT=−Y, BACK=+Y, +Z up.');
+  return lines.join(' ');
+};
+
 /* ---------- the loop ---------- */
 V.run = async function (o) {
   const log = o.onLog || (() => {}), max = o.maxRounds || 3, call = V.providers[o.provider.kind]; if (!call) throw new Error('unknown provider ' + o.provider.kind);
