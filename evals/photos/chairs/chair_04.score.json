@@ -3,6 +3,38 @@
   "iou": 0.641,
   "ratingHint": "Close+",
   "missing_block": "leg_apron_fillet",
-  "notes": "Silhouette vs examples/lakin-chair.json (catalog dims). IoU=0.641 Close+. Organic front fillet still approximate. measure-chair-iou.mjs --example lakin-chair.",
-  "expectRating": "Close+"
+  "notes": "Silhouette vs examples/lakin-chair.json (catalog dims). IoU=0.641 Close+. Organic front fillet still approximate. measure-chair-iou.mjs --example lakin-chair. Create IoU via measure-chair-iou.mjs --spec (0.641 → Close+).",
+  "expectRating": "Close+",
+  "create": {
+    "at": "2026-11-01T22:27:59.627Z",
+    "quality": "careful",
+    "model": "claude-sonnet-5-5",
+    "durationMs": 278237,
+    "geometryOk": true,
+    "round": 2,
+    "likenessPenalty": 0,
+    "inventoryStance": {
+      "legStance": "raked",
+      "frontLean": "forward",
+      "rearLean": "aft",
+      "backRake": "aft",
+      "rakeBreak": "seat",
+      "memberContinuity": "continuous"
+    },
+    "inferredStance": {
+      "stance": "raked",
+      "frontForward": true,
+      "aftAboveSeat": true,
+      "nearSeatBreak": true,
+      "leanSweeps": 2,
+      "verticalLegs": 2
+    },
+    "inventorySummary": "upholstered oak dining side chair · aspect 1.00:1.15:1.78 · 4 legs · continuous members · tapered section · raked stance · front forward · rear aft · back rake aft · break at seat",
+    "specPath": "evals/photos/chairs/out/chair_04.create.json",
+    "iou": 0.641,
+    "rating": "Close+",
+    "ratingHint": "Close+",
+    "wedge": true,
+    "measuredAt": "2026-11-01T22:34:59.727Z"
+  }
 }

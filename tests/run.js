@@ -297,6 +297,8 @@ const full = M => { const man = CAD.manifoldReport(M).filter(r => r.bad), it = C
     const likeGood = CAD.vision.likeness({ size: [400, 500, 800], defs: new Map() }, inv, { spec: good });
     ok(likeGood.penalty < likeBad.penalty, 'good better than bad');
     ok(!/frontLean|rakeBreak/i.test(likeGood.text || ''), 'good likeness clean');
+    const fixText = CAD.vision.stanceReviseHints(inv, kickedFootOnly);
+    ok(/STANCE PROFILE|front|rake|Hs/i.test(fixText), 'revise hints');
   });
   await t('coarse AABB interference reports mesh overlaps; exact solids unchanged', () => {
     const solidOk = CAD.buildSpec(V.EXAMPLE);
