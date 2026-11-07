@@ -13,7 +13,58 @@ const S = { M: null, spec: null, ov: {}, R: [], kin: {}, sel: new Set(), hiddenD
   sec: { on: false, axis: 'y', off: 0, inv: false }, edges: true, meas: { on: false, pts: [], objs: [] }, q: '', need: true, hov: null, collapsed: new Set(), mv: {},
   ex: { scale: 5, bed: [220, 220, 250], split: true }, lastErrors: [], lastWarnings: [], ai: { img: null, busy: false, log: [], abort: null, reasoning: '', inventory: null, refOpen: true }, examples: {}, nav: 'orbit', movePlane: 'xy', leftOn: true, rightOn: true,
   docs: {}, docId: null, aiMode: 'photo', aiPanel: 'create', aiQuality: 'balanced',
+  shopScreen: null, /* null | intake | readback | progress | review — shop-grade Create */
   feedback: { rating: null, tags: [], note: '', pending: false }, lastRun: null, target: null };
+function parseFracNum(s) {
+  s = String(s || '').trim();
+  const m = /^(\d+)\s+(\d+)\s*\/\s*(\d+)$/.exec(s);
+  if (m) return +m[1] + (+m[2] / +m[3]);
+  const f = /^(\d+)\s*\/\s*(\d+)$/.exec(s);
+  if (f) return +f[1] / +f[2];
+  return parseFloat(s);
+}
+function parseShopLength(raw) {
+  const s = String(raw || '').trim().replace(/″/g, '"').replace(/['′]/g, '');
+  if (!s) return NaN;
+  const mm = /([\d./\s]+)\s*mm\b/i.exec(s);
+  if (mm) return parseFracNum(mm[1]);
+  const inch = /([\d./\s]+)\s*(in|inch|inches|")?\s*$/i.exec(s);
+  if (inch) return parseFracNum(inch[1]) * 25.4;
+  return parseFracNum(s) * 25.4;
+}
+function shopStepFromLog(msg) {
+  const m = String(msg || '').toLowerCase();
+  if (/inventor|reading|photo|inventory/.test(m)) return 'read';
+  if (/build|generat|spec|round\s*1|compiling|geometry/.test(m)) return 'build';
+  if (/check|critic|iou|silhouette|likeness|photo match/.test(m)) return 'check';
+  if (/adjust|fix|revise|round\s*[2-9]|repair/.test(m)) return 'adjust';
+  if (/list|cut list|material|bom/.test(m)) return 'lists';
+  return null;
+}
+function syncShopProgress(msg) {
+  if (!CAD.shop || CAD.shop.state.mode !== 'shop') return;
+  const step = shopStepFromLog(msg);
+  if (step) CAD.shop.state.stepId = step;
+  if (msg) CAD.shop.state.statusLine = String(msg).slice(0, 160);
+  const rm = /round\s*(\d+)/i.exec(String(msg || ''));
+  if (rm) CAD.shop.state.round = +rm[1];
+  if (S.shopScreen === 'progress') {
+    const line = $('#shopStatusLine');
+    if (line) line.innerHTML = '<b>Now:</b> ' + esc(CAD.shop.state.statusLine || 'Working…');
+    const box = $('#p-ai .shopProgress');
+    if (box && CAD.shop.progressHtml) {
+      /* light refresh of step list without full re-bind */
+      const ol = box.querySelector('.shopSteps');
+      if (ol) {
+        ol.innerHTML = CAD.shop.STEPS.map(s => {
+          const on = s.id === CAD.shop.state.stepId;
+          const done = CAD.shop.STEPS.findIndex(x => x.id === CAD.shop.state.stepId) > CAD.shop.STEPS.findIndex(x => x.id === s.id);
+          return `<li class="${done ? 'done' : ''}${on ? ' on' : ''}">${esc(s.label)}</li>`;
+        }).join('');
+      }
+    }
+  }
+}
 const uid = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function blankSpec(name) {
   return {
@@ -68,6 +119,16 @@ function nextUntitled() {
   const names = new Set(Object.values(S.docs).map(d => d.name)); let i = 1; while (names.has('Untitled ' + i)) i++; return 'Untitled ' + i;
 }
 function newDesign() {
+  if (CAD.shop) {
+    CAD.shop.state.photos = [];
+    CAD.shop.state.knownSize = null;
+    CAD.shop.state.noSize = false;
+    CAD.shop.state.materialsBrief = '';
+    CAD.shop.state.assumptions = [];
+    CAD.shop.state.previews = [];
+    CAD.shop.state.round = 0;
+    if (CAD.shop.state.mode === 'shop') S.shopScreen = 'intake';
+  }
   const name = nextUntitled(), id = addDoc(blankSpec(name), { name });
   openDoc(id);
   S.ai.img = null; S.ai.inventory = null; S.ai.reasoning = ''; S.ai.log = [];
@@ -485,19 +546,20 @@ function renderInspect() {
   if (!S.sel.size) {
     if (!M.insts.length) {
       el.innerHTML = `<h3>${esc(M.meta.name)}</h3>
-        <div class="card">${esc(M.meta.description || 'Empty design — upload a photo or drawing to generate.')}</div>
+        <div class="card"><b>First run</b> ${esc(M.meta.description || 'Take a picture, get something you can build.')} One known size (overall height, width, or depth) makes the cut list trustworthy.</div>
         <div class="grid2" style="margin-top:8px">
           <button type="button" class="btn pri" id="inspCreate">Upload image…</button>
           <button type="button" class="btn" id="inspDrawing">Drawing + dims…</button>
         </div>
-        <div class="card" style="margin-top:8px">Or paste an image, or open an example from the design menu. Spec tab edits the JSON directly.</div>`;
+        <div class="card" style="margin-top:8px;font-size:12px;color:var(--dim)">Shop-grade is the default Create path. Switch to Classic under Run mode if you only need a fast shape. Paste an image anytime, or open an example from the design menu.</div>`;
       const goCreate = (mode) => { S.aiMode = mode; S.aiPanel = 'create'; openAI('create'); };
       const c = $('#inspCreate'); if (c) c.onclick = () => goCreate('photo');
       const d = $('#inspDrawing'); if (d) d.onclick = () => goCreate('drawing');
       return;
     }
     let mass = 0; const byMat = {}; M.insts.forEach(i => { const d = M.defs.get(i.def); mass += d.mass; const k = (CAD.MATS[d.solid.mat] || {}).name || d.solid.mat; byMat[k] = (byMat[k] || 0) + d.mass; });
-    el.innerHTML = `<h3>${esc(M.meta.name)}</h3>${M.meta.description ? `<div class="card">${esc(M.meta.description)}</div>` : ''}<div class="kv"><span>Overall size</span><span>${inch3(M.size)}</span><span>Part types / pieces</span><span>${M.defs.size} / ${M.insts.length}</span><span>Weight (est.)</span><span>${lb(mass)}</span>${Object.entries(byMat).map(([k, v]) => `<span>${esc(k)}</span><span>${lb(v)}</span>`).join('')}</div>
+    const scope = CAD.shop ? CAD.shop.scopeBannerHtml() : '';
+    el.innerHTML = `<h3>${esc(M.meta.name)}</h3>${scope}${M.meta.description ? `<div class="card">${esc(M.meta.description)}</div>` : ''}<div class="kv"><span>Overall size</span><span>${inch3(M.size)}</span><span>Part types / pieces</span><span>${M.defs.size} / ${M.insts.length}</span><span>Weight (est.)</span><span>${lb(mass)}</span>${Object.entries(byMat).map(([k, v]) => `<span>${esc(k)}</span><span>${lb(v)}</span>`).join('')}</div>
       ${feedbackCardHtml()}
       ${S.ai.inventory ? `<h3>Picture inventory</h3><div class="card">${esc(CAD.vision.summarizeInventory(S.ai.inventory) || 'Captured')}${S.ai.inventory.notes ? '<br>' + esc(S.ai.inventory.notes) : ''}</div>` : ''}
       ${S.ai.reasoning ? `<h3>AI thought process</h3><div class="card">${esc(S.ai.reasoning)}</div>` : ''}
@@ -543,8 +605,15 @@ function renderInspect() {
   const sz = d.size, rows = d.solid.exact ? fillFor().filter(r => r.part === d.id + '#' + first.inst.qtyIdx) : [], by = {};
   rows.forEach(r => { const k = r.tag; (by[k] = by[k] || { n: 0, by: new Set(), ok: true }).n++; r.by.split('+').filter(Boolean).forEach(x => by[k].by.add(x)); if (r.ratio < .999) by[k].ok = false; });
   const lab = {}; (d.solid.feat || []).forEach(f => { if (f.label && !lab[f.tag]) lab[f.tag] = f.label; });
-  el.innerHTML = `<h3>${esc(d.name)}</h3><div class="kv"><span>Group</span><span>${esc(gname(d.grp))}</span><span>Quantity</span><span>${d.qty}${d.qty > 1 ? ' (this is #' + first.inst.qtyIdx + ')' : ''}</span><span>Size</span><span>${inch3(sz)}</span>
+  const badge = (CAD.uiTerms && CAD.uiTerms.statusBadge) ? CAD.uiTerms.statusBadge : (k => k);
+  const scaleBadge = CAD.shop && CAD.shop.state.knownSize && !CAD.shop.state.noSize ? badge('measured') : badge('estimated');
+  el.innerHTML = `<div class="partCard"><h3>${esc(d.name)} ${scaleBadge}</h3>
+    <div class="kv"><span>Group</span><span>${esc(gname(d.grp))}</span><span>Quantity</span><span>${d.qty}${d.qty > 1 ? ' (this is #' + first.inst.qtyIdx + ')' : ''}</span><span>Size (T×W×L)</span><span>${inch3(sz)}</span>
     <span>Material</span><span>${esc((CAD.MATS[d.solid.mat] || {}).name || d.solid.mat)}</span><span>Kind</span><span>${d.solid.exact ? 'solid (exact boolean)' : 'mesh primitives'}</span><span>Volume / mass</span><span>${fmt(d.vol / 1000, 1)} cm³ · ${lb(d.mass)}</span><span>Step</span><span>${first.inst.step + 1}. ${esc((S.M.steps[first.inst.step] || {}).title || '')}</span></div>
+    <div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">
+      <button class="btn sm" data-a="adjust">Adjust size…</button>
+      <button class="btn sm pri" data-a="ask">Ask for a change…</button>
+    </div></div>
     ${matPicker()}
     ${d.spec || d.notes.length ? `<div class="card"><b>Spec</b>${esc(note(d.spec))}${d.notes.length ? '<br>' + d.notes.map(n => esc(note(n))).join('<br>') : ''}</div>` : ''}
     ${Object.keys(by).length ? `<h3>Joinery on this part</h3><table>${Object.entries(by).map(([tag, v]) => `<tr><td>${esc(note(lab[tag] || tag))}</td><td class="n">${v.n}×</td><td class="${v.ok ? 'pass' : 'fail'}">${v.ok ? '✓ ' + esc([...v.by].join(', ')) : '✗ not filled'}</td></tr>`).join('')}</table>` : ''}${acts()}`; bindActs();
@@ -582,7 +651,16 @@ function bindActs() {
     else if (a === 'showall') showAll();
     else if (a === 'del') deleteSelected();
     else if (a === 'stlp') exportSelected();
-    else if (a === 'ai') { openAI('revise'); const t = $('#aiRevise'); if (t) t.focus(); }
+    else if (a === 'ai' || a === 'ask') {
+      openAI('revise');
+      const t = $('#aiRevise');
+      if (t) {
+        const names = selectedPartIds().map(id => (S.M.defs.get(id) || {}).name || id);
+        if (!t.value && names.length) t.value = 'Change ' + names.join(', ') + ': ';
+        t.focus();
+      }
+    }
+    else if (a === 'adjust') setTab('param');
     else if (a === 'aij') startJointRevise(S.target && S.target.method);
     else if (a === 'cleart') { clearTarget(); setSel([]); }
   });
@@ -655,16 +733,26 @@ function applyOverallSize() {
 function renderParam() {
   const el = $('#p-param'), M = S.M, pd = M.paramDefs;
   const [cw, cd, ch] = M.size;
+  const sel = S.sel.size === 1 ? [...S.sel][0].def : null;
   const overall = `<h3>Overall size</h3><div class="card">Current: <b>${inch3(M.size)}</b>. Set target overall size in inches — the model rebuilds to fill that box.</div>
     <div class="row"><label>Width</label><input id="ovW" type="text" value="${esc(CAD.fmtInch(cw).replace(/"$/, ''))}" style="flex:1" placeholder='e.g. 55'></div>
     <div class="row"><label>Depth</label><input id="ovD" type="text" value="${esc(CAD.fmtInch(cd).replace(/"$/, ''))}" style="flex:1" placeholder='e.g. 16'></div>
     <div class="row"><label>Height</label><input id="ovH" type="text" value="${esc(CAD.fmtInch(ch).replace(/"$/, ''))}" style="flex:1" placeholder='e.g. 33 1/2'></div>
     <button class="btn pri sm" id="ovApply" style="width:100%;margin:4px 0 10px">Apply overall size</button>`;
-  el.innerHTML = overall + (pd.length ? '<h3>Parameters (releasing a slider re-cuts every joint)</h3>' + pd.map((p, i) => slider('pp' + i, esc(p.label), p.min, p.max, p.step, p.value, outVal(p.value, p.unit))).join('') + '<div class="grid2"><button class="btn sm" id="pReset">Reset to spec defaults</button><button class="btn sm" id="pSpec">Edit in spec</button></div>'
+  const partBlock = sel ? `<h3>Selected · ${esc(sel.name)}</h3>
+    <div class="card">Blank size ${inch3(sel.size)}. Edit overall size above, or use named parameters. Ask for a change opens Revise focused on this part.</div>
+    <button class="btn sm" id="pAsk" style="width:100%;margin-bottom:10px">Ask for a change…</button>` : '';
+  el.innerHTML = overall + partBlock + (pd.length ? '<h3>Named dimensions</h3>' + pd.map((p, i) => slider('pp' + i, esc(p.label), p.min, p.max, p.step, p.value, outVal(p.value, p.unit))).join('') + '<div class="grid2"><button class="btn sm" id="pReset">Reset to spec defaults</button><button class="btn sm" id="pSpec">Edit in spec</button></div>'
     : '<div class="card"><b>No named parameters</b>This design uses fixed numbers. Overall size still works by scaling the whole model.</div>') +
     `<h3>Assembly sequence</h3><ol style="margin:0;padding-left:18px">${M.steps.map(s => `<li>${esc(s.title)}</li>`).join('')}</ol>`;
   $('#ovApply').onclick = applyOverallSize;
-  pd.forEach((p, i) => { const e = $('#pp' + i); e.oninput = () => $('#pp' + i + 'o').textContent = outVal(+e.value, p.unit); e.onchange = () => { const ov = {}; pd.forEach((q, j) => ov[q.key] = +$('#pp' + j).value); toast('Re-cutting joinery…'); setTimeout(() => { loadSpec(S.spec, ov, true); toast('Rebuilt: ' + inch3(S.M.size)); }, 20); }; });
+  const ask = $('#pAsk');
+  if (ask) ask.onclick = () => {
+    openAI('revise');
+    const t = $('#aiRevise');
+    if (t) { t.value = 'Change ' + sel.name + ': '; t.focus(); }
+  };
+  pd.forEach((p, i) => { const e = $('#pp' + i); e.oninput = () => $('#pp' + i + 'o').textContent = outVal(+e.value, p.unit); e.onchange = () => { const ov = {}; pd.forEach((q, j) => ov[q.key] = +$('#pp' + j).value); toast('Re-cutting joinery…'); setTimeout(() => { loadSpec(S.spec, ov, true); toast('Rebuilt: ' + inch3(S.M.size)); renderLists(); }, 20); }; });
   if (pd.length) { $('#pReset').onclick = () => loadSpec(S.spec, {}, true); $('#pSpec').onclick = () => setTab('spec'); }
 }
 
@@ -794,7 +882,20 @@ function showCut() {
 $('#mclose').onclick = () => $('#modal').style.display = 'none';
 
 /* ---------------- review ---------------- */
-function renderReview() { $('#p-review').innerHTML = `<h3>Design checks</h3><button class="btn pri sm" id="rRun" style="width:100%">Run all checks</button><div id="rOut"></div><h3>AI loop log</h3><div class="log" id="rLog">${S.ai.log.length ? S.ai.log.map(esc).join('<br>') : 'No AI run yet.'}</div>`; $('#rRun').onclick = runChecks; }
+function renderReview() {
+  const timeline = CAD.shop ? CAD.shop.timelineHtml(S.ai.log) : '';
+  const banner = CAD.shop ? CAD.shop.scopeBannerHtml() : '';
+  const worker = CAD.shop && CAD.shop.state.workerOnline != null
+    ? `<div class="card" style="margin-bottom:8px"><b>Worker</b> ${CAD.shop.state.workerOnline ? 'online' : 'offline — Classic Create still available'}</div>`
+    : '';
+  $('#p-review').innerHTML = `${banner}${worker}<h3>Design checks</h3><button class="btn pri sm" id="rRun" style="width:100%">Run all checks</button><div id="rOut"></div>
+    ${timeline}
+    <h3>AI loop log</h3><div class="log" id="rLog">${S.ai.log.length ? S.ai.log.map(esc).join('<br>') : 'No AI run yet.'}</div>`;
+  $('#rRun').onclick = runChecks;
+  const copy = $('#shopCopyLog');
+  if (copy) copy.onclick = () => { navigator.clipboard.writeText(S.ai.log.join('\n')).then(() => toast('Log copied'), () => toast('Could not copy')); };
+  if (CAD.shop) CAD.shop.pingWorker().then(() => { /* refresh badge next open */ });
+}
 function runChecks() {
   const out = $('#rOut'); out.innerHTML = '<div class="card">Running…</div>';
   setTimeout(() => { const M = S.M, t0 = performance.now(), man = CAD.manifoldReport(M).filter(r => r.bad), it = CAD.interference(M), fl = CAD.jointFill(M), bad = fl.filter(r => r.ratio < .999); fillRows = fl;
@@ -829,15 +930,50 @@ const AI_MODELS = [
   { id: 'claude-opus-4-5', label: 'Claude Opus 4.5', hint: 'High quality' },
   { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', hint: 'Faster / cheaper' }
 ];
-function aiLog(m) { S.ai.log.push(m); const el = $('#aiLog'); if (el) { el.innerHTML = S.ai.log.map(esc).join('<br>'); el.scrollTop = 1e9; } const r = $('#rLog'); if (r) r.innerHTML = S.ai.log.map(esc).join('<br>'); }
+function aiLog(m) {
+  S.ai.log.push(m);
+  const el = $('#aiLog'); if (el) { el.innerHTML = S.ai.log.map(esc).join('<br>'); el.scrollTop = 1e9; }
+  const r = $('#rLog'); if (r) r.innerHTML = S.ai.log.map(esc).join('<br>');
+  syncShopProgress(m);
+}
 function downscale(file, max) { return new Promise((res, rej) => { const img = new Image(), url = URL.createObjectURL(file); img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', .86)); }; img.onerror = () => rej(new Error('could not read the image')); img.src = url; }); }
-async function setImage(file) { if (!file || !/^image\//.test(file.type)) return toast('Please choose an image file'); try { const u = await downscale(file, 1568); S.ai.img = u; S.ai.inventory = null; const prev = $('#aiPrev'); if (prev) { prev.src = u; prev.style.display = 'block'; } const t = $('#aiDropT'); if (t) t.textContent = file.name || 'pasted image'; syncRefPane(); } catch (e) { toast(e.message); } }
+async function setImage(file) {
+  if (!file || !/^image\//.test(file.type)) return toast('Please choose an image file');
+  try {
+    const u = await downscale(file, 1568);
+    S.ai.img = u; S.ai.inventory = null;
+    if (CAD.shop) {
+      if (!CAD.shop.state.photos.length) CAD.shop.state.photos.push({ url: u, role: 'front' });
+      else CAD.shop.state.photos[0] = { url: u, role: CAD.shop.state.photos[0].role || 'front' };
+    }
+    const prev = $('#aiPrev'); if (prev) { prev.src = u; prev.style.display = 'block'; }
+    const t = $('#aiDropT'); if (t) t.textContent = file.name || 'pasted image';
+    syncRefPane();
+    if (S.shopScreen === 'intake') renderAI();
+  } catch (e) { toast(e.message); }
+}
 function syncRefPane() {
-  const pane = $('#refPane'), img = $('#refImg'), show = $('#refShow'), inv = $('#refInv');
+  const pane = $('#refPane'), img = $('#refImg'), show = $('#refShow'), inv = $('#refInv'), cmp = $('#refCompare');
   if (!pane || !img) return;
   if (!S.ai.img) { pane.hidden = true; if (show) show.hidden = true; return; }
   img.src = S.ai.img;
   if (inv) inv.textContent = S.ai.inventory ? (CAD.vision.summarizeInventory(S.ai.inventory) || '') : '';
+  if (cmp && CAD.shop) {
+    cmp.innerHTML = CAD.shop.compareHtml(S.ai.img);
+    $$('#refCompare [data-cmp]').forEach(b => b.onclick = () => {
+      CAD.shop.state.compare = b.dataset.cmp;
+      syncRefPane();
+    });
+    const ov = $('#shopOverlay');
+    if (ov) ov.oninput = () => {
+      CAD.shop.state.overlayT = +ov.value / 100;
+      img.style.opacity = String(0.25 + CAD.shop.state.overlayT * 0.75);
+    };
+    if (CAD.shop.state.compare === 'overlay') img.style.opacity = String(0.25 + CAD.shop.state.overlayT * 0.75);
+    else img.style.opacity = '1';
+    if (CAD.shop.state.compare === 'silhouette') img.style.filter = 'grayscale(1) contrast(2)';
+    else img.style.filter = '';
+  }
   const open = S.ai.refOpen !== false;
   pane.hidden = !open;
   if (show) show.hidden = open;
@@ -914,6 +1050,123 @@ function qualityFromUI() {
   S.aiQuality = id;
   return CAD.store.qualityPreset(id);
 }
+function bindShopIntake() {
+  const drop = $('#shopDrop'); if (!drop) return;
+  const addFiles = async (files) => {
+    for (const f of [...files || []]) {
+      if (!f || !/^image\//.test(f.type)) continue;
+      const u = await downscale(f, 1568);
+      CAD.shop.state.photos.push({ url: u, role: CAD.shop.state.photos.length ? 'detail' : 'front' });
+      if (!S.ai.img) { S.ai.img = u; syncRefPane(); }
+    }
+    renderAI();
+  };
+  drop.onclick = () => $('#shopFile').click();
+  $('#shopFile').onchange = e => addFiles(e.target.files);
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add('on'); };
+  drop.ondragleave = () => drop.classList.remove('on');
+  drop.ondrop = e => { e.preventDefault(); drop.classList.remove('on'); addFiles(e.dataTransfer.files); };
+  $$('#p-ai [data-rm]').forEach(b => b.onclick = () => { CAD.shop.state.photos.splice(+b.dataset.rm, 1); if (CAD.shop.state.photos[0]) S.ai.img = CAD.shop.state.photos[0].url; renderAI(); });
+  $$('#p-ai input[name=shopMode]').forEach(r => r.onchange = () => { CAD.shop.state.mode = r.value; renderAI(); });
+  const go = $('#shopContinue');
+  const syncGo = () => {
+    CAD.shop.state.noSize = !!($('#shopNoSize') && $('#shopNoSize').checked);
+    CAD.shop.state.materialsBrief = ($('#shopMats') && $('#shopMats').value) || '';
+    const hasPhoto = CAD.shop.state.photos.length || S.ai.img;
+    if (go) go.disabled = !hasPhoto;
+  };
+  ['shopNoSize', 'shopMats', 'shopSize', 'shopDim'].forEach(id => { const el = $('#' + id); if (el) el.oninput = syncGo; el && (el.onchange = syncGo); });
+  syncGo();
+  if (go) go.onclick = () => {
+    const raw = ($('#shopSize') && $('#shopSize').value || '').trim();
+    CAD.shop.state.noSize = !!($('#shopNoSize') && $('#shopNoSize').checked);
+    if (!CAD.shop.state.noSize && raw) {
+      const dim = ($('#shopDim') && $('#shopDim').value) || 'h';
+      const mm = parseShopLength(raw);
+      if (!(mm > 0)) return toast('Could not parse that size — try e.g. 32 in or 813 mm');
+      CAD.shop.state.knownSize = { dim, valueMm: mm, label: raw };
+    } else if (!CAD.shop.state.noSize && !raw) return toast('Enter one known size, or check “I don’t know a size”');
+    CAD.shop.state.materialsBrief = ($('#shopMats') && $('#shopMats').value) || '';
+    if (CAD.shop.state.mode === 'classic') {
+      S.shopScreen = null;
+      /* fall through to classic create with photo already set */
+      if (CAD.shop.state.photos[0]) S.ai.img = CAD.shop.state.photos[0].url;
+      renderAI();
+      return;
+    }
+    S.shopScreen = 'readback';
+    renderAI();
+  };
+}
+function bindShopReadback() {
+  $('#shopBackIntake') && ($('#shopBackIntake').onclick = () => { S.shopScreen = 'intake'; renderAI(); });
+  $('#shopStartBuild') && ($('#shopStartBuild').onclick = () => startShopBuild());
+}
+async function startShopBuild() {
+  S.shopScreen = 'progress';
+  CAD.shop.state.startedAt = Date.now();
+  CAD.shop.state.round = 0;
+  CAD.shop.state.stepId = 'read';
+  CAD.shop.state.statusLine = 'Reading your photo…';
+  CAD.shop.state.previews = [];
+  CAD.shop.state.bestSpec = S.spec ? JSON.parse(JSON.stringify(S.spec)) : null;
+  renderAI();
+  const online = await CAD.shop.pingWorker();
+  if (!online) {
+    CAD.shop.state.statusLine = 'Worker offline — falling back to Classic Create';
+    renderAI();
+    toast('Worker offline — using Classic Create');
+    S.shopScreen = null;
+    CAD.shop.state.mode = 'classic';
+    if (CAD.shop.state.photos[0]) S.ai.img = CAD.shop.state.photos[0].url;
+    renderAI();
+    return runAI('design');
+  }
+  /* Worker online: still drive Classic loop locally for model until job relay is always-on;
+     progress UI matches shop-grade steps via aiLog hooks. */
+  CAD.shop.state.statusLine = 'Worker reachable — building with Create loop + Lists';
+  renderAI();
+  return runAI('design');
+}
+function bindShopProgress() {
+  $('#shopStopKeep') && ($('#shopStopKeep').onclick = () => {
+    if (S.ai.abort) S.ai.abort.abort();
+    toast('Stopped — keeping best result so far');
+    S.shopScreen = 'review';
+    renderAI();
+    setTab('lists');
+  });
+  $('#shopBg') && ($('#shopBg').onclick = () => { closeAI(); toast('Running in background — reopen Create to check progress'); });
+  $('#shopCancel') && ($('#shopCancel').onclick = () => {
+    if (!confirm('Cancel with no result?')) return;
+    if (S.ai.abort) S.ai.abort.abort();
+    S.shopScreen = 'intake';
+    toast('Cancelled');
+    renderAI();
+  });
+  $('#shopPrevPrev') && ($('#shopPrevPrev').onclick = () => {
+    const p = CAD.shop.state.previews;
+    if (p.length > 1) { p.pop(); renderAI(); }
+  });
+}
+function bindShopReview() {
+  $('#shopAccept') && ($('#shopAccept').onclick = () => {
+    S.shopScreen = null;
+    closeAI();
+    setTab('lists');
+    toast('Accepted — review Buy and Cut lists');
+  });
+  $('#shopFix') && ($('#shopFix').onclick = () => {
+    S.shopScreen = null;
+    S.aiPanel = 'revise';
+    renderAI();
+    toast('Describe what to fix');
+  });
+  $('#shopRetry') && ($('#shopRetry').onclick = () => {
+    S.shopScreen = 'intake';
+    renderAI();
+  });
+}
 function renderAI() {
   const inClaude = !!window.claude, remembered = (() => { try { return localStorage.getItem('image-to-cad.key') || ''; } catch (e) { return ''; } })();
   const hosted = location.protocol !== 'file:';
@@ -923,9 +1176,14 @@ function renderAI() {
   const createOn = S.aiPanel !== 'revise';
   const q = CAD.store.qualityPreset(S.aiQuality || 'balanced');
   const title = $('#aiTitle'); if (title) title.textContent = createOn ? 'Create from image' : 'Revise design';
+  if (createOn && CAD.shop && CAD.shop.state.mode === 'shop' && !S.shopScreen) S.shopScreen = 'intake';
+  if (createOn && CAD.shop && CAD.shop.state.mode === 'classic') S.shopScreen = null;
+  if (S.ai.busy && CAD.shop && CAD.shop.state.mode === 'shop') S.shopScreen = 'progress';
+  const shopOn = !!(createOn && CAD.shop && CAD.shop.state.mode === 'shop' && S.shopScreen);
   const connBlock = `
-  <details style="margin-top:14px"><summary style="cursor:pointer;color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase">Connection &amp; model</summary>
-  <div class="card" style="margin-top:8px"><b>Classic Create</b> uses the options below (server proxy or browser key). <b>Shop-grade</b> (worker loop → model + lists) will hide keys here and run on the worker — see Lists tab + docs/plans/ui-ux-shop-grade.md.</div>
+  <details style="margin-top:14px" id="aiAdvancedConn"><summary style="cursor:pointer;color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase">Advanced · Classic connection &amp; model</summary>
+  <div class="card" style="margin-top:8px"><b>Classic Create</b> only. Shop-grade runs use the worker (no key in the browser).</div>
+  <div class="row"><label>Worker URL</label><input id="shopWorker" type="text" placeholder="http://127.0.0.1:8787 (optional)" value="${esc(CAD.shop ? CAD.shop.workerBase() : '')}" style="flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
   <div class="row"><label>Provider</label><select id="aiProv" class="btn" style="flex:1"><option value="proxy"${hosted && !inClaude ? ' selected' : ''}>Classic (server proxy)</option><option value="anthropic"${!hosted && !inClaude ? ' selected' : ''}>Classic · browser API key</option>${inClaude ? '<option value="artifact" selected>Claude (this page, your account)</option>' : ''}</select></div>
   <div class="row" id="aiKeyRow"><label>API key</label><input id="aiKey" type="password" placeholder="sk-ant-… (browser only)" value="${esc(remembered)}" style="flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
   <div class="row"><label>Model</label><select id="aiModel" class="btn" style="flex:1">${AI_MODELS.map((m, i) => `<option value="${esc(m.id)}"${i === 0 ? ' selected' : ''}>${esc(m.label)} — ${esc(m.hint)}</option>`).join('')}</select></div>
@@ -968,35 +1226,69 @@ function renderAI() {
   <div id="aiStatus" class="card" style="margin-top:8px;display:none"></div>
   <button class="btn pri" id="aiRev" style="width:100%;margin-top:8px">Apply changes</button>
   <button class="btn" id="aiStop" disabled style="width:100%;margin-top:6px">Stop</button>`;
+  let shopBody = '';
+  if (shopOn) {
+    const scr = S.shopScreen;
+    if (scr === 'intake') shopBody = CAD.shop.intakeHtml();
+    else if (scr === 'readback') shopBody = CAD.shop.readbackHtml(S.ai.inventory);
+    else if (scr === 'progress') shopBody = CAD.shop.progressHtml();
+    else if (scr === 'review') {
+      const ps = S.lastRun && S.lastRun.photoScore;
+      shopBody = CAD.shop.reviewSummaryHtml({
+        matchLabel: (ps && ps.rating) || 'Close',
+        knownSize: !!(CAD.shop.state.knownSize && !CAD.shop.state.noSize),
+        partCount: S.M && S.M.defs ? S.M.defs.size : '—',
+        sizeNote: CAD.shop.state.knownSize ? ('Known ' + CAD.shop.state.knownSize.label) : ''
+      });
+    } else shopBody = CAD.shop.intakeHtml();
+  }
+  const resumeHint = (() => {
+    if (!CAD.shop) return '';
+    const h = CAD.shop.restoreJobHint();
+    if (!h || !h.jobId || S.ai.busy) return '';
+    return `<div class="card" style="margin-bottom:8px"><b>Previous shop run</b> job ${esc(h.jobId).slice(0, 12)}… · <button type="button" class="btn sm" id="shopResumeHint">Dismiss</button></div>`;
+  })();
   $('#p-ai').innerHTML = `
   <div class="aiTabs" role="tablist">
     <button type="button" class="aiTab${createOn ? ' on' : ''}" data-panel="create">Create</button>
     <button type="button" class="aiTab${!createOn ? ' on' : ''}" data-panel="revise"${canRevise ? '' : ' disabled title="Generate a design first"'}>Revise</button>
   </div>
-  ${createOn ? createBody : reviseBody}
-  ${connBlock}
+  ${resumeHint}
+  ${shopOn ? shopBody : (createOn ? createBody : reviseBody)}
+  ${(!shopOn || S.shopScreen === 'intake' || (CAD.shop && CAD.shop.state.mode === 'classic')) ? connBlock : ''}
   <div class="log" id="aiLog" style="max-height:180px;overflow:auto;margin-top:8px">${S.ai.log.map(esc).join('<br>')}</div>`;
-  $$('.aiTab').forEach(b => b.onclick = () => { if (b.disabled) return; S.aiPanel = b.dataset.panel; renderAI(); });
-  if (createOn) {
-    if (S.ai.img) { const prev = $('#aiPrev'); prev.src = S.ai.img; prev.style.display = 'block'; $('#aiDropT').textContent = drawing ? 'Drawing ready' : 'Picture ready'; }
-    const drop = $('#aiDrop'); drop.onclick = () => $('#aiFile').click(); $('#aiFile').onchange = e => setImage(e.target.files[0]);
-    drop.ondragover = e => { e.preventDefault(); drop.style.borderColor = 'var(--acc)'; }; drop.ondragleave = () => drop.style.borderColor = ''; drop.ondrop = e => { e.preventDefault(); drop.style.borderColor = ''; setImage(e.dataTransfer.files[0]); };
+  $$('.aiTab').forEach(b => b.onclick = () => { if (b.disabled) return; S.aiPanel = b.dataset.panel; if (b.dataset.panel === 'create' && CAD.shop && CAD.shop.state.mode === 'shop') S.shopScreen = S.shopScreen || 'intake'; renderAI(); });
+  $('#shopResumeHint') && ($('#shopResumeHint').onclick = () => { try { localStorage.removeItem('image-to-cad.shopRun'); } catch (e) { /* ignore */ } renderAI(); });
+  const wEl = $('#shopWorker');
+  if (wEl) wEl.onchange = () => { if (CAD.shop) CAD.shop.setWorkerBase(wEl.value.trim()); };
+  if (shopOn) {
+    if (S.shopScreen === 'intake') bindShopIntake();
+    else if (S.shopScreen === 'readback') bindShopReadback();
+    else if (S.shopScreen === 'progress') bindShopProgress();
+    else if (S.shopScreen === 'review') bindShopReview();
+  } else if (createOn) {
+    if (S.ai.img) { const prev = $('#aiPrev'); if (prev) { prev.src = S.ai.img; prev.style.display = 'block'; } const t = $('#aiDropT'); if (t) t.textContent = drawing ? 'Drawing ready' : 'Picture ready'; }
+    const drop = $('#aiDrop');
+    if (drop) {
+      drop.onclick = () => $('#aiFile').click(); $('#aiFile').onchange = e => setImage(e.target.files[0]);
+      drop.ondragover = e => { e.preventDefault(); drop.style.borderColor = 'var(--acc)'; }; drop.ondragleave = () => drop.style.borderColor = ''; drop.ondrop = e => { e.preventDefault(); drop.style.borderColor = ''; setImage(e.dataTransfer.files[0]); };
+    }
     const syncMode = () => {
+      if (!$('#aiMode')) return;
       S.aiMode = $('#aiMode').value === 'drawing' ? 'drawing' : 'photo';
       const d = S.aiMode === 'drawing';
       $('#aiDropT').textContent = S.ai.img ? (d ? 'Drawing ready' : 'Picture ready') : (d ? 'Drop, paste or click to upload a drawing' : 'Drop, paste or click to upload a photo');
       $('#aiDropSub').textContent = d ? 'Reads dimensions and callouts from the sketch' : 'Generates a new design from the photo';
-      $('#aiGo').textContent = d ? 'Generate from drawing' : 'Generate from picture';
+      if ($('#aiGo')) $('#aiGo').textContent = d ? 'Generate from drawing' : 'Generate from picture';
     };
-    $('#aiMode').onchange = syncMode; syncMode();
-    $('#aiGo').onclick = () => runAI('design');
+    if ($('#aiMode')) { $('#aiMode').onchange = syncMode; syncMode(); }
+    if ($('#aiGo')) $('#aiGo').onclick = () => runAI('design');
   } else {
     syncAIFocus();
-    $('#aiRev').onclick = () => runAI('revise');
+    if ($('#aiRev')) $('#aiRev').onclick = () => runAI('revise');
   }
   const syncQ = () => {
     const preset = qualityFromUI();
-    const vis = $('#aiVis'); if (vis && document.activeElement !== vis) { /* keep user override after first change */ }
     const hint = $('#aiQualityHint'); if (hint) hint.textContent = preset.id === 'fast' ? 'Fast runs one geometry pass and skips photo match unless you check the box below.' : 'After geometry passes, photo match compares a render to your image and may request fixes.';
   };
   if ($('#aiQuality')) {
@@ -1008,13 +1300,14 @@ function renderAI() {
     syncQ();
   }
   const syncProv = () => {
+    if (!$('#aiProv')) return;
     const browser = $('#aiProv').value === 'anthropic';
-    $('#aiKeyRow').style.display = browser ? 'flex' : 'none';
+    if ($('#aiKeyRow')) $('#aiKeyRow').style.display = browser ? 'flex' : 'none';
     const rem = $('#aiRemRow'); if (rem) rem.style.display = browser ? '' : 'none';
     checkConnection();
   };
-  $('#aiProv').onchange = syncProv; $('#aiModel').onchange = checkConnection; $('#aiKey').onchange = checkConnection; $('#aiPing').onclick = checkConnection; syncProv();
-  $('#aiStop').onclick = () => S.ai.abort && S.ai.abort.abort();
+  if ($('#aiProv')) { $('#aiProv').onchange = syncProv; $('#aiModel').onchange = checkConnection; $('#aiKey').onchange = checkConnection; $('#aiPing').onclick = checkConnection; syncProv(); }
+  if ($('#aiStop')) $('#aiStop').onclick = () => S.ai.abort && S.ai.abort.abort();
 }
 function setAIStatus(html, show) {
   const el = $('#aiStatus'); if (!el) return;
@@ -1044,18 +1337,44 @@ function visualStatusHtml(vc, photoScore) {
 }
 async function runAI(task) {
   if (S.ai.busy) return; task = task || 'design';
-  const kind = $('#aiProv').value, key = $('#aiKey').value.trim(), model = $('#aiModel').value;
-  if (kind === 'anthropic' && !key) return toast('Paste your Anthropic API key');
+  const kind = ($('#aiProv') && $('#aiProv').value) || (location.protocol !== 'file:' ? 'proxy' : 'anthropic');
+  const key = ($('#aiKey') && $('#aiKey').value.trim()) || (() => { try { return localStorage.getItem('image-to-cad.key') || ''; } catch (e) { return ''; } })();
+  const model = ($('#aiModel') && $('#aiModel').value) || AI_MODELS[0].id;
+  if (kind === 'anthropic' && !key) return toast('Paste your Anthropic API key in Advanced');
   if (task === 'design' && !S.ai.img) return toast(S.aiMode === 'drawing' ? 'Choose a drawing first' : 'Choose a picture first');
   if (task === 'revise' && !S.spec) return toast('Load a design first');
-  const hints = task === 'revise' ? ($('#aiRevise') && $('#aiRevise').value.trim()) : ($('#aiHints') && $('#aiHints').value.trim()) || '';
+  if (CAD.shop && CAD.shop.state.mode === 'shop' && task === 'design') {
+    S.shopScreen = 'progress';
+    CAD.shop.state.startedAt = CAD.shop.state.startedAt || Date.now();
+    CAD.shop.state.stepId = 'read';
+    CAD.shop.state.statusLine = 'Reading your photo…';
+  }
+  let hints = task === 'revise' ? ($('#aiRevise') && $('#aiRevise').value.trim()) : ($('#aiHints') && $('#aiHints').value.trim()) || '';
   if (task === 'revise' && !hints) return toast('Describe the changes you want');
+  if (task === 'design' && CAD.shop && CAD.shop.state.mode === 'shop') {
+    const bits = [];
+    if (CAD.shop.state.materialsBrief) bits.push(CAD.shop.state.materialsBrief);
+    if (CAD.shop.state.knownSize && !CAD.shop.state.noSize) {
+      const ks = CAD.shop.state.knownSize;
+      const dimName = ks.dim === 'w' ? 'width' : ks.dim === 'd' ? 'depth' : 'height';
+      bits.push('Known overall ' + dimName + ': ' + ks.label);
+    } else if (CAD.shop.state.noSize) bits.push('No known size — estimate from proportions');
+    (CAD.shop.state.assumptions || []).forEach(a => bits.push(a));
+    if (bits.length) hints = (hints ? hints + '. ' : '') + bits.join('. ');
+  }
   const inputMode = (task === 'design' && $('#aiMode') && $('#aiMode').value === 'drawing') ? 'drawing' : 'photo';
   S.aiMode = inputMode;
   const preset = qualityFromUI();
   const visual = $('#aiVis') ? $('#aiVis').checked : preset.visual;
   const maxRounds = preset.rounds;
-  const dimFields = task === 'design' ? { w: ($('#aiW') || {}).value, d: ($('#aiD') || {}).value, h: ($('#aiH') || {}).value } : {};
+  let dimFields = task === 'design' ? { w: ($('#aiW') || {}).value, d: ($('#aiD') || {}).value, h: ($('#aiH') || {}).value } : {};
+  if (task === 'design' && CAD.shop && CAD.shop.state.knownSize && !CAD.shop.state.noSize) {
+    const ks = CAD.shop.state.knownSize;
+    const inches = (ks.valueMm / 25.4).toFixed(3);
+    if (ks.dim === 'w') dimFields.w = dimFields.w || inches;
+    else if (ks.dim === 'd') dimFields.d = dimFields.d || inches;
+    else dimFields.h = dimFields.h || inches;
+  }
   const metrics = CAD.vision.parseDims(hints, dimFields);
   const focusJoint = task === 'revise' ? focusJointPayload() : null;
   if (focusJoint && !focusJoint.requestedMethod) {
@@ -1115,9 +1434,37 @@ async function runAI(task) {
       quality: preset.id, domain: 'furniture',
       prevSpec: task === 'revise' ? S.spec : null, provider: { kind, apiKey: key, model },
       maxRounds, visual, signal: ac.signal, onLog: (m) => { aiLog(m); setAIStatus('<b>Status:</b> ' + esc(m), true); },
-      onInventory: (inv) => { S.ai.inventory = inv; S.ai.refOpen = true; syncRefPane(); setAIStatus('<b>Status:</b> inventory captured', true); },
-      onSpec: (spec) => { noteReasoning(spec); adoptAIDoc(); if (loadSpec(spec, {}, true)) { viewNow('iso'); setSpecText(); renderInspect(); syncRefPane(); } },
-      silhouetteIoU, render: async (spec) => { adoptAIDoc(); loadSpec(spec, {}, true); viewNow('iso'); await frames(4); return renderer.domElement.toDataURL('image/jpeg', .85); }
+      onInventory: (inv) => {
+        S.ai.inventory = inv; S.ai.refOpen = true; syncRefPane();
+        setAIStatus('<b>Status:</b> inventory captured', true);
+        if (CAD.shop) {
+          CAD.shop.state.stepId = 'build';
+          CAD.shop.state.statusLine = 'Building the model…';
+          const notes = ((inv && inv.notes) || '') + ' ' + ((inv && inv.object) || '');
+          if (/organic|sculpt|carved|irregular|live.?edge/i.test(notes)) CAD.shop.state.scopeTier = 'blank';
+          else if (/unclear|ambiguous|need more|cannot tell/i.test(notes)) CAD.shop.state.scopeTier = 'ask';
+          else CAD.shop.state.scopeTier = 'full';
+        }
+      },
+      onSpec: (spec) => {
+        noteReasoning(spec); adoptAIDoc();
+        if (loadSpec(spec, {}, true)) {
+          viewNow('iso'); setSpecText(); renderInspect(); syncRefPane();
+          if (CAD.shop) { CAD.shop.state.bestSpec = JSON.parse(JSON.stringify(spec)); CAD.shop.state.stepId = 'check'; }
+        }
+      },
+      silhouetteIoU, render: async (spec) => {
+        adoptAIDoc(); loadSpec(spec, {}, true); viewNow('iso'); await frames(4);
+        const url = renderer.domElement.toDataURL('image/jpeg', .85);
+        if (CAD.shop && CAD.shop.state.mode === 'shop') {
+          CAD.shop.state.previews.push(url);
+          if (CAD.shop.state.previews.length > 6) CAD.shop.state.previews.shift();
+          CAD.shop.state.round = (CAD.shop.state.round || 0) + 1;
+          CAD.shop.state.stepId = 'adjust';
+          if (S.shopScreen === 'progress') renderAI();
+        }
+        return url;
+      }
     });
     res.spec.__ai = true; if (res.inventory) S.ai.inventory = res.inventory; noteReasoning(res.spec); adoptAIDoc(); loadSpec(res.spec, {}, true); viewNow('iso'); setSpecText();
     S.ai.refOpen = true; syncRefPane();
@@ -1129,6 +1476,12 @@ async function runAI(task) {
       likenessPenalty: res.rep && res.rep.likeness ? res.rep.likeness.penalty : null,
       round: res.round || null
     };
+    if (CAD.shop && CAD.shop.state.mode === 'shop' && task === 'design') {
+      CAD.shop.state.stepId = 'lists';
+      CAD.shop.state.statusLine = 'Making your lists…';
+      CAD.shop.state.bestSpec = JSON.parse(JSON.stringify(res.spec));
+      if (S.docId && S.docs[S.docId]) CAD.shop.persistJob(S.docs[S.docId]);
+    }
     if (CAD.store.trackEvent) {
       CAD.store.trackEvent({
         type: 'run_finished', runId, domain: 'furniture',
@@ -1155,8 +1508,16 @@ async function runAI(task) {
     S.feedback = { rating: null, tags: [], note: '', pending: true };
     const vcMsg = visualStatusHtml(res.visualCritic, res.photoScore);
     setAIStatus('<b>Status:</b> ' + (res.rep.ok ? 'geometry checks passed' : 'loaded with remaining issues') + (vcMsg ? '<br>' + vcMsg : '') + '<br>Rate the match in Inspect.', true);
-    toast(res.rep.ok ? 'Design ready — rate how well it matches in Inspect' : 'Design loaded with issues — see Check / log');
-    closeAI(); setTab('insp'); renderInspect();
+    if (CAD.shop && CAD.shop.state.mode === 'shop' && task === 'design') {
+      S.shopScreen = 'review';
+      renderAI();
+      setTab('insp');
+      renderInspect();
+      toast(res.rep.ok ? 'Review the match — then plan the build' : 'Loaded with issues — fix or accept and check Lists');
+    } else {
+      toast(res.rep.ok ? 'Design ready — rate how well it matches in Inspect' : 'Design loaded with issues — see Check / log');
+      closeAI(); setTab('insp'); renderInspect();
+    }
   } catch (e) {
     aiLog('Error: ' + (e.name === 'AbortError' ? 'stopped' : e.message));
     setAIStatus('<b>Status:</b> <span class="fail">' + esc(e.name === 'AbortError' ? 'stopped' : e.message) + '</span>', true);
@@ -1169,6 +1530,10 @@ async function runAI(task) {
       });
     }
     if (aiDocId) { delete S.docs[aiDocId]; writeWS(); refreshDocSel(); }
+    if (CAD.shop && CAD.shop.state.mode === 'shop' && e.name !== 'AbortError') {
+      S.shopScreen = 'intake';
+      renderAI();
+    }
   }
   finally { S.ai.busy = false; if (go) go.disabled = false; if (rev) rev.disabled = false; if (stop) stop.disabled = true; }
 }

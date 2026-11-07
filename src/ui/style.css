@@ -235,6 +235,46 @@ textarea,input[type=password],input[type=text],input[type=number],input[type=sea
 .statusBadge[data-st="close"]{border-color:#b7791f;color:#8a5a10;background:#fff6d6}
 body.lists-wide #right{width:min(720px,55vw)}
 body.lists-wide #right .tabs button[data-t="lists"]{font-weight:700}
+/* Shop-grade Create / compare / progress */
+.shopDrop{border:2px dashed var(--line);border-radius:10px;padding:20px 14px;text-align:center;cursor:pointer;background:var(--panel2);transition:border-color .15s}
+.shopDrop.on,.shopDrop:hover{border-color:var(--acc)}
+.shopPhotoRow{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.shopPhotoChip{position:relative;width:72px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2)}
+.shopPhotoChip img{display:block;width:100%;height:56px;object-fit:cover}
+.shopPhotoChip span{display:block;font-size:10px;padding:2px 4px;color:var(--dim);text-align:center}
+.shopPhotoChip .btn{position:absolute;top:2px;right:2px;padding:0 5px;min-width:0;line-height:1.2}
+.shopModes{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.shopMode{display:block;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--panel2);cursor:pointer}
+.shopMode.on{border-color:var(--acc);background:var(--acc2)}
+.shopMode input{margin-right:6px}
+.shopMode span{display:block;font-size:11px;color:var(--dim);margin-top:2px;margin-left:1.4em}
+.shopSteps{list-style:none;margin:10px 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.shopSteps li{position:relative;padding:4px 8px 4px 22px;font-size:13px;color:var(--dim);border-radius:6px}
+.shopSteps li:before{content:"";position:absolute;left:6px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--line)}
+.shopSteps li.done{color:var(--text)}
+.shopSteps li.done:before{background:var(--acc)}
+.shopSteps li.on{background:var(--acc2);color:var(--text);font-weight:600}
+.shopSteps li.on:before{background:var(--acc);box-shadow:0 0 0 3px var(--acc2)}
+.shopPrev{margin-top:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2)}
+.shopPrev img{display:block;width:100%;max-height:160px;object-fit:contain}
+.shopPrev .btn{width:100%;border-radius:0;border:none;border-top:1px solid var(--line)}
+.shopCompare .mtabs{display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap}
+.shopCmpBody{display:grid;gap:6px}
+.shopCmpBody[data-mode="side"]{grid-template-columns:1fr}
+.shopCmpPhoto img{display:block;width:100%;max-height:140px;object-fit:contain;background:var(--panel2);border-radius:6px}
+.refCompare{padding:6px 8px 0;border-bottom:1px solid var(--line)}
+.shopTimeline{margin:12px 0}
+.shopTimeline ol{margin:0;padding:0;list-style:none;max-height:220px;overflow:auto;font-size:12px}
+.shopTimeline li{display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--line)}
+.shopTimeline .n{flex:none;color:var(--dim);font-family:var(--font-mono);min-width:1.5em}
+.partCard{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;background:var(--panel2)}
+.shopReadback table{width:100%;font-size:12px;margin:6px 0}
+.shopIntake h3,.shopReadback h3,.shopProgress h3,.shopReview h3{margin:14px 0 6px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
+.shopIntake h3:first-child{margin-top:0}
+@media (max-width:720px){
+  #aiBox{width:100vw}
+  .shopModes{font-size:13px}
+}
 @media print{
   body.lists-print #app>header,body.lists-print #left,body.lists-print footer,body.lists-print #viewport,body.lists-print #aiBox,body.lists-print #modal,body.lists-print #toast,body.lists-print .edgebtn{display:none!important}
   body.lists-print main{display:block;overflow:visible}
