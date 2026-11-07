@@ -34,6 +34,15 @@ async function relayJobs(req, res, suffix) {
       }
     });
   }
+  const token = (process.env.WORKER_JOBS_TOKEN || process.env.JOBS_TOKEN || '').trim();
+  if (!token) {
+    return res.status(503).json({
+      error: {
+        message: 'WORKER_JOBS_TOKEN unset on Vercel — set it to the same secret as the Fly worker, then redeploy',
+        vercel_role: 'job starter / progress relay only'
+      }
+    });
+  }
   try {
     const incoming = new URL(req.url || '/api/jobs', 'http://local');
     const pathSuffix = suffix != null
@@ -43,6 +52,13 @@ async function relayJobs(req, res, suffix) {
     const init = { method: req.method, headers: workerHeaders() };
     if (req.method === 'POST') init.body = await readBody(req);
     const r = await fetch(target, init);
+    if (r.status === 401 || r.status === 403) {
+      return res.status(401).json({
+        error: {
+          message: 'Worker rejected the token — WORKER_JOBS_TOKEN on Vercel must match Fly WORKER_JOBS_TOKEN exactly'
+        }
+      });
+    }
     const ctype = r.headers.get('content-type') || '';
     res.status(r.status);
     if (ctype.includes('application/json') || ctype.includes('text/')) {
