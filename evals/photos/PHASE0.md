@@ -17,19 +17,39 @@ Plan: [`docs/plans/photo-to-cutlist.md`](../../docs/plans/photo-to-cutlist.md)
 - [ ] `case_01` photo + dims sidecar + Careful Create + score row
 - [ ] Optional: re-measure gold EXAMPLE IoU for `case_01` if a studio photo exists
 
-## Sandbox + spend (choose before Phase 1)
+## Worker + job store (choose before Phase 1 loop)
+
+Architecture: **Messages API tool-use loop in a worker**. Vercel = app / auth / job starter only.
 
 | Option | Pros | Cons | Status |
 | --- | --- | --- | --- |
-| **A. Local Docker** (build123d + OCC in container) | No Vercel 300s cap; full STEP; cheap iterate | You run the machine | **Default recommendation** |
-| B. Hosted container (Fly/Railway/Modal) | Always on for eval | Cost + cold start; still need spend cap | Alternative if local GPU/CPU painful |
-| C. Vercel `/api/messages` only | Key already there | **Reject for compile loops** — Hobby ~5 min; no build123d | OK for LLM text only |
+| **A. Local Docker worker** (build123d + tool runner) | No Vercel wall-time; full STEP; cheap iterate | You run the machine | **Default recommendation** |
+| B. Hosted container (Fly/Railway/Modal) | Always on for eval / later jobs | Cost + cold start | Alternative |
+| C. Vercel serverless for the loop | — | **Reject** — Hobby ~5 min; no build123d | App/proxy only |
 
-**Spend cap (proposed):** hard stop at **$25/day** Anthropic for Phase 0–1 eval; per-run cap **$2** (Careful-equivalent). Enforce in the sandbox runner when Phase 1 starts.
+**Model access:** worker calls Messages API with **its own key**; report to existing telemetry + Langfuse.
 
-- [ ] Confirm host: Local Docker (A) or write-in ______
-- [ ] Confirm spend cap: $25/day · $2/run (or write-in ______)
-- [ ] Secrets: Anthropic key available to container (not committed); Vercel key remains for browser Create baseline B only
+**Job store (Phase 2; pick now):** Postgres (fits future HITL) or Redis for queue + status. Write-in: ______
+
+**Spend / limits (proposed):** **$25/day** Anthropic; **$2/run**; hard caps on rounds, tokens, wall time. Enforce in the worker.
+
+### Tool contract (write before loop code)
+
+| Tool | Role |
+| --- | --- |
+| `build(script)` | Run helper-library script → solids / parts model |
+| `render(views)` | Front / side / iso images |
+| `measure(part)` | Part / blank dims |
+| `check()` | BBox, overlaps, silhouette IoU |
+| `compare()` | Photo vs render |
+| `lists()` | Cut / material lists |
+| `ask_user(question)` | Pause job (Phase 3) |
+
+- [ ] Confirm worker host: Local Docker (A) or ______
+- [ ] Confirm job store: Postgres / Redis / ______
+- [ ] Confirm spend caps: $25/day · $2/run (or ______)
+- [ ] Tool contract reviewed / frozen in repo (this table + plan doc)
+- [ ] Secrets: worker Anthropic key (not committed); Vercel key for browser Create baseline B only
 
 ## Gate (Phase 0)
 
