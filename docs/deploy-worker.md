@@ -25,10 +25,14 @@ fly auth login
 From the repo root:
 
 ```bash
-fly apps create image-to-cad-worker   # once; rename in fly.toml if taken
+fly apps create image-to-cad-worker --yes   # once; rename in fly.toml if taken
+
+# Secrets must be KEY=VALUE (not KEY VALUE) — this is the "0 and 1 arg" error if wrong:
+TOKEN="$(openssl rand -hex 24)"
 fly secrets set -a image-to-cad-worker \
-  ANTHROPIC_API_KEY="sk-ant-…" \
-  WORKER_JOBS_TOKEN="$(openssl rand -hex 24)"
+  "ANTHROPIC_API_KEY=sk-ant-..." \
+  "WORKER_JOBS_TOKEN=${TOKEN}"
+echo "Save this token for Vercel: ${TOKEN}"
 ```
 
 Save the token — you need the **same** value on Vercel as `WORKER_JOBS_TOKEN`.
@@ -36,10 +40,10 @@ Save the token — you need the **same** value on Vercel as `WORKER_JOBS_TOKEN`.
 ## 3. Deploy
 
 ```bash
-fly deploy \
-  --config lab/furniture_cad/fly.toml \
-  --dockerfile lab/furniture_cad/Dockerfile \
-  --ha=false
+./scripts/deploy-worker.sh
+# or (must run from lab/furniture_cad so COPY paths work):
+cd lab/furniture_cad
+fly deploy -a image-to-cad-worker --ha=false
 ```
 
 Health: `https://image-to-cad-worker.fly.dev/health` → `{"ok":true,...}`.

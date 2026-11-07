@@ -32,3 +32,4 @@ evals/photos/**/*.heic
 evals/photos/**/failure_log.jsonl
 evals/photos/**/out/
 
+.worker-jobs-token

@@ -3,8 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="${FLY_APP:-image-to-cad-worker}"
-CONFIG="$ROOT/lab/furniture_cad/fly.toml"
-DOCKERFILE="$ROOT/lab/furniture_cad/Dockerfile"
+LAB="$ROOT/lab/furniture_cad"
 
 if ! command -v fly >/dev/null 2>&1 && ! command -v flyctl >/dev/null 2>&1; then
   echo "Fly CLI not found. Install: curl -L https://fly.io/install.sh | sh" >&2
@@ -17,19 +16,26 @@ if ! "$FLY" auth whoami >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! "$FLY" apps list 2>/dev/null | grep -q "$APP"; then
-  echo "Creating app $APP…"
-  "$FLY" apps create "$APP" || true
+if ! "$FLY" status -a "${APP}" >/dev/null 2>&1; then
+  echo "Creating app ${APP}..."
+  "$FLY" apps create "${APP}" --yes
 fi
 
-echo "Deploying $APP…"
-"$FLY" deploy --config "$CONFIG" --dockerfile "$DOCKERFILE" --ha=false -a "$APP"
+echo "Deploying ${APP} (build context: lab/furniture_cad)..."
+# IMPORTANT: run from lab/furniture_cad so Dockerfile COPY paths resolve.
+cd "${LAB}"
+"$FLY" deploy \
+  --app "${APP}" \
+  --config fly.toml \
+  --dockerfile Dockerfile \
+  --ha=false
+
 echo
 echo "Health:"
-"$FLY" status -a "$APP" || true
-HOST="$("$FLY" info -a "$APP" --json 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);console.log((j.Hostname||j.hostname||''))}catch(e){}})" || true)"
-if [[ -n "${HOST:-}" ]]; then
-  echo "Set Vercel WORKER_JOBS_URL=https://$HOST"
-  echo "Set Vercel WORKER_JOBS_TOKEN to the same secret as Fly."
-fi
+"$FLY" status -a "${APP}" || true
+HOST="${APP}.fly.dev"
+echo
+echo "Next:"
+echo "  On Vercel set WORKER_JOBS_URL=https://${HOST}"
+echo "  and WORKER_JOBS_TOKEN (same as Fly secret), then redeploy"
 echo "Done. Full steps: docs/deploy-worker.md"
