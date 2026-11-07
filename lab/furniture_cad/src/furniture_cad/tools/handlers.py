@@ -183,23 +183,78 @@ def tool_render(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
     views = args.get("views") or []
     if not isinstance(views, list) or not views:
         return _err("views must be a non-empty array")
-    return _err("render not implemented yet — Phase 1 stub", views=views, hint="reuse STL IoU headless in Phase 2")
+    # Phase 2: record requested views; full rasterization still uses measure:chair-iou / browser path.
+    out = ctx.work_dir / "renders"
+    out.mkdir(parents=True, exist_ok=True)
+    meta = {"views": views, "has_assembly": bool(ctx.last_build and ctx.last_build.get("has_assembly")), "note": "raster stub — use STL + measure:chair-iou for silhouette"}
+    (out / "views.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    return _ok({"render_dir": str(out), "views": views, "raster": False})
 
 
 def tool_check(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
-    targets = args.get("targets_mm") or ctx.targets_mm or {}
-    return _err(
-        "check not implemented yet — Phase 1 stub",
-        targets_mm=targets,
-        hint="bbox + overlaps + IoU after render",
+    targets = dict(args.get("targets_mm") or ctx.targets_mm or {})
+    if not ctx.parts:
+        return _err("no parts model; call build first")
+    # Approximate overall bbox from max extents of part dims (shop check, not mesh AABB).
+    max_t = max(p.thickness_mm for p in ctx.parts)
+    max_w = max(p.width_mm for p in ctx.parts)
+    max_l = max(p.length_mm for p in ctx.parts)
+    approx = {"w": max_w, "d": max_t if max_t < max_w else max_w, "h": max_l}
+    # Prefer length as height for vertical posts, width as overall width for shelves
+    shelf = next((p for p in ctx.parts if "shelf" in p.id or "seat" in p.id), None)
+    post = next((p for p in ctx.parts if "post" in p.id or "leg" in p.id or "stile" in p.id), None)
+    if shelf:
+        approx["w"] = max(approx["w"], shelf.length_mm, shelf.width_mm)
+        approx["d"] = max(approx.get("d", 0), min(shelf.length_mm, shelf.width_mm) if shelf.length_mm != shelf.width_mm else shelf.width_mm)
+    if post:
+        approx["h"] = max(approx.get("h", 0), post.length_mm)
+
+    issues: list[str] = []
+    tol = 0.05
+    for key in ("w", "d", "h"):
+        if key in targets and targets[key]:
+            got = float(approx.get(key) or 0)
+            want = float(targets[key])
+            if want <= 0:
+                continue
+            err = abs(got - want) / want
+            if err > tol:
+                issues.append(f"{key}: got {got:.1f} want {want:.1f} ({err:.1%} > 5%)")
+    iou_min = args.get("iou_min")
+    return _ok(
+        {
+            "approx_bbox_mm": approx,
+            "targets_mm": targets,
+            "within_5pct": len(issues) == 0 if targets else None,
+            "issues": issues,
+            "iou_min": iou_min,
+            "piece_count": sum(p.qty for p in ctx.parts),
+            "part_types": len(ctx.parts),
+        }
     )
 
 
 def tool_compare(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
-    return _err(
-        "compare not implemented yet — Phase 1 stub",
-        has_photo=bool(ctx.reference_photo),
-        views=args.get("views"),
+    expected = args.get("expected_qty") or {}
+    notes: list[str] = []
+    matches: dict[str, Any] = {}
+    if expected and ctx.parts:
+        by_id = {p.id: p.qty for p in ctx.parts}
+        for k, v in expected.items():
+            got = by_id.get(str(k))
+            matches[str(k)] = {"expected": v, "got": got, "ok": got == v}
+            if got != v:
+                notes.append(f"{k}: expected {v} got {got}")
+    return _ok(
+        {
+            "has_photo": bool(ctx.reference_photo),
+            "photo": str(ctx.reference_photo) if ctx.reference_photo else None,
+            "views": args.get("views"),
+            "qty_matches": matches,
+            "qty_ok": all(m["ok"] for m in matches.values()) if matches else None,
+            "notes": notes,
+            "hint": "silhouette IoU still via measure:chair-iou --spec / Create path until raster render ships",
+        }
     )
 
 
