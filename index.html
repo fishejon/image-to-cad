@@ -92,12 +92,13 @@
     <button class="edgebtn right" id="edgeR" title="Hide or show the inspector">›</button>
   </div>
   <aside id="right">
-    <div class="tabs"><button data-t="insp" class="on" title="Selection, feedback, overview">Inspect</button><button data-t="param" title="Size and parameters">Adjust</button><button data-t="motion" title="Kinematics and section">Move</button><button data-t="review" title="Geometry checks and AI log">Check</button><button data-t="export" title="STL, cut list, guide, backup">Ship</button><button data-t="spec" title="Raw JSON spec">Spec</button></div>
+    <div class="tabs"><button data-t="insp" class="on" title="Selection, feedback, overview">Inspect</button><button data-t="param" title="Size and parameters">Adjust</button><button data-t="lists" title="Cut list and materials">Lists</button><button data-t="review" title="Geometry checks and AI log">Check</button><button data-t="export" title="STL, cut list, guide, backup">Ship</button><button data-t="motion" title="Kinematics and section">Move</button><button data-t="spec" title="Raw JSON spec (Advanced)">Spec</button></div>
     <div class="pane on" id="p-insp"></div>
-    <div class="pane" id="p-motion"></div>
     <div class="pane" id="p-param"></div>
-    <div class="pane" id="p-export"></div>
+    <div class="pane" id="p-lists"></div>
     <div class="pane" id="p-review"></div>
+    <div class="pane" id="p-export"></div>
+    <div class="pane" id="p-motion"></div>
     <div class="pane" id="p-spec"></div>
   </aside>
 </main>
@@ -125,6 +126,7 @@
 <script src="src/core/analytics.js"></script>
 <script src="src/ai/vision.js"></script>
 <script src="src/ui/guide.js"></script>
+<script src="src/ui/terms.js"></script>
 <script src="src/ui/app.js"></script>
 </body>
 </html>
