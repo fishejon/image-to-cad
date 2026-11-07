@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from furniture_cad.jobs.resume import resume_job
 from furniture_cad.jobs.store import JobStore
 from furniture_cad.tools.freeze_set import FREEZE_PIECES, freeze_tool_calls
 from furniture_cad.tools.handlers import ToolContext
@@ -147,6 +148,13 @@ def make_handler(store: JobStore):
             if path.startswith("/jobs/") and path.endswith("/run"):
                 job_id = path.split("/")[2]
                 return _json(self, 200, run_job(store, job_id, mode=body.get("mode")))
+
+            if path.startswith("/jobs/") and path.endswith("/resume"):
+                job_id = path.split("/")[2]
+                answer = str(body.get("answer") or "").strip()
+                if not answer:
+                    return _json(self, 400, {"error": "answer required"})
+                return _json(self, 200, resume_job(store, job_id, answer))
 
             return _json(self, 404, {"error": "not found"})
 

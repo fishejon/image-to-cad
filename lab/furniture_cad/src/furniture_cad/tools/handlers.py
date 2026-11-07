@@ -109,6 +109,13 @@ def tool_build(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
 
     ctx.parts = parts
     parts_path = dump_parts(parts, ctx.work_dir / f"{name}.parts.json", meta={"name": name, "source": "build"})
+    # Persist script for Phase 4 param rebuild (no model)
+    try:
+        from furniture_cad.rebuild import save_project_script
+
+        save_project_script(ctx.work_dir, script, name=name)
+    except Exception:
+        pass
     assembly = ns.get("assembly")
     ctx.last_build = {
         "name": name,
@@ -267,7 +274,7 @@ def tool_ask_user(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
         "needs_user": True,
         "question": q,
         "choices": args.get("choices") or [],
-        "hint": "Phase 3 wires pause/resume; CLI prints needs_user and stops the loop",
+        "hint": "Job pauses (status=needs_user). Resume via POST /jobs/:id/resume {answer}",
     }
 
 
