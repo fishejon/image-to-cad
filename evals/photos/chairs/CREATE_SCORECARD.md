@@ -1,5 +1,7 @@
 # Create scorecard (weekly)
 
+**Active plan:** [`docs/plans/photo-to-cutlist.md`](../../../docs/plans/photo-to-cutlist.md) · Phase 0 freeze: [`../PHASE0.md`](../PHASE0.md).
+
 **Product wedge (frozen):** dining / side chairs with **visible rake or continuous side frames**.  
 Out of wedge for scoring goals: chrome tube stools, organic walnut underframes, multi-angle upload.
 

@@ -1,8 +1,8 @@
 # Plan: Photo-faithful parametric synthesis
 
-> **Status: PARKED long-term roadmap.**  
-> Active work is only the one-photo loop: [`lab/furniture_cad/NOW.md`](../../lab/furniture_cad/NOW.md).  
-> Do not execute Phase 2+ or expand this doc until that loop has ~5–10 scored chairs. Keep this file for future sequencing.
+> **Status: PARKED long-term kernel notes.**  
+> **Active product sequencing:** [`photo-to-cutlist.md`](photo-to-cutlist.md) (Phase 0+).  
+> Lab gold corpus: [`lab/furniture_cad/NOW.md`](../../lab/furniture_cad/NOW.md). Keep this file for block/template IR ideas; do not treat it as the weekly roadmap.
 
 ## TLDR
 - Replace the **universal JSON box-boolean SPEC** as the primary accuracy path with **parametric programs** that call a **block library** (build123d solids) + **category templates**, then later **fit parameters to the photo**.

@@ -1,0 +1,9 @@
+{
+  "topology_ok": false,
+  "iou": null,
+  "ratingHint": "Wrong",
+  "expectRating": "Wrong",
+  "missing_block": null,
+  "notes": "Phase 0: awaiting photo + Careful Create baseline B. Do not treat example bookshelf SPEC as photo likeness.",
+  "create": null
+}
