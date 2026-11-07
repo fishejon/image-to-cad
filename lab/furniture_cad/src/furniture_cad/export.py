@@ -46,7 +46,10 @@ def demo_box(out_dir: Path | None = None) -> Path:
 
 
 def export_assembly(result: dict, out_dir: Path, *, name: str | None = None) -> dict[str, Path]:
-    """Export full assembly and optional per-part STLs."""
+    """Export full assembly and optional per-part STLs.
+
+    If result contains ``part_records`` (list of PartRecord or dicts), also writes parts.json.
+    """
     out = ensure_out(out_dir)
     stem = name or result.get("template", "assembly")
     assembly = result["assembly"]
@@ -54,6 +57,13 @@ def export_assembly(result: dict, out_dir: Path, *, name: str | None = None) -> 
     parts_dir = out / "parts"
     for part_name, solid in result.get("parts", {}).items():
         export_solid(solid, parts_dir / part_name, formats=("stl",))
+    records = result.get("part_records")
+    if records:
+        from furniture_cad.parts import PartRecord, dump_parts
+
+        typed = [r if isinstance(r, PartRecord) else PartRecord.from_dict(r) for r in records]
+        meta = {"template": result.get("template"), "name": stem}
+        written["parts_json"] = dump_parts(typed, out / f"{stem}.parts.json", meta=meta)
     return written
 
 

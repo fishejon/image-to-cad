@@ -4,7 +4,8 @@
 
 **Active approach:** furniture-designer construction brief → **one bespoke build123d script per reference chair** → only later extract shared blocks from patterns that actually worked.
 
-**Active product plan:** [docs/plans/photo-to-cutlist.md](../../docs/plans/photo-to-cutlist.md) (Phase 0+).  
+**Active product plan:** [docs/plans/photo-to-cutlist.md](../../docs/plans/photo-to-cutlist.md) (Phase 1: allowlist + parts + lists).  
+Phase trackers: [PHASE0](../../evals/photos/PHASE0.md) · [PHASE1](../../evals/photos/PHASE1.md).  
 Kernel IR notes (parked): [docs/plans/parametric-synthesis.md](../../docs/plans/parametric-synthesis.md)
 
 ## Why the old loop stalled

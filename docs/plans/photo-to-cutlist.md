@@ -1,8 +1,9 @@
 # Plan: Photo → model + cut/material lists
 
-> **Status: ACTIVE.** Phase 0 in progress (Nov 2026).  
+> **Status: ACTIVE.** Phase 0 partial (chairs baseline B done; `case_01` photo open). **Phase 1 in progress** — allowlist + parts + lists in `lab/furniture_cad` (Nov 2026).  
 > Supersedes day-to-day sequencing in [`parametric-synthesis.md`](parametric-synthesis.md) (kept as long-term kernel notes).  
-> Lab bespoke scripts remain the **gold corpus**; this plan is the **shop-grade Create track**.
+> Lab bespoke scripts remain the **gold corpus**; this plan is the **shop-grade Create track**.  
+> Trackers: [`evals/photos/PHASE0.md`](../../evals/photos/PHASE0.md) · [`evals/photos/PHASE1.md`](../../evals/photos/PHASE1.md)
 
 **Author:** Jonny Fisher · **Date:** 2026-11-07
 
