@@ -43,9 +43,23 @@ def test_check_and_compare_tools(tmp_path: Path) -> None:
 
 
 def test_ab_scorecard_includes_create_b() -> None:
-    card = build_scorecard(["chair_04", "chair_02", "case_01"])
+    card = build_scorecard(["chair_04", "chair_02", "case_01"], measure_iou=False)
     assert len(card["pieces"]) == 3
     by_id = {r["id"]: r for r in card["pieces"]}
     assert by_id["chair_04"]["baseline_B_create"]["iou"] == 0.641
     assert by_id["case_01"]["baseline_B_create"]["iou"] == 0.297
     assert by_id["case_01"]["baseline_A_tooluse"]["piece_count"] == 31
+
+
+def test_silhouette_iou_smoke(tmp_path: Path) -> None:
+    from furniture_cad.export import demo_box
+    from furniture_cad.silhouette import silhouette_iou
+    from PIL import Image, ImageDraw
+
+    stl = demo_box(tmp_path)
+    photo = tmp_path / "box.jpg"
+    im = Image.new("L", (200, 200), 255)
+    ImageDraw.Draw(im).rectangle([60, 40, 140, 160], fill=40)
+    im.save(photo)
+    m = silhouette_iou(photo, stl, size=(128, 128))
+    assert m["iou"] >= 0.15

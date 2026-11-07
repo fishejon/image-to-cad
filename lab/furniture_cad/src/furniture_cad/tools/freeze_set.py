@@ -56,13 +56,14 @@ parts = [
 """
 
 SCRIPT_CASE_01 = r"""
-# Open 5-shelf MCM case — rectilinear proxy solids (knife-edge / cove approximated)
-W, D, H = 900.0, 300.0, 1800.0
-post_s, shelf_t, foot_h = 40.0, 22.0, 80.0
+# Open 5-shelf MCM case — taller/narrower silhouette to match studio photo
+W, D, H = 720.0, 260.0, 1680.0
+post_s, shelf_t, foot_h = 32.0, 18.0, 64.0
+overhang = 90.0
 shelf_w = W
 inner_h = H - foot_h
 bay = (inner_h - 5 * shelf_t) / 4.0
-hx, hy = W / 2.0 - 60.0, D / 2.0 - 20.0
+hx, hy = W / 2.0 - overhang - post_s / 2.0, D / 2.0 - 18.0
 
 posts = []
 for sx in (-1, 1):
@@ -75,16 +76,47 @@ for i in range(5):
     shelves.append(Pos(0, 0, z) * Box(shelf_w, D, shelf_t))
 
 feet = [
-    Pos(-hx, 0, foot_h / 2.0) * Box(post_s, D, foot_h),
-    Pos(hx, 0, foot_h / 2.0) * Box(post_s, D, foot_h),
+    Pos(-hx, 0, foot_h / 2.0) * Box(post_s + 8, D, foot_h),
+    Pos(hx, 0, foot_h / 2.0) * Box(post_s + 8, D, foot_h),
 ]
 assembly = Compound(children=posts + shelves + feet)
 parts = [
-    PartRecord(id='post', name='Vertical post', qty=4, material='walnut', thickness_mm=40, width_mm=40, length_mm=1720, grain='z', how_made='solid'),
-    PartRecord(id='shelf', name='Shelf board', qty=5, material='walnut', thickness_mm=22, width_mm=300, length_mm=900, grain='x', how_made='solid'),
-    PartRecord(id='rail_fb', name='Front/back under-shelf rail', qty=10, material='walnut', thickness_mm=22, width_mm=40, length_mm=780, grain='x', how_made='solid'),
-    PartRecord(id='rail_side', name='Side under-shelf rail', qty=10, material='walnut', thickness_mm=22, width_mm=40, length_mm=220, grain='y', how_made='solid'),
-    PartRecord(id='sled_foot', name='Sled foot (coved)', qty=2, material='walnut', thickness_mm=40, width_mm=80, length_mm=300, grain='y', how_made='solid', curved=True, blank_thickness_mm=45, blank_width_mm=90, blank_length_mm=320),
+    PartRecord(id='post', name='Vertical post', qty=4, material='walnut', thickness_mm=36, width_mm=36, length_mm=1530, grain='z', how_made='solid'),
+    PartRecord(id='shelf', name='Shelf board', qty=5, material='walnut', thickness_mm=20, width_mm=280, length_mm=800, grain='x', how_made='solid'),
+    PartRecord(id='rail_fb', name='Front/back under-shelf rail', qty=10, material='walnut', thickness_mm=20, width_mm=36, length_mm=620, grain='x', how_made='solid'),
+    PartRecord(id='rail_side', name='Side under-shelf rail', qty=10, material='walnut', thickness_mm=20, width_mm=36, length_mm=200, grain='y', how_made='solid'),
+    PartRecord(id='sled_foot', name='Sled foot (coved)', qty=2, material='walnut', thickness_mm=44, width_mm=70, length_mm=280, grain='y', how_made='solid', curved=True, blank_thickness_mm=48, blank_width_mm=80, blank_length_mm=300),
+]
+"""
+
+SCRIPT_STOOL = r"""
+params = dict(seat_w=320, seat_d=320, seat_t=28, seat_h=450, leg_top=35, leg_bot=28, stretcher=True)
+result = stool(params)
+assembly = result['assembly']
+parts = [
+    PartRecord(id='seat', name='Stool seat', qty=1, material='oak', thickness_mm=28, width_mm=320, length_mm=320, grain='x', how_made='solid'),
+    PartRecord(id='leg', name='Leg', qty=4, material='oak', thickness_mm=35, width_mm=35, length_mm=450, grain='z', how_made='solid'),
+    PartRecord(id='stretcher', name='Stretcher', qty=4, material='oak', thickness_mm=20, width_mm=30, length_mm=260, grain='x', how_made='solid'),
+]
+"""
+
+SCRIPT_CASE_FIXTURE = r"""
+# Drawer bookshelf SPEC fixture as solids (Phase 2 expansion piece — not case_01 photo)
+W, D, H, t = 900.0, 300.0, 1800.0, 18.0
+sides = [
+    Pos(-W/2 + t/2, 0, H/2) * Box(t, D, H),
+    Pos(W/2 - t/2, 0, H/2) * Box(t, D, H),
+]
+boards = []
+for i, z in enumerate([t/2, H*0.2, H*0.4, H*0.6, H*0.8, H - t/2]):
+    boards.append(Pos(0, 0, z) * Box(W - 2*t, D - 12, t))
+back = Pos(0, -D/2 + 3, H/2) * Box(W - 2*t, 6, H - 2*t)
+assembly = Compound(children=sides + boards + [back])
+parts = [
+    PartRecord(id='side_L', name='Left side', qty=1, material='oak', thickness_mm=18, width_mm=300, length_mm=1800, grain='z', how_made='solid'),
+    PartRecord(id='side_R', name='Right side', qty=1, material='oak', thickness_mm=18, width_mm=300, length_mm=1800, grain='z', how_made='solid'),
+    PartRecord(id='board', name='Shelf / top / bottom board', qty=6, material='oak', thickness_mm=18, width_mm=288, length_mm=876, grain='x', how_made='solid'),
+    PartRecord(id='back', name='Back panel', qty=1, material='ply', thickness_mm=6, width_mm=880, length_mm=1740, grain='x', how_made='sheet'),
 ]
 """
 
@@ -94,24 +126,42 @@ FREEZE_PIECES: dict[str, dict[str, Any]] = {
         "script": SCRIPT_CHAIR_04,
         "expect_pieces": 10,  # 1+2+2+3+1+1
         "expect_types": 6,
+        "photo": "evals/photos/chairs/chair_04.jpg",
     },
     "chair_02": {
         "name": "chair_02",
         "script": SCRIPT_CHAIR_02,
         "expect_pieces": 14,  # 1+2+2+4+3+1+1
         "expect_types": 7,
+        "photo": "evals/photos/chairs/chair_02.jpg",
     },
     "case_01": {
         "name": "case_01",
         "script": SCRIPT_CASE_01,
         "expect_pieces": 31,  # 4+5+10+10+2
         "expect_types": 5,
+        "photo": "evals/photos/cases/case_01.jpg",
         "hand_check": {
             "posts": 4,
             "shelves": 5,
             "sled_feet": 2,
             "note": "Matches case_01 photo inventory (open MCM); rails inferred from structure",
         },
+    },
+    "stool_01": {
+        "name": "stool_01",
+        "script": SCRIPT_STOOL,
+        "expect_pieces": 9,
+        "expect_types": 3,
+        "photo": None,
+    },
+    "case_fixture": {
+        "name": "case_fixture",
+        "script": SCRIPT_CASE_FIXTURE,
+        "expect_pieces": 9,
+        "expect_types": 4,
+        "photo": None,
+        "hand_check": {"note": "Drawer bookshelf SPEC fixture solids — list gold alignment"},
     },
 }
 
