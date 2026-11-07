@@ -17,6 +17,7 @@ import argparse
 import base64
 import json
 import mimetypes
+import os
 import re
 import sys
 import threading
@@ -36,6 +37,23 @@ DEFAULT_ROOT = Path("out/jobs")
 _ARTIFACT_SAFE = re.compile(r"^[A-Za-z0-9._\-]+$")
 _RUN_LOCKS: dict[str, threading.Lock] = {}
 _RUN_LOCKS_GUARD = threading.Lock()
+
+
+def _expected_token() -> str:
+    return (os.environ.get("WORKER_JOBS_TOKEN") or os.environ.get("JOBS_TOKEN") or "").strip()
+
+
+def _authorized(handler: BaseHTTPRequestHandler) -> bool:
+    """If WORKER_JOBS_TOKEN is set, require Authorization: Bearer <token> (or x-jobs-token)."""
+    expected = _expected_token()
+    if not expected:
+        return True
+    auth = (handler.headers.get("authorization") or "").strip()
+    if auth.lower().startswith("bearer ") and auth[7:].strip() == expected:
+        return True
+    if (handler.headers.get("x-jobs-token") or "").strip() == expected:
+        return True
+    return False
 
 
 def _json(handler: BaseHTTPRequestHandler, status: int, body: dict[str, Any]) -> None:
@@ -208,13 +226,15 @@ def make_handler(store: JobStore):
             self.send_response(204)
             self.send_header("access-control-allow-origin", "*")
             self.send_header("access-control-allow-methods", "GET,POST,OPTIONS")
-            self.send_header("access-control-allow-headers", "content-type")
+            self.send_header("access-control-allow-headers", "content-type, authorization, x-jobs-token")
             self.end_headers()
 
         def do_GET(self) -> None:  # noqa: N802
             path = urlparse(self.path).path.rstrip("/") or "/"
             if path == "/health":
-                return _json(self, 200, {"ok": True, "service": "furniture_cad.jobs"})
+                return _json(self, 200, {"ok": True, "service": "furniture_cad.jobs", "auth": bool(_expected_token())})
+            if not _authorized(self):
+                return _json(self, 401, {"error": "unauthorized"})
             if path == "/jobs":
                 return _json(self, 200, {"jobs": [_job_public(j) for j in store.list()]})
 
@@ -249,6 +269,8 @@ def make_handler(store: JobStore):
             return _json(self, 404, {"error": "not found"})
 
         def do_POST(self) -> None:  # noqa: N802
+            if not _authorized(self):
+                return _json(self, 401, {"error": "unauthorized"})
             path = urlparse(self.path).path.rstrip("/") or "/"
             length = int(self.headers.get("content-length") or 0)
             raw = self.rfile.read(length) if length else b"{}"

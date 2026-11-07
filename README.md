@@ -28,6 +28,14 @@ npx vercel --prod      # production
 
 In the Vercel project, set `ANTHROPIC_API_KEY` (and optionally `RATE_PER_MIN`). Optional: `POSTHOG_KEY`, `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY`, `DATABASE_URL` (Neon HITL store; run `npm run migrate`), and R2 keys for consented image uploads. Secrets never reach the browser on **Server proxy**. Requires **Node ≥ 22**. Weekly inventory regression: `npm run score:golden`.
 
+### Shop-grade Create (worker)
+Classic Create uses the Vercel Anthropic proxy. **Shop-grade** needs a long-running worker (build123d + tool loop). Deploy it to Fly and set on Vercel:
+
+- `WORKER_JOBS_URL` — e.g. `https://image-to-cad-worker.fly.dev`
+- `WORKER_JOBS_TOKEN` — same secret as on the worker
+
+Full steps: [`docs/deploy-worker.md`](docs/deploy-worker.md) · helper: `scripts/deploy-worker.sh`.
+
 Hobby plans cap serverless request bodies at about 4.5 MB. Pictures are downscaled in the browser first; if a run still fails on size, use the browser API-key provider for that image.
 
 ## Designing from a picture

@@ -17,9 +17,10 @@ Spec: [`docs/plans/ui-ux-shop-grade.md`](../../docs/plans/ui-ux-shop-grade.md)
 
 ## Ops notes
 
-1. Start worker: `python -m furniture_cad jobs --port 8787` (set Anthropic key in worker env).
-2. Optional: set Advanced → Worker URL to `http://127.0.0.1:8787`, or set Vercel `WORKER_JOBS_URL`.
-3. Classic Create (Vercel `/api/messages` proxy) remains fallback when the worker is offline.
+1. **Hosted (production):** deploy Fly worker + set Vercel `WORKER_JOBS_URL` + `WORKER_JOBS_TOKEN` — see [`docs/deploy-worker.md`](../../docs/deploy-worker.md).
+2. **Local:** `python -m furniture_cad jobs --port 8787` or Docker; optional Advanced → Worker URL `http://127.0.0.1:8787`.
+3. Leave Worker URL empty in production so the browser uses `/api/jobs` (token stays on the server).
+4. Classic Create remains fallback when the worker is offline.
 
 ## Still ongoing (eval, not product code)
 
