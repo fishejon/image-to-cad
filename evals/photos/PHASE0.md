@@ -37,7 +37,10 @@ Plan: [`docs/plans/photo-to-cutlist.md`](../../docs/plans/photo-to-cutlist.md)
 - [ ] Sandbox host chosen
 - [ ] Spend cap chosen
 - [x] Plan doc merged / on `main` path
-- [ ] **No list-builder code started** until boxes above are checked
+- [x] Chairs baseline B recorded (`chair_04`, `chair_02`) — **partial gate**
+- [~] List-builder started under Phase 1 using bookshelf SPEC fixture (photo still open) — see [`PHASE1.md`](PHASE1.md)
+
+**2026-11-07:** Proceeding to Phase 1 scaffolding while `case_01` photo remains outstanding (user request). Do not claim full Phase 0 gate until photo + Create baseline B land.
 
 ## Explicitly out of Phase 0
 
