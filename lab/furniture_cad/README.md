@@ -1,6 +1,6 @@
-# furniture_cad (offline lab)
+# furniture_cad (lab + hosted jobs worker)
 
-**Not deployed** — no Create / Vercel / `vision.js` wiring.
+Offline block library / freeze evals live here. The **jobs HTTP service** can be deployed to Fly for shop-grade Create — see [`docs/deploy-worker.md`](../../docs/deploy-worker.md).
 
 ## Start here
 

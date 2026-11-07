@@ -1,4 +1,5 @@
-/* Shared Vercel ↔ worker jobs relay (Phase 2+). */
+/* Shared Vercel ↔ worker jobs relay (Phase 2+).
+   Env: WORKER_JOBS_URL (required), WORKER_JOBS_TOKEN (Bearer to worker when set). */
 async function readBody(req) {
   if (req.body != null) {
     return typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
@@ -8,20 +9,27 @@ async function readBody(req) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
+function workerHeaders() {
+  const headers = { 'content-type': 'application/json' };
+  const token = (process.env.WORKER_JOBS_TOKEN || process.env.JOBS_TOKEN || '').trim();
+  if (token) headers.authorization = 'Bearer ' + token;
+  return headers;
+}
+
 async function relayJobs(req, res, suffix) {
   res.setHeader('cache-control', 'no-store');
   res.setHeader('x-content-type-options', 'nosniff');
   res.setHeader('access-control-allow-origin', '*');
   if (req.method === 'OPTIONS') {
     res.setHeader('access-control-allow-methods', 'GET,POST,OPTIONS');
-    res.setHeader('access-control-allow-headers', 'content-type');
+    res.setHeader('access-control-allow-headers', 'content-type, authorization, x-jobs-token');
     return res.status(204).end();
   }
   const base = (process.env.WORKER_JOBS_URL || '').replace(/\/$/, '');
   if (!base) {
     return res.status(503).json({
       error: {
-        message: 'WORKER_JOBS_URL unset — start worker: python -m furniture_cad jobs --port 8787',
+        message: 'WORKER_JOBS_URL unset — deploy the worker (docs/deploy-worker.md) or run locally: python -m furniture_cad jobs --port 8787',
         vercel_role: 'job starter / progress relay only'
       }
     });
@@ -32,7 +40,7 @@ async function relayJobs(req, res, suffix) {
       ? ('/jobs' + (suffix ? '/' + String(suffix).replace(/^\/+/, '') : ''))
       : (incoming.pathname.replace(/^\/api\/jobs/, '/jobs') || '/jobs');
     const target = base + pathSuffix + incoming.search;
-    const init = { method: req.method, headers: { 'content-type': 'application/json' } };
+    const init = { method: req.method, headers: workerHeaders() };
     if (req.method === 'POST') init.body = await readBody(req);
     const r = await fetch(target, init);
     const ctype = r.headers.get('content-type') || '';
@@ -51,4 +59,4 @@ async function relayJobs(req, res, suffix) {
   }
 }
 
-module.exports = { relayJobs, readBody };
+module.exports = { relayJobs, readBody, workerHeaders };

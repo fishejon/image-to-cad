@@ -1,0 +1,47 @@
+# Fly.io app for the shop-grade jobs worker.
+# Deploy: see docs/deploy-worker.md
+#
+#   fly apps create image-to-cad-worker   # once
+#   fly secrets set ANTHROPIC_API_KEY=… WORKER_JOBS_TOKEN=…
+#   fly deploy --config lab/furniture_cad/fly.toml --dockerfile lab/furniture_cad/Dockerfile
+
+app = "image-to-cad-worker"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8787"
+  JOBS_ROOT = "/tmp/jobs"
+  FURNITURE_CAD_MODEL = "claude-haiku-4-5"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 8
+    soft_limit = 4
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "45s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4gb"
+
+# Optional persistence (create once: fly volumes create jobs_data --region sjc --size 10)
+# Then uncomment:
+# [mounts]
+#   source = "jobs_data"
+#   destination = "/data"
