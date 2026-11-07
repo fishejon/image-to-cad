@@ -227,3 +227,18 @@ textarea,input[type=password],input[type=text],input[type=number],input[type=sea
 }
 
 .card.warn{border-color:var(--warn)}.card.fail{border-color:var(--bad)}code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:12px}
+.statusBadge{display:inline-block;font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);vertical-align:middle;margin-left:4px}
+.statusBadge[data-st="measured"]{border-color:#1a8f4a;color:#1a8f4a;background:#e7f6ec}
+.statusBadge[data-st="estimated"],.statusBadge[data-st="shaped"]{border-color:#b7791f;color:#8a5a10;background:#fff6d6}
+.statusBadge[data-st="guessed"],.statusBadge[data-st="check"]{border-color:#c2362e;color:#c2362e;background:#fdecea}
+.statusBadge[data-st="good"]{border-color:var(--acc);color:var(--acc);background:var(--acc2)}
+.statusBadge[data-st="close"]{border-color:#b7791f;color:#8a5a10;background:#fff6d6}
+body.lists-wide #right{width:min(720px,55vw)}
+body.lists-wide #right .tabs button[data-t="lists"]{font-weight:700}
+@media print{
+  body.lists-print #app>header,body.lists-print #left,body.lists-print footer,body.lists-print #viewport,body.lists-print #aiBox,body.lists-print #modal,body.lists-print #toast,body.lists-print .edgebtn{display:none!important}
+  body.lists-print main{display:block;overflow:visible}
+  body.lists-print #right{position:static;width:100%;transform:none;box-shadow:none;overflow:visible}
+  body.lists-print #right .tabs,.lists-print #lWide,.lists-print #lPrint{display:none!important}
+  body.lists-print #p-lists{display:block!important;overflow:visible}
+}

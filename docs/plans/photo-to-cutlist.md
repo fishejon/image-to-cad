@@ -1,6 +1,6 @@
 # Plan: Photo → model + cut/material lists
 
-> **Status: COMPLETE (core track).** Phases 0–5 landed with gates; Phase 6 ongoing hardening. Tool-use worker + jobs + rebuild + flags on `main` (Nov 2026).  
+> **Status: COMPLETE (backend track).** Phases 0–5 landed; Phase 6 ongoing. **Product UI:** [`ui-ux-shop-grade.md`](ui-ux-shop-grade.md) · tracker [`evals/photos/UI_PHASE0.md`](../../evals/photos/UI_PHASE0.md).  
 > Architecture: **option 1** — Messages API tool-use loop in a worker; Vercel stays app / auth / job starter.  
 > Supersedes day-to-day sequencing in [`parametric-synthesis.md`](parametric-synthesis.md) (kept as long-term kernel notes).  
 > Lab bespoke scripts remain the **gold corpus**; this plan is the **shop-grade Create track**.  

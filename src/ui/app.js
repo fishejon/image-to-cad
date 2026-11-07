@@ -268,7 +268,7 @@ function updateVisuals() {
   rebuildTargetOverlay();
   S.need = true;
 }
-function refreshAll() { applyTransforms(); updateVisuals(); buildTree(); renderInspect(); buildSteps(); renderMotion(); renderParam(); renderExport(); renderReview(); }
+function refreshAll() { applyTransforms(); updateVisuals(); buildTree(); renderInspect(); buildSteps(); renderMotion(); renderParam(); renderLists(); renderExport(); renderReview(); }
 
 
 /* ---------------- section ---------------- */
@@ -698,7 +698,11 @@ function renderExport() {
   <div class="chk"><input type="checkbox" id="exsp" ${e.split ? 'checked' : ''}><label for="exsp">Split parts that exceed the bed (keyed, 0.2 mm clearance)</label></div><div id="exInfo"></div>
   <h3>Export</h3><div class="grid2"><button class="btn sm" id="eSel">Selected part(s)</button><button class="btn sm" id="eGrp">Group of selection</button><button class="btn sm" id="eAsm">Whole object · 1 STL</button><button class="btn sm" id="eAll">All parts · ZIP</button></div>
   <button class="btn pri sm" id="ePl" style="width:100%;margin-top:8px">Nest everything onto bed plates (STL per plate)</button>
-  <div class="grid2" style="margin-top:8px"><button class="btn sm" id="eCsv">Cut list · CSV</button><button class="btn sm" id="eGuide">Build guide · HTML</button><button class="btn sm" id="eSpec" style="grid-column:1/3">Design spec · JSON</button></div>
+  <div class="grid2" style="margin-top:8px"><button class="btn sm" id="eCsv">Cut list · CSV</button><button class="btn sm" id="eLists">Open Lists tab</button><button class="btn sm" id="eGuide">Build guide · HTML</button><button class="btn sm" id="eSpecDl">Design spec · JSON</button></div>
+  <details class="card" style="margin-top:10px"><summary><b>Advanced</b> · raw Spec JSON</summary>
+    <p style="font-size:12px;color:var(--dim);margin:6px 0">Shop-grade runs will hide connection keys here. Spec editing stays for Classic / power users.</p>
+    <button class="btn sm" id="eSpecTab" style="width:100%">Open Spec editor</button>
+  </details>
   <h3>Training / feedback</h3>
   <button class="btn sm" id="eDataset" style="width:100%">Download HITL dataset (JSON + JSONL)</button>
   <div class="card" style="margin-top:6px;font-size:12px;color:var(--dim)">Exports Match/Close/Wrong ratings and “Mark correct” examples from this browser (no photos). Use for few-shot review or future model fine-tune.</div>
@@ -706,7 +710,8 @@ function renderExport() {
   const upd = () => { e.scale = +$('#exs2').value; e.bed = [+$('#bx').value || 220, +$('#by').value || 220, +$('#bz').value || 250]; e.split = $('#exsp').checked; info(); renderInspect(); };
   ['exs2', 'bx', 'by', 'bz', 'exsp'].forEach(id => $('#' + id).onchange = upd);
   $('#eSel').onclick = exportSelected; $('#eGrp').onclick = () => { const f = [...S.sel][0]; f ? exportGroup(f.def.grp) : toast('Select a part to pick its group'); }; $('#eAsm').onclick = exportAssembly; $('#eAll').onclick = exportAll; $('#ePl').onclick = exportPlates;
-  $('#eCsv').onclick = () => deliver('cut_list', [{ name: safe(S.M.meta.name) + '_cut_list.csv', data: cutCSV() }]); $('#eGuide').onclick = () => window.__guide && window.__guide.save(); $('#eSpec').onclick = () => deliver('spec', [{ name: safe(S.M.meta.name) + '.spec.json', data: jsonOf(S.spec) }]);
+  $('#eCsv').onclick = () => deliver('cut_list', [{ name: safe(S.M.meta.name) + '_cut_list.csv', data: cutCSV() }]); $('#eLists').onclick = () => setTab('lists'); $('#eGuide').onclick = () => window.__guide && window.__guide.save(); $('#eSpecDl').onclick = () => deliver('spec', [{ name: safe(S.M.meta.name) + '.spec.json', data: jsonOf(S.spec) }]);
+  $('#eSpecTab').onclick = () => { setTab('spec'); renderSpecPane(); };
   $('#eDataset').onclick = () => exportHitlDataset();
   info();
 }
@@ -724,15 +729,19 @@ async function exportHitlDataset() {
 }
 function info() { try { let np = 0, ns = 0, mesh = 0; S.M.defs.forEach(d => { const ps = CAD.exporter.printPieces(d, mult(), S.ex.bed, S.ex.split); np += ps.length * d.qty; if (ps.length > 1) ns++; if (ps.some(p => p.over)) mesh++; }); const { plates, over } = CAD.exporter.nest(S.M, mult(), S.ex.bed, S.ex.split); $('#exInfo').innerHTML = `<div class="card">${np} printed pieces · ${ns} part types split · ${plates.length} plate(s)${over.length ? ' · <span class="fail">' + over.length + ' oversize (round parts or too tall)</span>' : ''}</div>`; } catch (e) { $('#exInfo').textContent = ''; } }
 
-/* ---------------- cut list modal ---------------- */
-function showCut() {
+/* ---------------- Lists tab (primary) + legacy cut modal ---------------- */
+function listsHtml() {
+  if (!S.M || !S.M.defs || !S.M.defs.size) {
+    return `<div class="card"><b>Lists</b>Cut and material lists appear here after you build a model. Open a photo design, or pick an example.</div>
+      <div class="card" style="font-size:12px;color:var(--dim)">Blank = stock you cut from. ${esc((CAD.uiTerms && CAD.uiTerms.TERMS.estimate) || 'Estimate = scaled from proportions.')}</div>`;
+  }
   const plan = CAD.lumberPlan(S.M), rows = CAD.cutList(S.M).sort((a, b) => CAD.GROUPS.findIndex(g => g.id === a.grp) - CAD.GROUPS.findIndex(g => g.id === b.grp));
   let tw = 0; rows.forEach(r => tw += r.mass * r.qty);
   const boardFrom = {};
   plan.boards.forEach(b => b.cuts.forEach(c => { (boardFrom[c.id] = boardFrom[c.id] || new Set()).add(b.label); }));
-  $('#mtitle').textContent = 'Lumber & cut list'; $('#mextra').textContent = plan.boards.length + ' boards · ' + rows.length + ' part types · ' + lb(tw);
-  const buyHtml = `<p class="card" style="margin-top:8px">Parts are nested onto the fewest boards of each stock size (8′ / 10′ / 12′, ⅛″ kerf). Each board below has its own cut list — buy these, then cut the listed blanks from them.</p>
-    <h3>Shopping list</h3>
+  const badge = (CAD.uiTerms && CAD.uiTerms.statusBadge) ? CAD.uiTerms.statusBadge : () => '';
+  const buyHtml = `<p class="card" style="margin-top:8px">Parts nest onto the fewest boards (8′ / 10′ / 12′, ⅛″ kerf). Buy the shopping list, then cut blanks from each board.</p>
+    <h3>Materials · buy</h3>
     <table><tr><th>Buy</th><th>Material</th><th class="n">Blanks</th></tr>${plan.summary.map(s => `<tr><td><b>${esc(s.buyLine)}</b></td><td>${esc(s.mat)}</td><td class="n">${s.pieces}</td></tr>`).join('')}</table>
     <h3>Cut list per board</h3>
     ${plan.boards.map(b => `<div class="card" style="margin:10px 0"><b>Board ${b.id}: ${esc(b.label)}</b> · ${esc(b.mat)}${b.note ? ' · ' + esc(b.note) : ''}
@@ -740,14 +749,42 @@ function showCut() {
       ${b.cuts.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.finished)}</td><td class="n">${esc(c.len)}</td></tr>`).join('')}
       </table></div>`).join('')}`;
   let last = '', i = 0;
-  const partsHtml = `<p class="card" style="margin-top:8px"><b>T</b> is thickness in lumber quarters (7/4″ not 1 3/4″); <b>W</b> and <b>L</b> are nearest 1/16″. The <b>From board</b> column links each part type to the shopping-list boards above.</p>
+  const partsHtml = `<p class="card" style="margin-top:8px"><b>T</b> thickness (lumber quarters); <b>W</b>/<b>L</b> nearest 1/16″. Finished size is the part; blank is what you cut from stock ${badge('shaped') || ''}.</p>
     <table><tr><th class="n">#</th><th>Part</th><th class="n">Qty</th><th class="n">T</th><th class="n">W</th><th class="n">L</th><th>From board</th><th>Material</th><th>Notes</th></tr>${rows.map(r => {
     let h = ''; if (r.grp !== last) { last = r.grp; h = `<tr><td colspan="9" style="background:var(--panel2);font-weight:600">${esc(gname(r.grp))}</td></tr>`; }
     const from = boardFrom[r.id] ? [...boardFrom[r.id]].join('; ') : '—';
     return h + `<tr><td class="n">${++i}</td><td>${esc(r.name)}</td><td class="n">${r.qty}</td><td class="n">${thick(r.T)}</td><td class="n">${inch(r.W)}</td><td class="n">${inch(r.L)}</td><td>${esc(from)}</td><td>${esc(r.mat)}</td><td>${esc(note(r.spec))}</td></tr>`;
   }).join('')}</table>`;
+  const summary = `${plan.boards.length} boards · ${rows.length} part types · ${lb(tw)}`;
+  return { buyHtml, partsHtml, summary };
+}
+function renderLists() {
+  const el = $('#p-lists'); if (!el) return;
+  const data = listsHtml();
+  if (typeof data === 'string') { el.innerHTML = data; return; }
+  el.innerHTML = `<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><h3 style="margin:0;flex:1">Lists</h3><span style="font-size:12px;color:var(--dim)">${esc(data.summary)}</span>
+    <button class="btn sm" id="lCsv">CSV</button><button class="btn sm" id="lPrint">Print</button><button class="btn sm" id="lWide">Full width</button></div>
+    <div class="mtabs"><button type="button" class="btn sm on" data-ltab="buy">1 · Buy</button><button type="button" class="btn sm" data-ltab="parts">2 · Cut list</button></div>
+    <div class="ltab on" id="ltab-buy">${data.buyHtml}</div><div class="ltab" id="ltab-parts" hidden>${data.partsHtml}</div>`;
+  $$('#p-lists [data-ltab]').forEach(b => b.onclick = () => {
+    $$('#p-lists [data-ltab]').forEach(x => x.classList.toggle('on', x === b));
+    const buy = $('#ltab-buy'), parts = $('#ltab-parts');
+    if (buy) buy.hidden = b.dataset.ltab !== 'buy';
+    if (parts) parts.hidden = b.dataset.ltab !== 'parts';
+  });
+  $('#lCsv').onclick = () => deliver('cut_list', [{ name: safe(S.M.meta.name) + '_cut_list.csv', data: cutCSV() }]);
+  $('#lPrint').onclick = () => { document.body.classList.add('lists-print'); window.print(); setTimeout(() => document.body.classList.remove('lists-print'), 500); };
+  $('#lWide').onclick = () => { document.body.classList.toggle('lists-wide'); $('#lWide').textContent = document.body.classList.contains('lists-wide') ? 'Dock panel' : 'Full width'; };
+}
+function showCut() {
+  /* Legacy modal for tests / shortcuts — primary UX is the Lists tab. */
+  setTab('lists');
+  renderLists();
+  const data = listsHtml();
+  if (typeof data === 'string') return;
+  $('#mtitle').textContent = 'Lumber & cut list'; $('#mextra').textContent = data.summary;
   $('#mbody').innerHTML = `<div class="mtabs"><button type="button" class="btn sm on" data-mtab="buy">1 · Buy list</button><button type="button" class="btn sm" data-mtab="parts">2 · Parts</button></div>
-    <div class="mtab on" id="mtab-buy">${buyHtml}</div><div class="mtab" id="mtab-parts">${partsHtml}</div>`;
+    <div class="mtab on" id="mtab-buy">${data.buyHtml}</div><div class="mtab" id="mtab-parts">${data.partsHtml}</div>`;
   $$('#mbody [data-mtab]').forEach(b => b.onclick = () => {
     $$('#mbody [data-mtab]').forEach(x => x.classList.toggle('on', x === b));
     $$('#mbody .mtab').forEach(p => p.classList.toggle('on', p.id === 'mtab-' + b.dataset.mtab));
@@ -888,8 +925,8 @@ function renderAI() {
   const title = $('#aiTitle'); if (title) title.textContent = createOn ? 'Create from image' : 'Revise design';
   const connBlock = `
   <details style="margin-top:14px"><summary style="cursor:pointer;color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase">Connection &amp; model</summary>
-  <div class="card" style="margin-top:8px"><b>Server proxy</b> is the normal path on Vercel. <b>Browser API key</b> is optional for file:// or a personal key.</div>
-  <div class="row"><label>Provider</label><select id="aiProv" class="btn" style="flex:1"><option value="proxy"${hosted && !inClaude ? ' selected' : ''}>Server proxy (Vercel key)</option><option value="anthropic"${!hosted && !inClaude ? ' selected' : ''}>Claude API key (browser)</option>${inClaude ? '<option value="artifact" selected>Claude (this page, your account)</option>' : ''}</select></div>
+  <div class="card" style="margin-top:8px"><b>Classic Create</b> uses the options below (server proxy or browser key). <b>Shop-grade</b> (worker loop → model + lists) will hide keys here and run on the worker — see Lists tab + docs/plans/ui-ux-shop-grade.md.</div>
+  <div class="row"><label>Provider</label><select id="aiProv" class="btn" style="flex:1"><option value="proxy"${hosted && !inClaude ? ' selected' : ''}>Classic (server proxy)</option><option value="anthropic"${!hosted && !inClaude ? ' selected' : ''}>Classic · browser API key</option>${inClaude ? '<option value="artifact" selected>Claude (this page, your account)</option>' : ''}</select></div>
   <div class="row" id="aiKeyRow"><label>API key</label><input id="aiKey" type="password" placeholder="sk-ant-… (browser only)" value="${esc(remembered)}" style="flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
   <div class="row"><label>Model</label><select id="aiModel" class="btn" style="flex:1">${AI_MODELS.map((m, i) => `<option value="${esc(m.id)}"${i === 0 ? ' selected' : ''}>${esc(m.label)} — ${esc(m.hint)}</option>`).join('')}</select></div>
   <div class="chk" id="aiRemRow"><input type="checkbox" id="aiRem"><label for="aiRem">remember browser key in localStorage</label></div>
@@ -1251,7 +1288,7 @@ $('#bEdge').classList.add('on');
 $('#bEdge').onclick = e => { const btn = e.currentTarget; S.edges = !S.edges; btn.classList.toggle('on', S.edges); updateVisuals(); };
 $('#bSec').onclick = e => { const btn = e.currentTarget; S.sec.on = !S.sec.on; btn.classList.toggle('on', S.sec.on); if (S.sec.on && !S.sec.off) S.sec.off = Math.round(sceneBox().getCenter(V(0, 0, 0))[S.sec.axis]); applySection(); setTab('motion'); };
 $('#bMeas').onclick = e => { const btn = e.currentTarget; S.meas.on = !S.meas.on; btn.classList.toggle('on', S.meas.on); applyNavMode(); if (!S.meas.on) clearMeasure(); toast(S.meas.on ? 'Measure: click two points (snaps to vertices)' : 'Measure off'); };
-$('#bBom').onclick = showCut; $('#bExp').onclick = () => setTab('export'); $('#tq').oninput = e => { S.q = e.target.value; buildTree(); }; $('#bShowAll').onclick = showAll;
+$('#bBom').onclick = () => { setTab('lists'); renderLists(); }; $('#bExp').onclick = () => setTab('export'); $('#tq').oninput = e => { S.q = e.target.value; buildTree(); }; $('#bShowAll').onclick = showAll;
 $('#bNew').onclick = newDesign; $('#bDup').onclick = duplicateDesign; $('#bRename').onclick = renameDesign; $('#bDel').onclick = deleteDesign;
 $('#docsel').onchange = e => { if (e.target.value && e.target.value !== S.docId) openDoc(e.target.value); };
 function setPanels() {
@@ -1274,6 +1311,9 @@ function setTab(t) {
   if (t === 'ai') { openAI(); return; }
   S.rightOn = true; setPanels();
   $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); $$('.pane').forEach(p => p.classList.toggle('on', p.id === 'p-' + t)); $('#right').classList.add('open');
+  if (t === 'lists') renderLists();
+  if (t === 'spec') renderSpecPane();
+  if (t === 'export') renderExport();
 }
 $$('.tabs button').forEach(b => b.onclick = () => setTab(b.dataset.t));
 applyNavMode();
