@@ -5,6 +5,12 @@
   "functions": {
     "api/messages.js": {
       "maxDuration": 300
+    },
+    "api/jobs.js": {
+      "maxDuration": 60
+    },
+    "api/jobs/[...path].js": {
+      "maxDuration": 60
     }
   }
 }

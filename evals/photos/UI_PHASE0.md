@@ -2,53 +2,26 @@
 
 Spec: [`docs/plans/ui-ux-shop-grade.md`](../../docs/plans/ui-ux-shop-grade.md)
 
-Backend photo→cutlist phases 0–6 are on `main`. This tracker is the **product UI** work.
-
 ## Done
 
-- [x] Spec checked into repo
-- [x] Status vocabulary module (`src/ui/terms.js`) — Measured / Estimated / Guessed / Good / Close / Check this / Shaped from blank
-- [x] **Lists** tab (primary cut + buy lists; print + full-width; BOM toolbar opens Lists)
-- [x] Spec editor linked under Ship → Advanced; Spec tab kept for power users / tests
-- [x] Classic Create provider labels clarified (not the shop-grade worker route)
+- [x] Spec, terms, Lists tab, Classic labels (Phase 0–1)
+- [x] Progress / compare / timeline / worker status (Phase 2)
+- [x] Intake + read-back (Phase 3)
+- [x] Part cards, Adjust / Ask for a change (Phase 4)
+- [x] First-run, spend-cap, mobile, aria-live (Phase 5)
+- [x] Scope banners, multi-photo, sheet view (Phase 6)
+- [x] **Create → worker job relay** (`POST /api/jobs` + poll + ask_user resume + artifacts)
+- [x] STEP/STL download from shop job artifacts (Ship + Lists)
+- [x] Domain profile selector (woodworking / cabinetry / metal)
+- [x] Resume in-progress shop job after refresh
 
-### UI Phase 2 — Loop and scoring UI
+## Ops notes
 
-- [x] `src/ui/shop.js` — progress, compare modes, timeline, worker ping, intake/read-back/review HTML
-- [x] Run progress (steps, spend, round, stop/keep, background, cancel)
-- [x] Per-round preview capture from Create render callback
-- [x] Worker status on Check tab + optional Worker URL in Advanced
-- [x] Reference compare modes (side / overlay / silhouette)
-- [x] Check timeline from AI log
-- [x] Resume hint from `localStorage` shop run
+1. Start worker: `python -m furniture_cad jobs --port 8787` (set Anthropic key in worker env).
+2. Optional: set Advanced → Worker URL to `http://127.0.0.1:8787`, or set Vercel `WORKER_JOBS_URL`.
+3. Classic Create (Vercel `/api/messages` proxy) remains fallback when the worker is offline.
 
-### UI Phase 3 — Intake + read-back
+## Still ongoing (eval, not product code)
 
-- [x] Shop-grade intake (photo(s), known size / no size, materials, run mode)
-- [x] Read-back assumptions + start build
-- [x] Known size seeded into Classic Create metrics/hints when worker offline fallback
-
-### UI Phase 4 — Editable parts and lists
-
-- [x] Part card with Measured/Estimated badge, Adjust + Ask for a change
-- [x] Adjust tab: selected part + Ask for a change → Revise
-- [x] Lists refresh after named-dimension rebuild
-
-### UI Phase 5 — Integration polish
-
-- [x] First-run copy on empty design
-- [x] Spend-cap warning near $2 limit
-- [x] Mobile full-width Create sheet
-- [x] `aria-live` on progress
-
-### UI Phase 6 — Hardening
-
-- [x] Scope-tier banners (full / blank / ask) from inventory notes
-- [x] Multi-photo chips on intake
-- [x] Lists print = sheet takeaway (PDF via browser print)
-
-## Remaining (backend / later)
-
-- [ ] STEP export
-- [ ] Wire Create fully to worker job relay (still Classic loop + shop progress UI when worker reachable)
-- [ ] Dedicated sheet-layout view beyond Lists print
+- [ ] Majority dogfood Match/Close (Phase 5 gate)
+- [ ] ≥20-piece hardening corpus (Phase 6)

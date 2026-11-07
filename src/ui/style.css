@@ -275,6 +275,16 @@ body.lists-wide #right .tabs button[data-t="lists"]{font-weight:700}
   #aiBox{width:100vw}
   .shopModes{font-size:13px}
 }
+#sheetView{display:none;position:fixed;inset:0;z-index:80;background:var(--bg);flex-direction:column;overflow:auto}
+#sheetView .sheetInner{max-width:900px;margin:0 auto;padding:24px 20px 48px}
+#sheetView .sheetHead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:2px solid var(--text);padding-bottom:12px;margin-bottom:18px}
+#sheetView .sheetHead .dim{font-size:12px;color:var(--dim);margin-top:4px}
+#sheetView .sheetBody section{margin-bottom:28px;break-inside:avoid}
+#sheetView .sheetBody h2{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
+@media print{
+  #sheetView{display:block!important;position:static;background:#fff}
+  #sheetView .sheetHead .btn,#app,#aiBox,#modal,#toast,#loading{display:none!important}
+}
 @media print{
   body.lists-print #app>header,body.lists-print #left,body.lists-print footer,body.lists-print #viewport,body.lists-print #aiBox,body.lists-print #modal,body.lists-print #toast,body.lists-print .edgebtn{display:none!important}
   body.lists-print main{display:block;overflow:visible}
