@@ -787,8 +787,9 @@ function renderExport() {
   <h3>Export</h3><div class="grid2"><button class="btn sm" id="eSel">Selected part(s)</button><button class="btn sm" id="eGrp">Group of selection</button><button class="btn sm" id="eAsm">Whole object · 1 STL</button><button class="btn sm" id="eAll">All parts · ZIP</button></div>
   <button class="btn pri sm" id="ePl" style="width:100%;margin-top:8px">Nest everything onto bed plates (STL per plate)</button>
   <div class="grid2" style="margin-top:8px"><button class="btn sm" id="eCsv">Cut list · CSV</button><button class="btn sm" id="eLists">Open Lists tab</button><button class="btn sm" id="eGuide">Build guide · HTML</button><button class="btn sm" id="eSpecDl">Design spec · JSON</button></div>
+  <div class="grid2" style="margin-top:8px"><button class="btn sm" id="eStep" ${CAD.shop && CAD.shop.state.jobId ? '' : 'disabled title="Run shop-grade Create for STEP"'} >STEP · shop worker</button><button class="btn sm" id="eSheet">Shop sheet</button></div>
   <details class="card" style="margin-top:10px"><summary><b>Advanced</b> · raw Spec JSON</summary>
-    <p style="font-size:12px;color:var(--dim);margin:6px 0">Shop-grade runs will hide connection keys here. Spec editing stays for Classic / power users.</p>
+    <p style="font-size:12px;color:var(--dim);margin:6px 0">Shop-grade runs use the worker key. Spec editing stays for Classic / power users.</p>
     <button class="btn sm" id="eSpecTab" style="width:100%">Open Spec editor</button>
   </details>
   <h3>Training / feedback</h3>
@@ -801,6 +802,13 @@ function renderExport() {
   $('#eCsv').onclick = () => deliver('cut_list', [{ name: safe(S.M.meta.name) + '_cut_list.csv', data: cutCSV() }]); $('#eLists').onclick = () => setTab('lists'); $('#eGuide').onclick = () => window.__guide && window.__guide.save(); $('#eSpecDl').onclick = () => deliver('spec', [{ name: safe(S.M.meta.name) + '.spec.json', data: jsonOf(S.spec) }]);
   $('#eSpecTab').onclick = () => { setTab('spec'); renderSpecPane(); };
   $('#eDataset').onclick = () => exportHitlDataset();
+  $('#eSheet').onclick = () => openSheetView();
+  $('#eStep').onclick = async () => {
+    const arts = (CAD.shop && CAD.shop.state.artifacts) || [];
+    const step = arts.find(a => /\.(step|stp)$/i.test(a.name || ''));
+    if (!step) return toast('No STEP from this shop job yet — run shop-grade Create with the worker');
+    await downloadShopArtifact(step.name);
+  };
   info();
 }
 async function exportHitlDataset() {
@@ -818,7 +826,32 @@ async function exportHitlDataset() {
 function info() { try { let np = 0, ns = 0, mesh = 0; S.M.defs.forEach(d => { const ps = CAD.exporter.printPieces(d, mult(), S.ex.bed, S.ex.split); np += ps.length * d.qty; if (ps.length > 1) ns++; if (ps.some(p => p.over)) mesh++; }); const { plates, over } = CAD.exporter.nest(S.M, mult(), S.ex.bed, S.ex.split); $('#exInfo').innerHTML = `<div class="card">${np} printed pieces · ${ns} part types split · ${plates.length} plate(s)${over.length ? ' · <span class="fail">' + over.length + ' oversize (round parts or too tall)</span>' : ''}</div>`; } catch (e) { $('#exInfo').textContent = ''; } }
 
 /* ---------------- Lists tab (primary) + legacy cut modal ---------------- */
+function shopListsHtml() {
+  const lists = CAD.shop && CAD.shop.state.lists;
+  const partsDoc = CAD.shop && CAD.shop.state.parts;
+  if (!lists && !(partsDoc && partsDoc.parts)) return null;
+  const cuts = (lists && (lists.cut_list || lists.cuts || lists.parts)) || (partsDoc && partsDoc.parts) || [];
+  const mats = (lists && (lists.materials || lists.buy || lists.summary)) || [];
+  const badge = (CAD.uiTerms && CAD.uiTerms.statusBadge) ? CAD.uiTerms.statusBadge : () => '';
+  const buyHtml = mats.length
+    ? `<table><tr><th>Buy</th><th>Detail</th></tr>${mats.map(m => {
+      if (typeof m === 'string') return `<tr><td colspan="2">${esc(m)}</td></tr>`;
+      return `<tr><td><b>${esc(m.buyLine || m.label || m.nom || m.mat || 'Stock')}</b></td><td>${esc(m.note || m.mat || JSON.stringify(m))}</td></tr>`;
+    }).join('')}</table>`
+    : `<div class="card">Open the worker lists.json buy section after a shop run, or use Classic lists from the model.</div>`;
+  let i = 0;
+  const partsHtml = `<p class="card">${badge('estimated')} Worker cut list · blanks in mm</p>
+    <table><tr><th class="n">#</th><th>Part</th><th class="n">Qty</th><th>Blank T×W×L</th><th>Material</th><th>Notes</th></tr>
+    ${cuts.map(r => {
+      const blank = r.blank_mm || [r.thickness_mm, r.width_mm, r.length_mm];
+      const blankStr = Array.isArray(blank) ? blank.map(n => inch(+n)).join(' × ') : esc(String(blank || '—'));
+      return `<tr><td class="n">${++i}</td><td>${esc(r.name || r.id)}</td><td class="n">${r.qty || 1}</td><td>${blankStr}</td><td>${esc(r.material || '')}</td><td>${esc(r.notes || (r.curved ? 'shaped blank' : ''))}</td></tr>`;
+    }).join('')}</table>`;
+  return { buyHtml, partsHtml, summary: cuts.length + ' parts · shop worker', shop: true };
+}
 function listsHtml() {
+  const shop = shopListsHtml();
+  if (shop && (!S.M || !S.M.defs || !S.M.defs.size)) return shop;
   if (!S.M || !S.M.defs || !S.M.defs.size) {
     return `<div class="card"><b>Lists</b>Cut and material lists appear here after you build a model. Open a photo design, or pick an example.</div>
       <div class="card" style="font-size:12px;color:var(--dim)">Blank = stock you cut from. ${esc((CAD.uiTerms && CAD.uiTerms.TERMS.estimate) || 'Estimate = scaled from proportions.')}</div>`;
@@ -850,8 +883,13 @@ function renderLists() {
   const el = $('#p-lists'); if (!el) return;
   const data = listsHtml();
   if (typeof data === 'string') { el.innerHTML = data; return; }
+  const shop = CAD.shop && CAD.shop.state;
+  const arts = (shop && shop.artifacts) || [];
+  const artBtns = arts.filter(a => /\.(step|stp|stl|json)$/i.test(a.name || '')).slice(0, 6).map(a =>
+    `<button type="button" class="btn sm" data-art="${esc(a.name)}">${esc(a.name)}</button>`).join('');
   el.innerHTML = `<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap"><h3 style="margin:0;flex:1">Lists</h3><span style="font-size:12px;color:var(--dim)">${esc(data.summary)}</span>
-    <button class="btn sm" id="lCsv">CSV</button><button class="btn sm" id="lPrint">Print</button><button class="btn sm" id="lWide">Full width</button></div>
+    <button class="btn sm" id="lCsv">CSV</button><button class="btn sm" id="lSheet">Sheet</button><button class="btn sm" id="lPrint">Print</button><button class="btn sm" id="lWide">Full width</button></div>
+    ${artBtns ? `<div class="row" style="flex-wrap:wrap;gap:6px;margin:8px 0">${artBtns}</div>` : ''}
     <div class="mtabs"><button type="button" class="btn sm on" data-ltab="buy">1 · Buy</button><button type="button" class="btn sm" data-ltab="parts">2 · Cut list</button></div>
     <div class="ltab on" id="ltab-buy">${data.buyHtml}</div><div class="ltab" id="ltab-parts" hidden>${data.partsHtml}</div>`;
   $$('#p-lists [data-ltab]').forEach(b => b.onclick = () => {
@@ -860,9 +898,43 @@ function renderLists() {
     if (buy) buy.hidden = b.dataset.ltab !== 'buy';
     if (parts) parts.hidden = b.dataset.ltab !== 'parts';
   });
-  $('#lCsv').onclick = () => deliver('cut_list', [{ name: safe(S.M.meta.name) + '_cut_list.csv', data: cutCSV() }]);
+  $('#lCsv').onclick = () => {
+    if (S.M && S.M.defs && S.M.defs.size) deliver('cut_list', [{ name: safe(S.M.meta.name) + '_cut_list.csv', data: cutCSV() }]);
+    else if (shop && shop.lists) deliver('cut_list', [{ name: 'shop_lists.json', data: JSON.stringify(shop.lists, null, 2) }]);
+    else toast('No cut list yet');
+  };
   $('#lPrint').onclick = () => { document.body.classList.add('lists-print'); window.print(); setTimeout(() => document.body.classList.remove('lists-print'), 500); };
+  $('#lSheet').onclick = () => openSheetView();
   $('#lWide').onclick = () => { document.body.classList.toggle('lists-wide'); $('#lWide').textContent = document.body.classList.contains('lists-wide') ? 'Dock panel' : 'Full width'; };
+  $$('#p-lists [data-art]').forEach(b => b.onclick = () => downloadShopArtifact(b.dataset.art));
+}
+async function downloadShopArtifact(name) {
+  if (!CAD.shop || !CAD.shop.state.jobId) return toast('No shop job');
+  try {
+    const url = CAD.shop.artifactUrl(CAD.shop.state.jobId, name);
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const blob = await r.blob();
+    anchorSave(name, blob);
+    toast('Downloaded ' + name);
+  } catch (e) { toast('Download failed: ' + e.message); }
+}
+function openSheetView() {
+  const data = listsHtml();
+  let host = $('#sheetView');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'sheetView';
+    document.body.appendChild(host);
+  }
+  const title = (S.M && S.M.meta && S.M.meta.name) || 'Cut & buy sheet';
+  const body = typeof data === 'string' ? data : `<section><h2>Buy</h2>${data.buyHtml}</section><section><h2>Cut list</h2>${data.partsHtml}</section>`;
+  host.innerHTML = `<div class="sheetInner"><header class="sheetHead"><div><b>${esc(title)}</b><div class="dim">${esc((data && data.summary) || '')} · ${new Date().toLocaleDateString()}</div></div>
+    <div><button class="btn sm" id="sheetPrint">Print / PDF</button><button class="btn sm" id="sheetClose">Close</button></div></header>
+    <div class="sheetBody">${body}</div></div>`;
+  host.style.display = 'flex';
+  $('#sheetPrint').onclick = () => window.print();
+  $('#sheetClose').onclick = () => { host.style.display = 'none'; };
 }
 function showCut() {
   /* Legacy modal for tests / shortcuts — primary UX is the Lists tab. */
@@ -1068,14 +1140,16 @@ function bindShopIntake() {
   drop.ondrop = e => { e.preventDefault(); drop.classList.remove('on'); addFiles(e.dataTransfer.files); };
   $$('#p-ai [data-rm]').forEach(b => b.onclick = () => { CAD.shop.state.photos.splice(+b.dataset.rm, 1); if (CAD.shop.state.photos[0]) S.ai.img = CAD.shop.state.photos[0].url; renderAI(); });
   $$('#p-ai input[name=shopMode]').forEach(r => r.onchange = () => { CAD.shop.state.mode = r.value; renderAI(); });
+  if ($('#shopDomain')) $('#shopDomain').onchange = () => { CAD.shop.state.domain = $('#shopDomain').value; };
   const go = $('#shopContinue');
   const syncGo = () => {
     CAD.shop.state.noSize = !!($('#shopNoSize') && $('#shopNoSize').checked);
     CAD.shop.state.materialsBrief = ($('#shopMats') && $('#shopMats').value) || '';
+    if ($('#shopDomain')) CAD.shop.state.domain = $('#shopDomain').value;
     const hasPhoto = CAD.shop.state.photos.length || S.ai.img;
     if (go) go.disabled = !hasPhoto;
   };
-  ['shopNoSize', 'shopMats', 'shopSize', 'shopDim'].forEach(id => { const el = $('#' + id); if (el) el.oninput = syncGo; el && (el.onchange = syncGo); });
+  ['shopNoSize', 'shopMats', 'shopSize', 'shopDim', 'shopDomain'].forEach(id => { const el = $('#' + id); if (el) el.oninput = syncGo; el && (el.onchange = syncGo); });
   syncGo();
   if (go) go.onclick = () => {
     const raw = ($('#shopSize') && $('#shopSize').value || '').trim();
@@ -1102,35 +1176,114 @@ function bindShopReadback() {
   $('#shopBackIntake') && ($('#shopBackIntake').onclick = () => { S.shopScreen = 'intake'; renderAI(); });
   $('#shopStartBuild') && ($('#shopStartBuild').onclick = () => startShopBuild());
 }
+function stopShopPoll() {
+  if (CAD.shop && CAD.shop.state.pollTimer) {
+    clearInterval(CAD.shop.state.pollTimer);
+    CAD.shop.state.pollTimer = null;
+  }
+}
+async function adoptShopJobSuccess(job) {
+  const st = CAD.shop.state;
+  st.statusLine = 'Loading lists and model…';
+  S.ai.busy = false;
+  renderAI();
+  const products = await CAD.shop.loadJobProducts(job.id);
+  if (products.parts) {
+    const spec = CAD.shop.partsToSpec(products.parts, { name: (S.docs[S.docId] && S.docs[S.docId].name) || 'Shop build' });
+    persistActive();
+    const id = addDoc(spec, { name: spec.name });
+    openDoc(id);
+    st.bestSpec = spec;
+    if (S.docs[id]) CAD.shop.persistJob(S.docs[id]);
+  }
+  S.ai.log = S.ai.log.concat(['Shop job ' + job.id + ' succeeded',
+    products.parts ? ((products.parts.parts || []).length + ' part types') : 'no parts.json',
+    products.lists ? 'lists.json loaded' : 'no lists.json']);
+  S.shopScreen = 'review';
+  S.lastRun = {
+    runId: job.id, task: 'design', at: Date.now(), shop: true,
+    geometryOk: !!(job.result && job.result.ok),
+    photoScore: null, inventory: S.ai.inventory
+  };
+  renderAI();
+  setTab('lists');
+  renderLists();
+  toast('Shop build ready — review Lists and downloads');
+}
+async function pollShopJobOnce() {
+  if (!CAD.shop || !CAD.shop.state.jobId || CAD.shop.state.cancelRequested) return;
+  try {
+    const job = await CAD.shop.pollJob(CAD.shop.state.jobId);
+    const lines = CAD.shop.applyJobSnapshot(job);
+    if (lines && lines.length) {
+      S.ai.log = lines.slice();
+      const el = $('#aiLog'); if (el) el.innerHTML = S.ai.log.map(esc).join('<br>');
+    }
+    if (S.shopScreen === 'progress') renderAI();
+    if (job.status === 'succeeded') {
+      stopShopPoll();
+      await adoptShopJobSuccess(job);
+    } else if (job.status === 'failed') {
+      stopShopPoll();
+      S.ai.busy = false;
+      toast('Worker job failed — try Classic Create');
+      CAD.shop.state.statusLine = 'Failed: ' + (job.error || 'unknown');
+      renderAI();
+    } else if (job.status === 'needs_user') {
+      /* stay on progress; ask UI shown */
+      renderAI();
+    }
+  } catch (e) {
+    CAD.shop.state.statusLine = 'Poll error: ' + e.message;
+    if (S.shopScreen === 'progress') renderAI();
+  }
+}
 async function startShopBuild() {
   S.shopScreen = 'progress';
   CAD.shop.state.startedAt = Date.now();
   CAD.shop.state.round = 0;
   CAD.shop.state.stepId = 'read';
-  CAD.shop.state.statusLine = 'Reading your photo…';
+  CAD.shop.state.statusLine = 'Connecting to worker…';
   CAD.shop.state.previews = [];
+  CAD.shop.state.pendingQuestion = null;
+  CAD.shop.state.cancelRequested = false;
   CAD.shop.state.bestSpec = S.spec ? JSON.parse(JSON.stringify(S.spec)) : null;
+  if (CAD.shop.state.photos[0]) S.ai.img = CAD.shop.state.photos[0].url;
   renderAI();
   const online = await CAD.shop.pingWorker();
   if (!online) {
     CAD.shop.state.statusLine = 'Worker offline — falling back to Classic Create';
     renderAI();
-    toast('Worker offline — using Classic Create');
+    toast('Worker offline — using Classic Create (Vercel proxy)');
     S.shopScreen = null;
     CAD.shop.state.mode = 'classic';
-    if (CAD.shop.state.photos[0]) S.ai.img = CAD.shop.state.photos[0].url;
     renderAI();
     return runAI('design');
   }
-  /* Worker online: still drive Classic loop locally for model until job relay is always-on;
-     progress UI matches shop-grade steps via aiLog hooks. */
-  CAD.shop.state.statusLine = 'Worker reachable — building with Create loop + Lists';
-  renderAI();
-  return runAI('design');
+  try {
+    CAD.shop.state.statusLine = 'Starting worker job…';
+    renderAI();
+    const job = await CAD.shop.createAndRunJob();
+    if (S.docId && S.docs[S.docId]) CAD.shop.persistJob(S.docs[S.docId]);
+    S.ai.busy = true;
+    S.ai.log = ['Shop job ' + job.id + ' started on worker'];
+    stopShopPoll();
+    CAD.shop.state.pollTimer = setInterval(() => { pollShopJobOnce(); }, 2000);
+    await pollShopJobOnce();
+  } catch (e) {
+    toast('Worker start failed — Classic Create: ' + e.message);
+    S.shopScreen = null;
+    CAD.shop.state.mode = 'classic';
+    renderAI();
+    return runAI('design');
+  }
 }
 function bindShopProgress() {
   $('#shopStopKeep') && ($('#shopStopKeep').onclick = () => {
+    CAD.shop.state.cancelRequested = true;
+    stopShopPoll();
     if (S.ai.abort) S.ai.abort.abort();
+    S.ai.busy = false;
     toast('Stopped — keeping best result so far');
     S.shopScreen = 'review';
     renderAI();
@@ -1139,7 +1292,10 @@ function bindShopProgress() {
   $('#shopBg') && ($('#shopBg').onclick = () => { closeAI(); toast('Running in background — reopen Create to check progress'); });
   $('#shopCancel') && ($('#shopCancel').onclick = () => {
     if (!confirm('Cancel with no result?')) return;
+    CAD.shop.state.cancelRequested = true;
+    stopShopPoll();
     if (S.ai.abort) S.ai.abort.abort();
+    S.ai.busy = false;
     S.shopScreen = 'intake';
     toast('Cancelled');
     renderAI();
@@ -1148,6 +1304,20 @@ function bindShopProgress() {
     const p = CAD.shop.state.previews;
     if (p.length > 1) { p.pop(); renderAI(); }
   });
+  const sendAsk = async (answer) => {
+    if (!answer || !CAD.shop.state.jobId) return toast('Enter an answer');
+    try {
+      CAD.shop.state.statusLine = 'Sending answer…';
+      CAD.shop.state.pendingQuestion = null;
+      renderAI();
+      await CAD.shop.resumeJob(CAD.shop.state.jobId, answer);
+      CAD.shop.state.stepId = 'build';
+      if (!CAD.shop.state.pollTimer) CAD.shop.state.pollTimer = setInterval(() => { pollShopJobOnce(); }, 2000);
+      await pollShopJobOnce();
+    } catch (e) { toast('Resume failed: ' + e.message); }
+  };
+  $('#shopAskSend') && ($('#shopAskSend').onclick = () => sendAsk((($('#shopAskAns') && $('#shopAskAns').value) || '').trim()));
+  $$('#p-ai [data-shop-ans]').forEach(b => b.onclick = () => sendAsk(b.dataset.shopAns));
 }
 function bindShopReview() {
   $('#shopAccept') && ($('#shopAccept').onclick = () => {
@@ -1165,6 +1335,10 @@ function bindShopReview() {
   $('#shopRetry') && ($('#shopRetry').onclick = () => {
     S.shopScreen = 'intake';
     renderAI();
+  });
+  $$('#p-ai [data-photo]').forEach(b => b.onclick = () => {
+    const p = CAD.shop.state.photos[+b.dataset.photo];
+    if (p) { S.ai.img = p.url; syncRefPane(); toast('Showing ' + (p.role || 'photo')); }
   });
 }
 function renderAI() {
@@ -1234,10 +1408,10 @@ function renderAI() {
     else if (scr === 'progress') shopBody = CAD.shop.progressHtml();
     else if (scr === 'review') {
       const ps = S.lastRun && S.lastRun.photoScore;
-      shopBody = CAD.shop.reviewSummaryHtml({
-        matchLabel: (ps && ps.rating) || 'Close',
+      shopBody = (CAD.shop.multiPhotoReviewHtml() || '') + CAD.shop.reviewSummaryHtml({
+        matchLabel: (ps && ps.rating) || (S.lastRun && S.lastRun.shop ? 'Good' : 'Close'),
         knownSize: !!(CAD.shop.state.knownSize && !CAD.shop.state.noSize),
-        partCount: S.M && S.M.defs ? S.M.defs.size : '—',
+        partCount: S.M && S.M.defs ? S.M.defs.size : ((CAD.shop.state.parts && CAD.shop.state.parts.parts) || []).length || '—',
         sizeNote: CAD.shop.state.knownSize ? ('Known ' + CAD.shop.state.knownSize.label) : ''
       });
     } else shopBody = CAD.shop.intakeHtml();
@@ -1760,6 +1934,30 @@ async function importWorkspaceFile(file) {
   if (prefer) openDoc(prefer);
   toast('Restored ' + n + ' design' + (n === 1 ? '' : 's'));
 }
+async function resumeShopJobIfAny() {
+  if (!CAD.shop) return;
+  const hint = CAD.shop.restoreJobHint();
+  if (!hint || !hint.jobId) return;
+  const online = await CAD.shop.pingWorker();
+  if (!online) return;
+  try {
+    const job = await CAD.shop.pollJob(hint.jobId);
+    CAD.shop.applyJobSnapshot(job);
+    if (job.status === 'running' || job.status === 'queued' || job.status === 'needs_user') {
+      CAD.shop.state.jobId = job.id;
+      CAD.shop.state.startedAt = CAD.shop.state.startedAt || Date.now();
+      S.shopScreen = 'progress';
+      S.ai.busy = true;
+      S.aiPanel = 'create';
+      CAD.shop.state.mode = 'shop';
+      if (!CAD.shop.state.pollTimer) CAD.shop.state.pollTimer = setInterval(() => { pollShopJobOnce(); }, 2000);
+      openAI('create');
+      toast('Resumed shop job ' + job.id.slice(0, 12) + '…');
+    } else if (job.status === 'succeeded') {
+      await adoptShopJobSuccess(job);
+    }
+  } catch (e) { /* stale hint */ }
+}
 function boot() {
   const lb = $('#lbar'); lb.style.width = '35%';
   setTimeout(async () => {
@@ -1780,6 +1978,7 @@ function boot() {
       if (prefer) openDoc(prefer); else { seedWorkspace(); openDoc(Object.keys(S.docs)[0]); }
     }
     if (CAD.makeGuide) window.__guide = CAD.makeGuide({ T, S, CAD, renderer, scene, camera, getMat, geomOf, TEX, toast, deliver, safe });
+    await resumeShopJobIfAny();
     lb.style.width = '100%'; setTimeout(() => { $('#loading').style.display = 'none'; S.need = true; }, 150);
   }, 30);
 }

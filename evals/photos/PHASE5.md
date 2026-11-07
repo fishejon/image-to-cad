@@ -9,4 +9,5 @@ See [`lab/furniture_cad/FEATURE_FLAGS.md`](../../lab/furniture_cad/FEATURE_FLAGS
 - [x] Worker auth = env API key (not in app bundle)
 - [x] Spend cap per job (contract + env)
 - [x] Status via job store / `/api/jobs` relay
+- [x] Product Create posts jobs + polls (Classic fallback when worker offline)
 - [ ] Majority dogfood Match/Close — ongoing after ship

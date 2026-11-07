@@ -34,11 +34,24 @@
     compare: 'side', /* side | overlay | silhouette */
     overlayT: 0.5,
     scopeTier: null, /* full | blank | ask */
-    checklist: {}
+    checklist: {},
+    domain: 'woodworking',
+    lists: null, /* worker lists.json */
+    parts: null, /* worker parts.json */
+    artifacts: [],
+    pollTimer: null,
+    pendingQuestion: null,
+    cancelRequested: false
   };
 
   function $(sel, root) { return (root || document).querySelector(sel); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  Shop.domainProfiles = {
+    woodworking: { label: 'Woodworking', listHint: 'Boards, plywood, and blanks' },
+    cabinetry: { label: 'Cabinetry', listHint: 'Sheet goods + edge banding' },
+    metal: { label: 'Metal fab', listHint: 'Stock lengths — nesting differs' }
+  };
 
   Shop.workerBase = function () {
     try { return (localStorage.getItem('image-to-cad.worker') || '').replace(/\/$/, ''); } catch (e) { return ''; }
@@ -115,6 +128,11 @@
       </div>
       <ol class="shopSteps">${steps}</ol>
       <div class="card" id="shopStatusLine"><b>Now:</b> ${esc(st.statusLine || 'Starting…')}</div>
+      ${st.pendingQuestion ? `<div class="card warn" id="shopAskCard"><b>Question</b><div style="margin-top:6px">${esc(st.pendingQuestion.question || '')}</div>
+        ${(st.pendingQuestion.choices || []).map(c => `<button type="button" class="btn sm" data-shop-ans="${esc(c)}" style="margin:4px 4px 0 0">${esc(c)}</button>`).join('')}
+        <textarea id="shopAskAns" rows="2" placeholder="Your answer" style="width:100%;margin-top:8px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px"></textarea>
+        <button class="btn pri sm" id="shopAskSend" style="width:100%;margin-top:6px">Send answer</button>
+      </div>` : ''}
       ${prev}
       <div class="grid2" style="margin-top:8px">
         <button class="btn pri sm" id="shopStopKeep">Stop and keep best</button>
@@ -168,10 +186,13 @@
       <div class="chk" style="margin-top:6px"><input type="checkbox" id="shopNoSize"${st.noSize ? ' checked' : ''}><label for="shopNoSize">I don’t know a size — accuracy will be lower</label></div>
       <h3>Materials (optional)</h3>
       <textarea id="shopMats" rows="2" placeholder="e.g. oak, ¾″ plywood back" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px">${esc(st.materialsBrief)}</textarea>
+      <h3>Domain</h3>
+      <select id="shopDomain" class="btn" style="width:100%">${Object.keys(Shop.domainProfiles).map(k =>
+        `<option value="${esc(k)}"${(st.domain || 'woodworking') === k ? ' selected' : ''}>${esc(Shop.domainProfiles[k].label)}</option>`).join('')}</select>
       <h3>Run mode</h3>
       <div class="shopModes">
         <label class="shopMode${st.mode === 'shop' ? ' on' : ''}"><input type="radio" name="shopMode" value="shop"${st.mode === 'shop' ? ' checked' : ''}> <b>Shop-grade</b><span>Real geometry + lists · several minutes · worker</span></label>
-        <label class="shopMode${st.mode === 'classic' ? ' on' : ''}"><input type="radio" name="shopMode" value="classic"${st.mode === 'classic' ? ' checked' : ''}> <b>Classic</b><span>Faster simple shapes · current Create</span></label>
+        <label class="shopMode${st.mode === 'classic' ? ' on' : ''}"><input type="radio" name="shopMode" value="classic"${st.mode === 'classic' ? ' checked' : ''}> <b>Classic</b><span>Faster simple shapes · Vercel proxy</span></label>
       </div>
       <p style="font-size:11px;color:var(--dim)">Photos stay in this browser unless you opt in to upload for training. Shop-grade uses the worker key — you don’t paste an API key here.</p>
       <button class="btn pri" id="shopContinue" style="width:100%;margin-top:10px" disabled>${st.mode === 'classic' ? 'Continue to Classic Create' : 'Continue to read-back'}</button>
@@ -233,6 +254,203 @@
     if (t === 'blank') return `<div class="card warn"><b>Shaped blank estimate</b> This piece is organic or sculpted. Lists show blank stock sizes, not CNC toolpaths.</div>`;
     if (t === 'ask') return `<div class="card warn"><b>Need more detail</b> The photo isn’t enough for a full model. Answer the question or try another photo.</div>`;
     return '';
+  };
+
+  Shop.apiRoot = function () {
+    const base = Shop.workerBase();
+    return base || '';
+  };
+
+  Shop.jobsUrl = function (path) {
+    path = path || '';
+    const root = Shop.apiRoot();
+    if (root) return root + (path.startsWith('/jobs') ? path : '/jobs' + path);
+    return '/api/jobs' + (path === '/jobs' || path === '' ? '' : path.replace(/^\/jobs/, ''));
+  };
+
+  Shop.fetchJson = async function (path, init) {
+    const r = await fetch(Shop.jobsUrl(path), Object.assign({ cache: 'no-store' }, init || {}));
+    const text = await r.text();
+    let body = null;
+    try { body = text ? JSON.parse(text) : null; } catch (e) { body = { raw: text }; }
+    if (!r.ok) {
+      const msg = (body && body.error && (body.error.message || body.error)) || body.error || ('HTTP ' + r.status);
+      const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      err.status = r.status;
+      err.body = body;
+      throw err;
+    }
+    return body;
+  };
+
+  Shop.buildPrompt = function () {
+    const st = Shop.state;
+    const bits = [
+      'Build shop-grade furniture from the reference photo.',
+      'Produce an assembly (STL/STEP) and cut/material lists via tools.',
+      'Domain profile: ' + (st.domain || 'woodworking') + '.'
+    ];
+    if (st.knownSize && !st.noSize) {
+      const dim = st.knownSize.dim === 'w' ? 'width' : st.knownSize.dim === 'd' ? 'depth' : 'height';
+      bits.push('Known overall ' + dim + ': ' + st.knownSize.label + ' (' + Math.round(st.knownSize.valueMm) + ' mm).');
+    } else {
+      bits.push('No known size — estimate scale from proportions and ask_user only if stuck.');
+    }
+    if (st.materialsBrief) bits.push('Materials: ' + st.materialsBrief);
+    (st.assumptions || []).forEach(a => bits.push('Assumption: ' + a));
+    if (st.photos.length > 1) bits.push('User provided ' + st.photos.length + ' photos; primary is front/overall.');
+    return bits.join(' ');
+  };
+
+  Shop.createAndRunJob = async function () {
+    const st = Shop.state;
+    const photo = (st.photos[0] && st.photos[0].url) || null;
+    const body = {
+      prompt: Shop.buildPrompt(),
+      photo_b64: photo,
+      domain: st.domain || 'woodworking',
+      run: true,
+      async: true
+    };
+    const created = await Shop.fetchJson('/jobs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const job = created.job || created;
+    st.jobId = job.id;
+    st.jobStatus = job.status;
+    st.spendUsd = job.spend_usd_approx || 0;
+    st.round = job.rounds || 0;
+    st.artifacts = job.artifacts || [];
+    st.statusLine = 'Worker job ' + job.id + ' · ' + (job.status || 'queued');
+    st.stepId = 'build';
+    return job;
+  };
+
+  Shop.pollJob = async function (jobId) {
+    return Shop.fetchJson('/jobs/' + encodeURIComponent(jobId));
+  };
+
+  Shop.resumeJob = async function (jobId, answer) {
+    return Shop.fetchJson('/jobs/' + encodeURIComponent(jobId) + '/resume', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ answer: answer, async: true })
+    });
+  };
+
+  Shop.artifactUrl = function (jobId, name) {
+    return Shop.jobsUrl('/jobs/' + encodeURIComponent(jobId) + '/artifacts/' + encodeURIComponent(name));
+  };
+
+  Shop.fetchArtifactJson = async function (jobId, name) {
+    const r = await fetch(Shop.artifactUrl(jobId, name), { cache: 'no-store' });
+    if (!r.ok) throw new Error('artifact ' + name + ' HTTP ' + r.status);
+    return r.json();
+  };
+
+  Shop.applyJobSnapshot = function (job) {
+    if (!job) return;
+    const st = Shop.state;
+    st.jobId = job.id || st.jobId;
+    st.jobStatus = job.status;
+    st.spendUsd = Number(job.spend_usd_approx || 0);
+    st.round = Number(job.rounds || 0);
+    st.artifacts = job.artifacts || [];
+    st.pendingQuestion = job.pending_question || null;
+    if (job.status === 'needs_user') {
+      st.stepId = 'adjust';
+      st.statusLine = (st.pendingQuestion && st.pendingQuestion.question) || 'Waiting for your answer…';
+      st.scopeTier = 'ask';
+    } else if (job.status === 'running' || job.status === 'queued') {
+      st.stepId = st.round > 1 ? 'check' : 'build';
+      st.statusLine = 'Worker ' + job.status + (st.round ? ' · round ' + st.round : '');
+    } else if (job.status === 'succeeded') {
+      st.stepId = 'lists';
+      st.statusLine = 'Build finished — loading lists…';
+    } else if (job.status === 'failed') {
+      st.statusLine = 'Failed: ' + (job.error || 'unknown');
+    }
+    /* Mirror tool log into AI log strings for Check timeline */
+    if (Array.isArray(job.log) && job.log.length) {
+      const lines = job.log.slice(-30).map(e => {
+        if (typeof e === 'string') return e;
+        const tool = e.tool || e.name || 'step';
+        const ok = e.result && e.result.ok === false ? '✗' : '·';
+        return ok + ' ' + tool + (e.result && e.result.error ? ': ' + e.result.error : '');
+      });
+      return lines;
+    }
+    return null;
+  };
+
+  Shop.loadJobProducts = async function (jobId) {
+    const arts = Shop.state.artifacts || [];
+    const names = arts.map(a => a.name || a);
+    let lists = null, parts = null;
+    if (names.indexOf('lists.json') >= 0) {
+      try { lists = await Shop.fetchArtifactJson(jobId, 'lists.json'); } catch (e) { /* optional */ }
+    }
+    const partsName = names.find(n => /\.parts\.json$/i.test(n));
+    if (partsName) {
+      try { parts = await Shop.fetchArtifactJson(jobId, partsName); } catch (e) { /* optional */ }
+    }
+    Shop.state.lists = lists;
+    Shop.state.parts = parts;
+    return { lists, parts, artifacts: arts };
+  };
+
+  /** Convert worker PartRecords into a simple solid-box SPEC for the browser viewer. */
+  Shop.partsToSpec = function (partsDoc, meta) {
+    meta = meta || {};
+    const rows = (partsDoc && partsDoc.parts) || (Array.isArray(partsDoc) ? partsDoc : []);
+    const parts = [];
+    let x = 0;
+    rows.forEach((p, i) => {
+      const T = Math.max(1, +p.thickness_mm || 20);
+      const W = Math.max(1, +p.width_mm || 50);
+      const L = Math.max(1, +p.length_mm || 100);
+      const id = String(p.id || ('p' + i)).replace(/[^a-zA-Z0-9_]/g, '_');
+      const qty = Math.max(1, +p.qty || 1);
+      const mat = /oak|walnut|maple|cherry|ash|birch|pine|poplar/i.test(p.material || '')
+        ? String(p.material).toLowerCase().split(/[^a-z]/)[0]
+        : 'oak';
+      parts.push({
+        id: id,
+        name: p.name || id,
+        group: 'case',
+        material: mat,
+        kind: 'solid',
+        grain: p.grain === 'x' || p.grain === 'y' || p.grain === 'z' ? p.grain : 'z',
+        qty: qty,
+        ops: [{ add: [0, 0, 0, L, W, T] }],
+        instances: Array.from({ length: qty }, (_, n) => ({ at: [x, n * (W + 10), 0] })),
+        notes: p.curved ? ['Shaped from blank — listed size is stock'] : (p.notes ? [String(p.notes)] : [])
+      });
+      x += L + 20;
+    });
+    return {
+      name: meta.name || (partsDoc && partsDoc.meta && partsDoc.meta.name) || 'Shop build',
+      units: 'mm',
+      description: meta.description || 'Built by shop-grade worker from photo. Box preview of blanks — download STEP/STL from Ship for exact solids.',
+      assumptions: Shop.state.assumptions || [],
+      params: {},
+      groups: [{ id: 'case', name: 'Parts' }],
+      steps: [{ title: 'Worker assembly', parts: parts.map(p => p.id) }],
+      parts: parts,
+      __shopJobId: Shop.state.jobId,
+      __ai: true,
+      __trusted: true
+    };
+  };
+
+  Shop.multiPhotoReviewHtml = function () {
+    const photos = Shop.state.photos || [];
+    if (photos.length < 2) return '';
+    return `<div class="shopMultiPhoto"><h3>Photos</h3><div class="shopPhotoRow">${photos.map((p, i) =>
+      `<button type="button" class="shopPhotoChip" data-photo="${i}"><img src="${p.url}" alt=""><span>${esc(p.role || 'photo')}</span></button>`
+    ).join('')}</div></div>`;
   };
 
   CAD.shop = Shop;
