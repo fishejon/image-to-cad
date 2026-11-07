@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "case_01",
+  "status": "awaiting_photo",
+  "object": "bookshelf",
+  "notes": "Phase 0 rectilinear case. Prefer a real photo of a simple bookshelf/open case with measurable overall W×D×H. Until then, examples/bookshelf.json is the parametric reference only (not photo likeness).",
+  "source": {
+    "file": null,
+    "license": "pending",
+    "dims_mm": {
+      "overall_w": 900,
+      "overall_d": 300,
+      "overall_h": 1800
+    },
+    "dims_from": "examples/bookshelf.json defaults — replace with measured/catalog when photo lands"
+  },
+  "exampleSpec": "bookshelf"
+}

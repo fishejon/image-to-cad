@@ -4,7 +4,8 @@
 
 **Active approach:** furniture-designer construction brief → **one bespoke build123d script per reference chair** → only later extract shared blocks from patterns that actually worked.
 
-Long-term product roadmap (still parked): [docs/plans/parametric-synthesis.md](../../docs/plans/parametric-synthesis.md)
+**Active product plan:** [docs/plans/photo-to-cutlist.md](../../docs/plans/photo-to-cutlist.md) (Phase 0+).  
+Kernel IR notes (parked): [docs/plans/parametric-synthesis.md](../../docs/plans/parametric-synthesis.md)
 
 ## Why the old loop stalled
 
