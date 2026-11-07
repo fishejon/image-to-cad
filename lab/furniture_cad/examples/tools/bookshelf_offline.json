@@ -1,0 +1,17 @@
+[
+  {
+    "tool": "build",
+    "input": {
+      "name": "bookshelf_fixture",
+      "script": "parts = [\n  {\"id\": \"side_L\", \"name\": \"Left side\", \"qty\": 1, \"material\": \"oak\", \"thickness_mm\": 18, \"width_mm\": 300, \"length_mm\": 1800, \"grain\": \"z\", \"how_made\": \"solid\"},\n  {\"id\": \"side_R\", \"name\": \"Right side\", \"qty\": 1, \"material\": \"oak\", \"thickness_mm\": 18, \"width_mm\": 300, \"length_mm\": 1800, \"grain\": \"z\", \"how_made\": \"solid\"},\n  {\"id\": \"board\", \"name\": \"Shelf / top / bottom board\", \"qty\": 6, \"material\": \"oak\", \"thickness_mm\": 18, \"width_mm\": 288, \"length_mm\": 876, \"grain\": \"x\", \"how_made\": \"solid\"},\n  {\"id\": \"back\", \"name\": \"Back panel\", \"qty\": 1, \"material\": \"ply\", \"thickness_mm\": 6, \"width_mm\": 880, \"length_mm\": 1740, \"grain\": \"x\", \"how_made\": \"sheet\"},\n  {\"id\": \"divider\", \"name\": \"Bay divider\", \"qty\": 1, \"material\": \"oak\", \"thickness_mm\": 18, \"width_mm\": 276, \"length_mm\": 326, \"grain\": \"z\", \"how_made\": \"solid\"},\n  {\"id\": \"drawer_front\", \"name\": \"Drawer front\", \"qty\": 2, \"material\": \"oak\", \"thickness_mm\": 18, \"width_mm\": 322, \"length_mm\": 420, \"grain\": \"x\", \"how_made\": \"solid\"},\n  {\"id\": \"drawer_side_L\", \"name\": \"Drawer side — left\", \"qty\": 2, \"material\": \"oak\", \"thickness_mm\": 12, \"width_mm\": 262, \"length_mm\": 322, \"grain\": \"y\", \"how_made\": \"solid\"},\n  {\"id\": \"drawer_side_R\", \"name\": \"Drawer side — right\", \"qty\": 2, \"material\": \"oak\", \"thickness_mm\": 12, \"width_mm\": 262, \"length_mm\": 322, \"grain\": \"y\", \"how_made\": \"solid\"},\n  {\"id\": \"drawer_back\", \"name\": \"Drawer back\", \"qty\": 2, \"material\": \"oak\", \"thickness_mm\": 12, \"width_mm\": 310, \"length_mm\": 396, \"grain\": \"x\", \"how_made\": \"solid\"},\n  {\"id\": \"drawer_bottom\", \"name\": \"Drawer bottom\", \"qty\": 2, \"material\": \"ply\", \"thickness_mm\": 6, \"width_mm\": 260, \"length_mm\": 404, \"grain\": \"x\", \"how_made\": \"sheet\"},\n]\n"
+    }
+  },
+  {
+    "tool": "lists",
+    "input": {}
+  },
+  {
+    "tool": "measure",
+    "input": { "part": "side_L" }
+  }
+]

@@ -1,4 +1,4 @@
-"""CLI entry: python -m furniture_cad <export|compile|fail|lists> ..."""
+"""CLI entry: python -m furniture_cad <export|compile|fail|lists|run> ..."""
 
 from __future__ import annotations
 
@@ -9,11 +9,14 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ("-h", "--help"):
         print(
-            "usage: python -m furniture_cad {export,compile,fail,lists} ...\n"
+            "usage: python -m furniture_cad {export,compile,fail,lists,run} ...\n"
             "  export --demo box [--out DIR]\n"
             "  compile --template NAME --params FILE [--out DIR]\n"
             "  fail --kind missing_block --need bent_panel --photo-id ...\n"
             "  lists --parts FILE [--out plan.json]\n"
+            "  run --script FILE [--work DIR]   # offline tool-use dry-run\n"
+            "  run --prompt TEXT [--work DIR]  # Messages API tool-use loop\n"
+            "  run --contract                  # print tools.v1.json summary\n"
             "This lab is offline and NOT deployed to prod."
         )
         return 0
@@ -34,6 +37,10 @@ def main(argv: list[str] | None = None) -> int:
         from furniture_cad.lists import main as lists_main
 
         return lists_main(rest)
+    if cmd == "run":
+        from furniture_cad.tools.loop import main as run_main
+
+        return run_main(rest)
     print(f"unknown command {cmd!r}", file=sys.stderr)
     return 2
 

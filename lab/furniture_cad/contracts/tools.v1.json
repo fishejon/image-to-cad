@@ -1,0 +1,112 @@
+{
+  "schema": "furniture_cad.tools.v1",
+  "title": "Image-to-CAD worker tool contract",
+  "description": "Messages API tool-use surface for the photo→cutlist worker. Write before loop code; handlers may stub until implemented.",
+  "limits": {
+    "max_rounds": 8,
+    "max_tokens_per_request": 16000,
+    "max_spend_usd_per_job": 2.0,
+    "max_spend_usd_per_day": 25.0,
+    "max_wall_time_s": 900
+  },
+  "tools": [
+    {
+      "name": "build",
+      "description": "Compile and run a helper-library script into solids / a parts model. Script errors return as tool results (not process crashes).",
+      "input_schema": {
+        "type": "object",
+        "required": ["script"],
+        "properties": {
+          "script": { "type": "string", "description": "Python script using the allowlisted helper API (blocks, PartRecord)." },
+          "name": { "type": "string", "description": "Optional job/project name." }
+        }
+      }
+    },
+    {
+      "name": "render",
+      "description": "Render named views of the current assembly (e.g. front, side, iso).",
+      "input_schema": {
+        "type": "object",
+        "required": ["views"],
+        "properties": {
+          "views": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["front", "side", "iso", "top", "back"] },
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "measure",
+      "description": "Measure a part or blank (finished and/or blank T×W×L in mm).",
+      "input_schema": {
+        "type": "object",
+        "required": ["part"],
+        "properties": {
+          "part": { "type": "string", "description": "Part id from the current parts model." }
+        }
+      }
+    },
+    {
+      "name": "check",
+      "description": "Geometry / likeness checks: bounding box vs targets, overlaps, silhouette IoU when a reference photo and render exist.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "targets_mm": {
+            "type": "object",
+            "properties": {
+              "w": { "type": "number" },
+              "d": { "type": "number" },
+              "h": { "type": "number" }
+            }
+          },
+          "iou_min": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    {
+      "name": "compare",
+      "description": "Compare the reference photo to the latest render(s); return qualitative and/or IoU signals.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "views": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "name": "lists",
+      "description": "Build cut list, material/buy summary, blank board-feet, and waste from the current parts model (or an explicit parts payload).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "parts": {
+            "type": "array",
+            "description": "Optional PartRecord dicts; defaults to last build parts model."
+          }
+        }
+      }
+    },
+    {
+      "name": "ask_user",
+      "description": "Pause the job and ask the human one short question (scale, hidden side, material). Phase 3 wires resume; Phase 1 CLI may return needs_user.",
+      "input_schema": {
+        "type": "object",
+        "required": ["question"],
+        "properties": {
+          "question": { "type": "string", "maxLength": 500 },
+          "choices": {
+            "type": "array",
+            "items": { "type": "string" },
+            "maxItems": 6
+          }
+        }
+      }
+    }
+  ]
+}

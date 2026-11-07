@@ -1,0 +1,17 @@
+[
+  {
+    "tool": "build",
+    "input": {
+      "name": "seat_panel_smoke",
+      "script": "seat = block('seat_panel')(width=460, depth=430, thickness=28)\nassembly = seat\nparts = [\n  PartRecord(id='seat', name='Seat panel', qty=1, material='oak',\n             thickness_mm=28, width_mm=460, length_mm=430, grain='x', how_made='solid'),\n]\n"
+    }
+  },
+  {
+    "tool": "lists",
+    "input": {}
+  },
+  {
+    "tool": "measure",
+    "input": { "part": "seat" }
+  }
+]

@@ -4,6 +4,7 @@
  *
  * Usage:
  *   npm run create:photos -- chair_04
+ *   npm run create:photos -- case_01
  *   npm run create:photos -- --all
  *   npm run create:photos -- chair_04 --quality balanced
  *
@@ -20,7 +21,7 @@ import vm from 'vm';
 const require = createRequire(import.meta.url);
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const chairsDir = path.join(root, 'evals/photos/chairs');
-const outDir = path.join(chairsDir, 'out');
+const casesDir = path.join(root, 'evals/photos/cases');
 
 function loadDotEnv() {
   const p = path.join(root, '.env');
@@ -59,8 +60,15 @@ const ids = argv.includes('--all')
   : argv.filter(a => !a.startsWith('--') && a !== quality && a !== model && argv[argv.indexOf(a) - 1] !== '--quality' && argv[argv.indexOf(a) - 1] !== '--model');
 
 if (!ids.length) {
-  console.error('Usage: npm run create:photos -- chair_04 | --all');
+  console.error('Usage: npm run create:photos -- chair_04 | case_01 | --all');
   process.exit(1);
+}
+
+function packFor(id) {
+  if (/^case_/i.test(id)) {
+    return { dir: casesDir, kind: 'case', outDir: path.join(casesDir, 'out') };
+  }
+  return { dir: chairsDir, kind: 'chair', outDir: path.join(chairsDir, 'out') };
 }
 
 const apiKey = process.env.ANTHROPIC_API_KEY || '';
@@ -87,13 +95,15 @@ const CAD = global.CAD;
 const V = CAD.vision;
 
 function findPhoto(id) {
+  const { dir } = packFor(id);
   return ['.jpg', '.jpeg', '.png', '.webp']
-    .map(ext => path.join(chairsDir, id + ext))
+    .map(ext => path.join(dir, id + ext))
     .find(p => fs.existsSync(p));
 }
 
 function loadMeta(id) {
-  const p = path.join(chairsDir, id + '.json');
+  const { dir } = packFor(id);
+  const p = path.join(dir, id + '.json');
   return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : {};
 }
 
@@ -122,13 +132,16 @@ async function runOne(id) {
     metrics ? ('overall ' + [metrics.wMm, metrics.dMm, metrics.hMm].filter(Boolean).join(' × ') + ' mm') : ''
   ].filter(Boolean).join('. ');
 
+  const pack = packFor(id);
   let chairFewShot = null;
-  try {
-    const lakin = JSON.parse(fs.readFileSync(path.join(root, 'examples/lakin-chair.json'), 'utf8'));
-    const dining = JSON.parse(fs.readFileSync(path.join(root, 'examples/dining-chair.json'), 'utf8'));
-    const kind = CAD.store.pickChairFewShotKind({ structure: { memberContinuity: 'continuous' } }, hints);
-    chairFewShot = CAD.store.chairFewShotFromExample(kind === 'lakin' ? lakin : dining, kind);
-  } catch (e) { /* optional */ }
+  if (pack.kind === 'chair') {
+    try {
+      const lakin = JSON.parse(fs.readFileSync(path.join(root, 'examples/lakin-chair.json'), 'utf8'));
+      const dining = JSON.parse(fs.readFileSync(path.join(root, 'examples/dining-chair.json'), 'utf8'));
+      const kind = CAD.store.pickChairFewShotKind({ structure: { memberContinuity: 'continuous' } }, hints);
+      chairFewShot = CAD.store.chairFewShotFromExample(kind === 'lakin' ? lakin : dining, kind);
+    } catch (e) { /* optional */ }
+  }
 
   const logs = [];
   console.log('\n=== ' + id + ' · Quality ' + preset.id + ' · ' + model + ' ===');
@@ -153,12 +166,12 @@ async function runOne(id) {
   const ms = Date.now() - t0;
   const inv = res.inventory || {};
   const st = inv.structure || {};
-  const got = V.analyzeStance(res.spec);
+  const got = pack.kind === 'chair' ? V.analyzeStance(res.spec) : null;
   const M = CAD.buildSpec(res.spec);
   const likeness = V.likeness(M, inv, { spec: res.spec, metrics });
 
-  fs.mkdirSync(outDir, { recursive: true });
-  const specPath = path.join(outDir, id + '.create.json');
+  fs.mkdirSync(pack.outDir, { recursive: true });
+  const specPath = path.join(pack.outDir, id + '.create.json');
   fs.writeFileSync(specPath, JSON.stringify(res.spec, null, 2) + '\n');
 
   const createBlock = {
@@ -169,22 +182,26 @@ async function runOne(id) {
     geometryOk: !!(res.rep && res.rep.ok),
     round: res.round || null,
     likenessPenalty: likeness.penalty || 0,
-    inventoryStance: {
+    inventoryStance: pack.kind === 'chair' ? {
       legStance: st.legStance || null,
       frontLean: st.frontLean || null,
       rearLean: st.rearLean || null,
       backRake: st.backRake || null,
       rakeBreak: st.rakeBreak || null,
       memberContinuity: st.memberContinuity || null
+    } : {
+      object: inv.object || st.object || null,
+      shelves: st.shelves || inv.shelves || null,
+      memberContinuity: st.memberContinuity || null
     },
-    inferredStance: {
+    inferredStance: got ? {
       stance: got.stance,
       frontForward: !!got.frontForward,
       aftAboveSeat: !!got.aftAboveSeat,
       nearSeatBreak: !!got.nearSeatBreak,
       leanSweeps: got.leanSweeps,
       verticalLegs: got.verticalLegs
-    },
+    } : null,
     inventorySummary: V.summarizeInventory(inv),
     specPath: path.relative(root, specPath),
     iou: null,
@@ -193,17 +210,26 @@ async function runOne(id) {
     wedge: WEDGE.has(id)
   };
 
-  const scorePath = path.join(chairsDir, id + '.score.json');
+  const scorePath = path.join(pack.dir, id + '.score.json');
   const score = fs.existsSync(scorePath) ? JSON.parse(fs.readFileSync(scorePath, 'utf8')) : {};
   score.create = createBlock;
-  if (score.topology_ok == null && createBlock.geometryOk) score.topology_ok = true;
+  if (createBlock.geometryOk) score.topology_ok = true;
+  score.notes = score.notes || '';
   fs.writeFileSync(scorePath, JSON.stringify(score, null, 2) + '\n');
 
   console.log('Wrote ' + path.relative(root, specPath));
-  console.log('Stance inventory:', JSON.stringify(createBlock.inventoryStance));
-  console.log('Stance inferred:', JSON.stringify(createBlock.inferredStance));
+  if (pack.kind === 'chair') {
+    console.log('Stance inventory:', JSON.stringify(createBlock.inventoryStance));
+    console.log('Stance inferred:', JSON.stringify(createBlock.inferredStance));
+  } else {
+    console.log('Inventory:', createBlock.inventorySummary);
+  }
   console.log('Likeness penalty:', createBlock.likenessPenalty, '· geometryOk:', createBlock.geometryOk);
-  console.log('Next: npm run build && npm run measure:chair-iou -- ' + id + ' --spec ' + createBlock.specPath + ' --write');
+  if (pack.kind === 'chair') {
+    console.log('Next: npm run build && npm run measure:chair-iou -- ' + id + ' --spec ' + createBlock.specPath + ' --write');
+  } else {
+    console.log('Next: hand-rate create block / optional IoU when case measure path exists');
+  }
   return createBlock;
 }
 

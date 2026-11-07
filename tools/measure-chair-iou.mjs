@@ -28,10 +28,13 @@ if (!id) {
   process.exit(1);
 }
 
-const photoCandidates = ['.jpg', '.jpeg', '.png', '.webp'].map(ext => path.join(root, 'evals/photos/chairs', id + ext));
+const packDir = /^case_/i.test(id)
+  ? path.join(root, 'evals/photos/cases')
+  : path.join(root, 'evals/photos/chairs');
+const photoCandidates = ['.jpg', '.jpeg', '.png', '.webp'].map(ext => path.join(packDir, id + ext));
 const photo = photoCandidates.find(p => fs.existsSync(p));
 if (!photo) {
-  console.error('No local photo for ' + id + ' under evals/photos/chairs/ (jpg/png/webp). Photos are gitignored — keep them locally.');
+  console.error('No local photo for ' + id + ' under ' + path.relative(root, packDir) + '/ (jpg/png/webp). Photos are gitignored — keep them locally.');
   process.exit(2);
 }
 
@@ -200,11 +203,11 @@ console.log('Source: ' + sourceLabel);
 if (!specPathArg) console.log('Note: photo vs EXAMPLE mesh is a tooling baseline, not photo→Create likeness.');
 
 if (!write) {
-  console.log('Pass --write to update evals/photos/chairs/' + id + '.score.json');
+  console.log('Pass --write to update ' + path.relative(root, packDir) + '/' + id + '.score.json');
   process.exit(0);
 }
 
-const scorePath = path.join(root, 'evals/photos/chairs', id + '.score.json');
+const scorePath = path.join(packDir, id + '.score.json');
 const score = fs.existsSync(scorePath) ? JSON.parse(fs.readFileSync(scorePath, 'utf8')) : {};
 const finalRated = score.topology_ok === false ? 'Wrong' : rated;
 if (specPathArg) {
