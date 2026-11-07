@@ -957,16 +957,28 @@ $('#mclose').onclick = () => $('#modal').style.display = 'none';
 function renderReview() {
   const timeline = CAD.shop ? CAD.shop.timelineHtml(S.ai.log) : '';
   const banner = CAD.shop ? CAD.shop.scopeBannerHtml() : '';
-  const worker = CAD.shop && CAD.shop.state.workerOnline != null
-    ? `<div class="card" style="margin-bottom:8px"><b>Worker</b> ${CAD.shop.state.workerOnline ? 'online' : 'offline — Classic Create still available'}</div>`
-    : '';
+  let worker = '';
+  if (CAD.shop) {
+    const on = CAD.shop.state.workerOnline;
+    const detail = CAD.shop.state.workerDetail ? ' · ' + esc(CAD.shop.state.workerDetail) : '';
+    const label = on === true ? 'online' : on === false ? 'offline — Classic Create still available' : 'checking…';
+    worker = `<div class="card" style="margin-bottom:8px" id="shopWorkerStatus"><b>Worker</b> ${label}${detail}</div>`;
+  }
   $('#p-review').innerHTML = `${banner}${worker}<h3>Design checks</h3><button class="btn pri sm" id="rRun" style="width:100%">Run all checks</button><div id="rOut"></div>
     ${timeline}
     <h3>AI loop log</h3><div class="log" id="rLog">${S.ai.log.length ? S.ai.log.map(esc).join('<br>') : 'No AI run yet.'}</div>`;
   $('#rRun').onclick = runChecks;
   const copy = $('#shopCopyLog');
   if (copy) copy.onclick = () => { navigator.clipboard.writeText(S.ai.log.join('\n')).then(() => toast('Log copied'), () => toast('Could not copy')); };
-  if (CAD.shop) CAD.shop.pingWorker().then(() => { /* refresh badge next open */ });
+  if (CAD.shop) {
+    CAD.shop.pingWorker().then(() => {
+      const el = $('#shopWorkerStatus');
+      if (!el) return;
+      const on = CAD.shop.state.workerOnline;
+      const detail = CAD.shop.state.workerDetail ? ' · ' + esc(CAD.shop.state.workerDetail) : '';
+      el.innerHTML = '<b>Worker</b> ' + (on ? 'online' : 'offline — Classic Create still available') + detail;
+    });
+  }
 }
 function runChecks() {
   const out = $('#rOut'); out.innerHTML = '<div class="card">Running…</div>';

@@ -16,6 +16,7 @@
     jobId: null,
     jobStatus: null,
     workerOnline: null,
+    workerDetail: '',
     round: 0,
     maxRounds: 4,
     stepId: 'read',
@@ -63,19 +64,30 @@
 
   Shop.pingWorker = async function () {
     const base = Shop.workerBase();
-    const via = base || '';
     try {
-      if (via) {
-        const r = await fetch(via + '/health');
+      if (base) {
+        const r = await fetch(base + '/health');
         Shop.state.workerOnline = r.ok;
+        Shop.state.workerDetail = r.ok ? 'direct Worker URL' : ('health HTTP ' + r.status);
         return r.ok;
       }
-      const r = await fetch('/api/jobs');
-      if (r.status === 503) { Shop.state.workerOnline = false; return false; }
-      Shop.state.workerOnline = r.ok || r.status === 200;
+      const r = await fetch('/api/jobs', { cache: 'no-store' });
+      if (r.status === 503) {
+        Shop.state.workerOnline = false;
+        Shop.state.workerDetail = 'WORKER_JOBS_URL unset on server';
+        return false;
+      }
+      if (r.status === 401 || r.status === 403) {
+        Shop.state.workerOnline = false;
+        Shop.state.workerDetail = 'unauthorized — set WORKER_JOBS_TOKEN on Vercel (same as Fly) and redeploy';
+        return false;
+      }
+      Shop.state.workerOnline = r.ok;
+      Shop.state.workerDetail = r.ok ? 'via /api/jobs' : ('HTTP ' + r.status);
       return Shop.state.workerOnline;
     } catch (e) {
       Shop.state.workerOnline = false;
+      Shop.state.workerDetail = e.message || 'unreachable';
       return false;
     }
   };
