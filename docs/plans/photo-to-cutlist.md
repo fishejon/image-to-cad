@@ -1,6 +1,6 @@
 # Plan: Photo → model + cut/material lists
 
-> **Status: ACTIVE.** Phase 0 done. **Phase 1 GATE PASSED** (freeze solids + lists; live 5/5 ≤3 rounds). **Next: Phase 2** — job service + IoU/accuracy vs Create (Nov 2026).  
+> **Status: ACTIVE.** Phases 0–1 done. **Phase 2 infra landed** (jobs API, A/B harness, check/compare); **likeness gate still OPEN** — do not start Phase 3 UI until A beats Create IoU (Nov 2026).  
 > Architecture: **option 1** — Messages API tool-use loop in a worker; Vercel stays app / auth / job starter.  
 > Supersedes day-to-day sequencing in [`parametric-synthesis.md`](parametric-synthesis.md) (kept as long-term kernel notes).  
 > Lab bespoke scripts remain the **gold corpus**; this plan is the **shop-grade Create track**.  

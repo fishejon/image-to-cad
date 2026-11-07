@@ -1,4 +1,4 @@
-"""CLI entry: python -m furniture_cad <export|compile|fail|lists|run> ..."""
+"""CLI entry: python -m furniture_cad <export|compile|fail|lists|run|jobs|ab> ..."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ("-h", "--help"):
         print(
-            "usage: python -m furniture_cad {export,compile,fail,lists,run} ...\n"
+            "usage: python -m furniture_cad {export,compile,fail,lists,run,jobs,ab} ...\n"
             "  export --demo box [--out DIR]\n"
             "  compile --template NAME --params FILE [--out DIR]\n"
             "  fail --kind missing_block --need bent_panel --photo-id ...\n"
@@ -18,6 +18,8 @@ def main(argv: list[str] | None = None) -> int:
             "  run --freeze-set [--work DIR]    # Phase 1 freeze solids+lists\n"
             "  run --prompt TEXT [--work DIR]  # Messages API tool-use loop\n"
             "  run --contract                  # print tools.v1.json summary\n"
+            "  jobs --port 8787 [--root DIR]   # Phase 2 job HTTP service\n"
+            "  ab [--ids …] [--out FILE]       # A/B Create vs tool-use scorecard\n"
             "This lab is offline and NOT deployed to prod."
         )
         return 0
@@ -42,6 +44,14 @@ def main(argv: list[str] | None = None) -> int:
         from furniture_cad.tools.loop import main as run_main
 
         return run_main(rest)
+    if cmd == "jobs":
+        from furniture_cad.jobs.server import main as jobs_main
+
+        return jobs_main(rest)
+    if cmd in ("ab", "ab-score"):
+        from furniture_cad.jobs.ab_score import main as ab_main
+
+        return ab_main(rest)
     print(f"unknown command {cmd!r}", file=sys.stderr)
     return 2
 
