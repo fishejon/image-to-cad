@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0"]
+worker = ["anthropic>=0.40.0"]
 
 [project.scripts]
 furniture-cad = "furniture_cad.__main__:main"

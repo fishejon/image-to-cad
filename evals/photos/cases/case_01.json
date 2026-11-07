@@ -1,18 +1,25 @@
 {
   "schemaVersion": 1,
   "id": "case_01",
-  "status": "awaiting_photo",
+  "status": "photo_ready",
   "object": "bookshelf",
-  "notes": "Phase 0 rectilinear case. Prefer a real photo of a simple bookshelf/open case with measurable overall W×D×H. Until then, examples/bookshelf.json is the parametric reference only (not photo likeness).",
+  "notes": "Studio photo of open 5-shelf MCM case: 4 square posts, shelves with side overhang + knife-edge taper, under-shelf rails, sled/coved side feet. Not the drawer bookshelf in examples/bookshelf.json — that fixture stays cut-list gold only. Overall dims still placeholder until catalog/tape.",
   "source": {
-    "file": null,
-    "license": "pending",
+    "file": "case_01.jpg",
+    "license": "user-supplied reference (local; gitignored)",
     "dims_mm": {
       "overall_w": 900,
       "overall_d": 300,
       "overall_h": 1800
     },
-    "dims_from": "examples/bookshelf.json defaults — replace with measured/catalog when photo lands"
+    "dims_from": "placeholder — replace with measured/catalog; visual: ~5 equal bays, shelf overhang past posts, sled feet ~80–100 mm tall",
+    "structure": {
+      "shelves": 5,
+      "posts": 4,
+      "back": "open",
+      "feet": "sled_cove_per_side",
+      "shelf_edge": "knife_bevel"
+    }
   },
-  "exampleSpec": "bookshelf"
+  "exampleSpec": null
 }

@@ -1,6 +1,6 @@
 # Plan: Photo → model + cut/material lists
 
-> **Status: ACTIVE.** Phase 0 partial (chairs baseline B done; `case_01` photo open). **Phase 1 in progress** — parts + lists in `lab/furniture_cad`; next is the **tool-use loop** CLI on a worker image (Nov 2026).  
+> **Status: ACTIVE.** Phase 0 freeze complete (3-piece baseline B incl. `case_01` Create IoU 0.297 Wrong; dims placeholder). **Phase 1 in progress** — live tool-use on freeze set / solids gate (Nov 2026).  
 > Architecture: **option 1** — Messages API tool-use loop in a worker; Vercel stays app / auth / job starter.  
 > Supersedes day-to-day sequencing in [`parametric-synthesis.md`](parametric-synthesis.md) (kept as long-term kernel notes).  
 > Lab bespoke scripts remain the **gold corpus**; this plan is the **shop-grade Create track**.  
@@ -117,7 +117,10 @@ Photo in → shop-usable model **and** honest cut/material lists, with likeness 
 | --- | --- |
 | Freeze set (Phase 0) | 2 dining/side chairs + 1 rectilinear case |
 | Loop architecture | **Messages API tool-use in a worker** (option 1) |
-| Tool contract | `build`, `render`, `measure`, `check`, `compare`, `lists`, `ask_user` |
+| Worker host | **Local Docker (A)** — `lab/furniture_cad/Dockerfile` |
+| Job store | **Postgres** (Phase 2; HITL-compatible) |
+| Spend caps | **$25/day · $2/run**; rounds/tokens/wall in `contracts/tools.v1.json` |
+| Tool contract | `build`, `render`, `measure`, `check`, `compare`, `lists`, `ask_user` → `lab/furniture_cad/contracts/tools.v1.json` |
 | Script policy | Helper library inside `build`; bad scripts → tool errors → next round |
 | IoU gate (Phase 2) | Close+ (0.55) first; Match (0.70) after helpers |
 | Vercel role | App, auth, job starter / progress relay — **not** the compile loop |

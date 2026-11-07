@@ -1,9 +1,30 @@
 {
-  "topology_ok": false,
+  "topology_ok": true,
   "iou": null,
   "ratingHint": "Wrong",
   "expectRating": "Wrong",
-  "missing_block": null,
-  "notes": "Phase 0: awaiting photo + Careful Create baseline B. Do not treat example bookshelf SPEC as photo likeness.",
-  "create": null
+  "missing_block": "knife_edge_shelf_or_sled_foot",
+  "notes": "Phase 0 baseline B: Careful Create on studio MCM open bookcase. Inventory correct (5 shelves, 4 posts, vertical). Create IoU 0.297 Wrong — model mask much larger than photo (900×300×1800 placeholder dims + rail/shelf interference churn). Not the drawer bookshelf fixture. Create IoU via measure-chair-iou.mjs --spec (0.297 → Wrong).",
+  "create": {
+    "at": "2026-11-07T21:38:26.561Z",
+    "quality": "careful",
+    "model": "claude-sonnet-5-5",
+    "durationMs": 531192,
+    "geometryOk": true,
+    "round": 1,
+    "likenessPenalty": 45,
+    "inventoryStance": {
+      "object": "open 5-shelf mid-century modern bookcase",
+      "shelves": null,
+      "memberContinuity": "mixed"
+    },
+    "inferredStance": null,
+    "inventorySummary": "open 5-shelf mid-century modern bookcase · aspect 3.00:1.00:6.00 · 4 legs · 5 shelves · mixed members · rect section · vertical stance",
+    "specPath": "evals/photos/cases/out/case_01.create.json",
+    "iou": 0.297,
+    "rating": "Wrong",
+    "ratingHint": "Wrong",
+    "wedge": false,
+    "measuredAt": "2026-11-07T21:38:52.000Z"
+  }
 }
