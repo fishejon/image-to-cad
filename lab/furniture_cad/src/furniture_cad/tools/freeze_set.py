@@ -57,8 +57,13 @@ parts = [
 
 SCRIPT_CASE_01 = r"""
 # Open 5-shelf MCM case — taller/narrower silhouette to match studio photo
-W, D, H = 720.0, 260.0, 1680.0
-post_s, shelf_t, foot_h = 32.0, 18.0, 64.0
+# Named scalars (not tuple unpack) so Phase 4 rebuild --set W/H works
+W = 720.0
+D = 260.0
+H = 1680.0
+post_s = 32.0
+shelf_t = 18.0
+foot_h = 64.0
 overhang = 90.0
 shelf_w = W
 inner_h = H - foot_h

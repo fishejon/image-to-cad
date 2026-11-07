@@ -1,4 +1,4 @@
-"""CLI entry: python -m furniture_cad <export|compile|fail|lists|run|jobs|ab> ..."""
+"""CLI entry: python -m furniture_cad <export|compile|fail|lists|run|jobs|ab|rebuild> ..."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ("-h", "--help"):
         print(
-            "usage: python -m furniture_cad {export,compile,fail,lists,run,jobs,ab} ...\n"
+            "usage: python -m furniture_cad {export,compile,fail,lists,run,jobs,ab,rebuild} ...\n"
             "  export --demo box [--out DIR]\n"
             "  compile --template NAME --params FILE [--out DIR]\n"
             "  fail --kind missing_block --need bent_panel --photo-id ...\n"
@@ -20,6 +20,7 @@ def main(argv: list[str] | None = None) -> int:
             "  run --contract                  # print tools.v1.json summary\n"
             "  jobs --port 8787 [--root DIR]   # Phase 2 job HTTP service\n"
             "  ab [--ids …] [--out FILE]       # A/B Create vs tool-use scorecard\n"
+            "  rebuild --project DIR --set KEY VAL  # Phase 4 no-model rebuild\n"
             "This lab is offline and NOT deployed to prod."
         )
         return 0
@@ -52,6 +53,10 @@ def main(argv: list[str] | None = None) -> int:
         from furniture_cad.jobs.ab_score import main as ab_main
 
         return ab_main(rest)
+    if cmd == "rebuild":
+        from furniture_cad.rebuild import main as rebuild_main
+
+        return rebuild_main(rest)
     print(f"unknown command {cmd!r}", file=sys.stderr)
     return 2
 
