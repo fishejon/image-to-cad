@@ -1,0 +1,75 @@
+{
+  "schema": "furniture_cad.parts.v1",
+  "meta": {
+    "source": "chair_02 brief + bespoke constants — curved blank smoke",
+    "object": "chair_02",
+    "units": "mm"
+  },
+  "parts": [
+    {
+      "id": "seat",
+      "name": "Seat panel",
+      "qty": 1,
+      "material": "oak",
+      "thickness_mm": 19,
+      "width_mm": 445,
+      "length_mm": 420,
+      "grain": "x",
+      "how_made": "solid"
+    },
+    {
+      "id": "front_leg",
+      "name": "Front leg",
+      "qty": 2,
+      "material": "oak",
+      "thickness_mm": 25,
+      "width_mm": 25,
+      "length_mm": 445,
+      "grain": "z",
+      "how_made": "solid"
+    },
+    {
+      "id": "rear_stile",
+      "name": "Rear stile (curved rake)",
+      "qty": 2,
+      "material": "oak",
+      "thickness_mm": 25,
+      "width_mm": 25,
+      "length_mm": 720,
+      "grain": "z",
+      "how_made": "sweep",
+      "curved": true,
+      "blank_thickness_mm": 42,
+      "blank_width_mm": 55,
+      "blank_length_mm": 780,
+      "notes": "Blank oversized for foot-aft → seat-forward → rake-aft curve"
+    },
+    {
+      "id": "apron",
+      "name": "Seat apron",
+      "qty": 4,
+      "material": "oak",
+      "thickness_mm": 22,
+      "width_mm": 38,
+      "length_mm": 400,
+      "grain": "x",
+      "how_made": "solid"
+    },
+    {
+      "id": "top_rail",
+      "name": "Winged top rail",
+      "qty": 1,
+      "material": "oak",
+      "thickness_mm": 16,
+      "width_mm": 140,
+      "length_mm": 533,
+      "grain": "x",
+      "how_made": "solid",
+      "curved": true,
+      "blank_thickness_mm": 22,
+      "blank_width_mm": 150,
+      "blank_length_mm": 560,
+      "notes": "Curve sag blank pad"
+    }
+  ]
+}

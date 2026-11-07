@@ -1,0 +1,16 @@
+{
+  "schema": "furniture_cad.parts.v1",
+  "meta": {
+    "source": "case_01 photo inventory hand-check (open 5-shelf MCM) — not drawer bookshelf fixture",
+    "object": "case_01",
+    "units": "mm",
+    "dims_from": "placeholder overall 900×300×1800 until catalog/tape"
+  },
+  "parts": [
+    {"id": "post", "name": "Vertical post", "qty": 4, "material": "walnut", "thickness_mm": 40, "width_mm": 40, "length_mm": 1720, "grain": "z", "how_made": "solid"},
+    {"id": "shelf", "name": "Shelf board", "qty": 5, "material": "walnut", "thickness_mm": 22, "width_mm": 300, "length_mm": 900, "grain": "x", "how_made": "solid", "notes": "Knife-edge approx; finished T is mid-span"},
+    {"id": "rail_fb", "name": "Front/back under-shelf rail", "qty": 10, "material": "walnut", "thickness_mm": 22, "width_mm": 40, "length_mm": 780, "grain": "x", "how_made": "solid"},
+    {"id": "rail_side", "name": "Side under-shelf rail", "qty": 10, "material": "walnut", "thickness_mm": 22, "width_mm": 40, "length_mm": 220, "grain": "y", "how_made": "solid"},
+    {"id": "sled_foot", "name": "Sled foot (coved)", "qty": 2, "material": "walnut", "thickness_mm": 40, "width_mm": 80, "length_mm": 300, "grain": "y", "how_made": "solid", "curved": true, "blank_thickness_mm": 45, "blank_width_mm": 90, "blank_length_mm": 320, "notes": "Cove cut from rectangular blank"}
+  ]
+}

@@ -20,10 +20,12 @@ from furniture_cad.tools.handlers import ToolContext, dispatch
 DEFAULT_MODEL = os.environ.get("FURNITURE_CAD_MODEL", "claude-haiku-4-5")
 
 SYSTEM = """You are a furniture CAD worker. Use tools to build a parts model and cut/material lists.
-Prefer the allowlisted helper API inside build(script): blocks / block(), PartRecord.
-Set `parts = [...]` in the script (list of PartRecord or dicts). Optionally set `assembly` for export.
+Inside build(script) you may use: block(name), blocks, four_leg_chair(params), stool(params), PartRecord, Box, Pos, Compound.
+PartRecord / part dict fields (mm): id, name, qty, material, thickness_mm, width_mm, length_mm; optional grain, how_made, curved, blank_thickness_mm, blank_width_mm, blank_length_mm.
+Script must set `parts = [...]`. Optionally set `assembly` (a solid) for STL/STEP export.
+Prefer four_leg_chair({...}) then derive parts from params when building chairs.
 After a successful build, call lists(). Use measure() to verify dims. ask_user only when stuck on scale/material.
-Do not invent tools. Keep scripts short."""
+Do not invent tools. Keep scripts short. Fix tool errors on the next round."""
 
 
 def _env_float(name: str, default: float) -> float:
@@ -201,6 +203,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-spend", type=float, default=None, help="USD cap per job")
     p.add_argument("--call", nargs=2, metavar=("TOOL", "JSON"), help="dispatch one tool and exit")
     p.add_argument("--contract", action="store_true", help="print frozen tool contract summary and exit")
+    p.add_argument(
+        "--freeze-set",
+        nargs="*",
+        metavar="ID",
+        help="run offline freeze scripts (default: chair_04 chair_02 case_01)",
+    )
     return p
 
 
@@ -210,6 +218,47 @@ def main(argv: list[str] | None = None) -> int:
         c = load_contract()
         print(json.dumps({"schema": c["schema"], "tools": tool_names(), "limits": c.get("limits")}, indent=2))
         return 0
+
+    if args.freeze_set is not None:
+        from furniture_cad.tools.freeze_set import FREEZE_PIECES, freeze_tool_calls
+
+        ids = list(args.freeze_set) if args.freeze_set else list(FREEZE_PIECES.keys())
+        summary: dict[str, Any] = {"mode": "freeze_set", "pieces": {}}
+        ok_all = True
+        for pid in ids:
+            if pid not in FREEZE_PIECES:
+                summary["pieces"][pid] = {"ok": False, "error": "unknown freeze piece"}
+                ok_all = False
+                continue
+            meta = FREEZE_PIECES[pid]
+            piece_dir = Path(args.work) / pid
+            pctx = ToolContext(work_dir=piece_dir)
+            results = run_tool_script(pctx, freeze_tool_calls(pid))
+            build_ok = bool(results and results[0]["result"].get("ok"))
+            lists_ok = bool(len(results) > 1 and results[1]["result"].get("ok"))
+            exported = bool((pctx.last_build or {}).get("exported"))
+            piece_ok = build_ok and lists_ok and exported and len(pctx.parts) == meta["expect_types"]
+            if sum(p.qty for p in pctx.parts) != meta["expect_pieces"]:
+                piece_ok = False
+            summary["pieces"][pid] = {
+                "ok": piece_ok,
+                "build_ok": build_ok,
+                "lists_ok": lists_ok,
+                "exported": exported,
+                "part_types": len(pctx.parts),
+                "piece_count": sum(p.qty for p in pctx.parts),
+                "expect_types": meta["expect_types"],
+                "expect_pieces": meta["expect_pieces"],
+                "totals": (pctx.last_plan or {}).get("totals"),
+                "hand_check": meta.get("hand_check"),
+                "work": str(piece_dir),
+            }
+            ok_all = ok_all and piece_ok
+        out = Path(args.work) / "freeze_summary.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(summary, indent=2))
+        return 0 if ok_all else 1
 
     lim = resolve_limits(
         {

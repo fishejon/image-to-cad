@@ -15,6 +15,7 @@ def main(argv: list[str] | None = None) -> int:
             "  fail --kind missing_block --need bent_panel --photo-id ...\n"
             "  lists --parts FILE [--out plan.json]\n"
             "  run --script FILE [--work DIR]   # offline tool-use dry-run\n"
+            "  run --freeze-set [--work DIR]    # Phase 1 freeze solids+lists\n"
             "  run --prompt TEXT [--work DIR]  # Messages API tool-use loop\n"
             "  run --contract                  # print tools.v1.json summary\n"
             "This lab is offline and NOT deployed to prod."
