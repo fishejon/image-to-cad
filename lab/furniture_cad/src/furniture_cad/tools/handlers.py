@@ -66,12 +66,17 @@ def _build_namespace() -> dict[str, Any]:
     """Allowlisted helpers available inside build(script)."""
     from build123d import Box, Compound, Pos
 
+    from furniture_cad.templates import TEMPLATE_FNS, four_leg_chair, stool
+
     return {
         "__builtins__": SAFE_BUILTINS,
         "blocks": dict(BLOCK_FNS),
         "block": get_block,
         "PartRecord": PartRecord,
         "AllowlistError": AllowlistError,
+        "templates": dict(TEMPLATE_FNS),
+        "four_leg_chair": four_leg_chair,
+        "stool": stool,
         # Small build123d surface for placing / combining block solids
         "Box": Box,
         "Pos": Pos,
