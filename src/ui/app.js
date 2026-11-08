@@ -1282,13 +1282,13 @@ async function startShopBuild() {
   renderAI();
   const online = await CAD.shop.pingWorker();
   if (!online) {
-    CAD.shop.state.statusLine = 'Worker offline — falling back to Classic Create';
+    CAD.shop.state.statusLine = 'Worker offline — Shop-grade unavailable';
+    CAD.shop.state.mode = 'shop';
     renderAI();
-    toast('Worker offline — using Classic Create (Vercel proxy)');
-    S.shopScreen = null;
-    CAD.shop.state.mode = 'classic';
+    toast('Worker offline. Start the local/hosted worker, or switch to Classic Create manually.');
+    S.shopScreen = 'intake';
     renderAI();
-    return runAI('design');
+    return;
   }
   try {
     CAD.shop.state.statusLine = 'Starting worker job…';
@@ -1301,11 +1301,12 @@ async function startShopBuild() {
     CAD.shop.state.pollTimer = setInterval(() => { pollShopJobOnce(); }, 2000);
     await pollShopJobOnce();
   } catch (e) {
-    toast('Worker start failed — Classic Create: ' + e.message);
-    S.shopScreen = null;
-    CAD.shop.state.mode = 'classic';
+    toast('Worker start failed: ' + e.message + ' — staying on Shop-grade (no silent Classic).');
+    CAD.shop.state.mode = 'shop';
+    CAD.shop.state.statusLine = 'Start failed: ' + e.message;
+    S.shopScreen = 'intake';
+    S.ai.busy = false;
     renderAI();
-    return runAI('design');
   }
 }
 function bindShopProgress() {
@@ -1386,7 +1387,7 @@ function renderAI() {
   const shopOn = !!(createOn && CAD.shop && CAD.shop.state.mode === 'shop' && S.shopScreen);
   const connBlock = `
   <details style="margin-top:14px" id="aiAdvancedConn"><summary style="cursor:pointer;color:var(--dim);font-size:11px;letter-spacing:.06em;text-transform:uppercase">Advanced · Classic connection &amp; model</summary>
-  <div class="card" style="margin-top:8px"><b>Classic Create</b> uses the options below. <b>Shop-grade</b> uses the hosted worker via Vercel <code>/api/jobs</code> (set <code>WORKER_JOBS_URL</code> on the server — leave Worker URL empty in production). Local only: point Worker URL at <code>http://127.0.0.1:8787</code>.</div>
+  <div class="card" style="margin-top:8px"><b>Classic Create</b> = browser SPEC loop (Vercel <code>/api/messages</code>). <b>Shop-grade</b> = worker jobs only (photo + known size → tools). Shop does not silently fall back to Classic. Set <code>WORKER_JOBS_URL</code> on the server; local Worker URL optional.</div>
   <div class="row"><label>Worker URL</label><input id="shopWorker" type="text" placeholder="(empty = Vercel /api/jobs)" value="${esc(CAD.shop ? CAD.shop.workerBase() : '')}" style="flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>
   <div class="row"><label>Provider</label><select id="aiProv" class="btn" style="flex:1"><option value="proxy"${hosted && !inClaude ? ' selected' : ''}>Classic (server proxy)</option><option value="anthropic"${!hosted && !inClaude ? ' selected' : ''}>Classic · browser API key</option>${inClaude ? '<option value="artifact" selected>Claude (this page, your account)</option>' : ''}</select></div>
   <div class="row" id="aiKeyRow"><label>API key</label><input id="aiKey" type="password" placeholder="sk-ant-… (browser only)" value="${esc(remembered)}" style="flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px"></div>

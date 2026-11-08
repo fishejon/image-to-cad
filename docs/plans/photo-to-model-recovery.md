@@ -42,7 +42,8 @@ See the Nov 8 recovery note in chat / this file’s source for full task lists, 
 | R2 | **Done** (core) — [`evals/photos/R2.md`](../../evals/photos/R2.md) |
 | R3 | **Done** (core helpers) — [`evals/photos/R3.md`](../../evals/photos/R3.md) |
 | R4 | **Decision recorded** (bar not met; continue) — [`evals/photos/R4.md`](../../evals/photos/R4.md) |
-| R5–R7 | Not started |
+| R5 | **Done** (core) — [`evals/photos/R5.md`](../../evals/photos/R5.md) |
+| R6–R7 | Not started |
 
 ## Product bar (blind eval ~10 pieces)
 
