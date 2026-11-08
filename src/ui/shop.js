@@ -324,6 +324,22 @@
       run: true,
       async: true
     };
+    /* User-known overall size → worker targets_mm (authoritative). */
+    if (st.knownSize && !st.noSize && st.knownSize.valueMm) {
+      const mm = Math.round(Number(st.knownSize.valueMm));
+      const known = {};
+      if (st.knownSize.dim === 'w') known.w = mm;
+      else if (st.knownSize.dim === 'd') known.d = mm;
+      else known.h = mm;
+      /* If intake collected all three, prefer full object */
+      if (st.knownSize.wMm || st.knownSize.dMm || st.knownSize.hMm) {
+        if (st.knownSize.wMm) known.w = Math.round(Number(st.knownSize.wMm));
+        if (st.knownSize.dMm) known.d = Math.round(Number(st.knownSize.dMm));
+        if (st.knownSize.hMm) known.h = Math.round(Number(st.knownSize.hMm));
+      }
+      body.known_mm = known;
+      body.targets_mm = known;
+    }
     const created = await Shop.fetchJson('/jobs', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
