@@ -1,0 +1,17 @@
+{
+  "schema": "hand_cut_list.v1",
+  "id": "console_01",
+  "dims_mm": { "w": 1194, "d": 305, "h": 762 },
+  "dims_from": "user: 47×12×30 in",
+  "status": "placeholder_until_fusion_export",
+  "parts": [
+    { "id": "side", "qty": 2, "thickness_mm": 19, "width_mm": 305, "length_mm": 597, "notes": "carcass side approx" },
+    { "id": "top", "qty": 1, "thickness_mm": 19, "width_mm": 305, "length_mm": 1194 },
+    { "id": "bottom", "qty": 1, "thickness_mm": 19, "width_mm": 305, "length_mm": 1194 },
+    { "id": "divider", "qty": 1, "thickness_mm": 19, "width_mm": 290, "length_mm": 559 },
+    { "id": "back", "qty": 1, "thickness_mm": 6, "width_mm": 1156, "length_mm": 559, "material": "ply" },
+    { "id": "leg", "qty": 4, "thickness_mm": 38, "width_mm": 38, "length_mm": 165 },
+    { "id": "drawer_box", "qty": 2, "thickness_mm": 12, "width_mm": 250, "length_mm": 450, "notes": "approx — replace from Fusion" },
+    { "id": "drawer_front", "qty": 2, "thickness_mm": 19, "width_mm": 140, "length_mm": 520 }
+  ]
+}

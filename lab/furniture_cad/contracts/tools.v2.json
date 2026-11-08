@@ -1,0 +1,50 @@
+{
+  "schema": "furniture_cad.tools.v2",
+  "title": "Tool contract v2 — staged pipeline",
+  "description": "Replaces tools.v1 for the Perceive→Construct→Verify path. Handlers land phase-by-phase.",
+  "limits": {
+    "max_rounds": 4,
+    "max_images_per_round": 3,
+    "max_spend_usd_per_job": 2.0,
+    "target_spend_usd_per_job": 1.5,
+    "max_wall_time_s": 600,
+    "target_wall_time_s": 360
+  },
+  "tools": [
+    {
+      "name": "observe",
+      "description": "Intake + Perceive → observation.v1 and rectified images.",
+      "status": "stub"
+    },
+    {
+      "name": "set_dims",
+      "description": "Apply user dims; return anchored/snapped dimension table.",
+      "status": "stub"
+    },
+    {
+      "name": "build_ir",
+      "description": "Validate furniture_ir.v1, compile to solids, return part ids.",
+      "status": "phase0_stub"
+    },
+    {
+      "name": "render",
+      "description": "Perspective shaded views + section (camera from intake).",
+      "status": "fallback_orthographic"
+    },
+    {
+      "name": "verify",
+      "description": "Metric table + structured discrepancies (replaces check/compare).",
+      "status": "stub"
+    },
+    {
+      "name": "lists",
+      "description": "Cut/buy lists from solids with provenance.",
+      "status": "live_v1"
+    },
+    {
+      "name": "ask_user",
+      "description": "Pause for unknown id; at most 3 questions per job.",
+      "status": "live_v1"
+    }
+  ]
+}
