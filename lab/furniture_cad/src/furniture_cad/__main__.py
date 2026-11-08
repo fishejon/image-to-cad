@@ -20,6 +20,7 @@ def main(argv: list[str] | None = None) -> int:
             "  run --contract                  # print tools.v1.json summary\n"
             "  jobs --port 8787 [--root DIR]   # job HTTP service\n"
             "  ab [--ids …] [--out FILE]       # B/O/A scorecard (oracle ≠ product gate)\n"
+            "  blind [--ids …]                 # R4 blind scorecard + decision JSON\n"
             "  rebuild --project DIR --set KEY VAL  # no-model rebuild\n"
             "This lab is offline and NOT deployed to prod."
         )
@@ -53,6 +54,10 @@ def main(argv: list[str] | None = None) -> int:
         from furniture_cad.jobs.ab_score import main as ab_main
 
         return ab_main(rest)
+    if cmd in ("blind", "blind-eval"):
+        from furniture_cad.jobs.blind_eval import main as blind_main
+
+        return blind_main(rest)
     if cmd == "rebuild":
         from furniture_cad.rebuild import main as rebuild_main
 
