@@ -81,6 +81,7 @@ def _build_namespace() -> dict[str, Any]:
     """Allowlisted helpers available inside build(script)."""
     from build123d import Box, Compound, Pos
 
+    from furniture_cad.blocks import HELPER_DOCS, open_etagere, carcass, panel, shelf_board
     from furniture_cad.derive import part
     from furniture_cad.templates import TEMPLATE_FNS, four_leg_chair, stool
 
@@ -88,13 +89,18 @@ def _build_namespace() -> dict[str, Any]:
         "__builtins__": SAFE_BUILTINS,
         "blocks": dict(BLOCK_FNS),
         "block": get_block,
+        "helper_docs": dict(HELPER_DOCS),
         "PartRecord": PartRecord,
-        "part": part,  # R2: derive PartRecord from a solid
+        "part": part,
+        "panel": panel,
+        "shelf_board": shelf_board,
+        "open_etagere": open_etagere,
+        "carcass": carcass,
         "AllowlistError": AllowlistError,
+        # Templates kept as few-shot/examples (oracle chairs); prefer helpers for new work
         "templates": dict(TEMPLATE_FNS),
         "four_leg_chair": four_leg_chair,
         "stool": stool,
-        # Small build123d surface for placing / combining block solids
         "Box": Box,
         "Pos": Pos,
         "Compound": Compound,
