@@ -47,11 +47,26 @@ class ToolContext:
     last_plan: dict[str, Any] | None = None
     reference_photo: Path | None = None
     targets_mm: dict[str, float] = field(default_factory=dict)
+    assembly: Any = None
+    last_stl: Path | None = None
+    last_renders: dict[str, str] = field(default_factory=dict)
+    last_check: dict[str, Any] | None = None
+    last_compare: dict[str, Any] | None = None
     log: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.work_dir = Path(self.work_dir)
         self.work_dir.mkdir(parents=True, exist_ok=True)
+
+    def find_stl(self) -> Path | None:
+        if self.last_stl and Path(self.last_stl).is_file():
+            return Path(self.last_stl)
+        if self.last_build and self.last_build.get("name"):
+            cand = self.work_dir / f"{self.last_build['name']}.stl"
+            if cand.is_file():
+                return cand
+        stls = sorted(self.work_dir.glob("*.stl"))
+        return stls[-1] if stls else None
 
 
 def _ok(data: dict[str, Any]) -> dict[str, Any]:
@@ -84,11 +99,20 @@ def _build_namespace() -> dict[str, Any]:
     }
 
 
+def _safe_build_name(raw: str) -> str:
+    """Filesystem-safe artifact basename (no spaces) for STL/parts downloads."""
+    import re
+
+    s = re.sub(r"[^A-Za-z0-9._\-]+", "_", (raw or "assembly").strip())
+    s = re.sub(r"_+", "_", s).strip("._") or "assembly"
+    return s[:80]
+
+
 def tool_build(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
     script = args.get("script")
     if not isinstance(script, str) or not script.strip():
         return _err("script must be a non-empty string")
-    name = str(args.get("name") or "assembly")
+    name = _safe_build_name(str(args.get("name") or "assembly"))
     ns = _build_namespace()
     try:
         exec(script, ns, ns)  # noqa: S102 — sandboxed builtins + allowlisted helpers only
@@ -117,6 +141,8 @@ def tool_build(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
     except Exception:
         pass
     assembly = ns.get("assembly")
+    ctx.assembly = assembly
+    ctx.last_stl = None
     ctx.last_build = {
         "name": name,
         "parts_path": str(parts_path),
@@ -125,13 +151,24 @@ def tool_build(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
         "has_assembly": assembly is not None,
         "script_bytes": len(script.encode("utf-8")),
     }
-    # Optional: export solids if assembly present
     if assembly is not None:
         try:
             from furniture_cad.export import export_solid
+            from furniture_cad.geom_check import bbox_mm_from_solid
 
-            export_solid(assembly, ctx.work_dir / name, formats=("stl", "step"))
+            written = export_solid(assembly, ctx.work_dir / name, formats=("stl", "step"))
             ctx.last_build["exported"] = True
+            if "stl" in written:
+                ctx.last_stl = written["stl"]
+                ctx.last_build["stl"] = str(written["stl"])
+            try:
+                ctx.last_build["bbox_mm"] = {
+                    k: round(v, 2) if isinstance(v, float) else v
+                    for k, v in bbox_mm_from_solid(assembly).items()
+                    if k in ("w", "d", "h")
+                }
+            except Exception:
+                pass
         except Exception as e:
             ctx.last_build["exported"] = False
             ctx.last_build["export_error"] = f"{type(e).__name__}: {e}"
@@ -167,6 +204,17 @@ def tool_measure(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
     pid = str(args.get("part") or "")
     if not pid:
         return _err("part id required")
+    if pid in ("assembly", "overall", "*"):
+        from furniture_cad.geom_check import bbox_mm_from_solid, bbox_mm_from_stl
+
+        if ctx.assembly is not None:
+            bb = bbox_mm_from_solid(ctx.assembly)
+            return _ok({"id": "assembly", "source": "solid", "bbox_mm": {k: round(bb[k], 2) for k in ("w", "d", "h")}})
+        stl = ctx.find_stl()
+        if stl:
+            bb = bbox_mm_from_stl(stl)
+            return _ok({"id": "assembly", "source": "stl", "bbox_mm": {k: round(bb[k], 2) for k in ("w", "d", "h")}, "stl": str(stl)})
+        return _err("no assembly solid or STL; call build with assembly= first")
     for p in ctx.parts:
         if p.id == pid:
             ft, fw, fl = p.finished_twl()
@@ -181,64 +229,104 @@ def tool_measure(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
                     "material": p.material,
                     "how_made": p.how_made,
                     "curved": p.curved,
+                    "source": "part_record",
                 }
             )
-    return _err(f"unknown part {pid!r}", known=[p.id for p in ctx.parts])
+    return _err(f"unknown part {pid!r}", known=[p.id for p in ctx.parts] + ["assembly"])
 
 
 def tool_render(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
     views = args.get("views") or []
     if not isinstance(views, list) or not views:
         return _err("views must be a non-empty array")
-    # Phase 2: record requested views; full rasterization still uses measure:chair-iou / browser path.
+    stl = ctx.find_stl()
+    if not stl:
+        return _err("no STL to render; call build with assembly= first")
+    from furniture_cad.render_views import render_stl_views
+
     out = ctx.work_dir / "renders"
-    out.mkdir(parents=True, exist_ok=True)
-    meta = {"views": views, "has_assembly": bool(ctx.last_build and ctx.last_build.get("has_assembly")), "note": "raster stub — use STL + measure:chair-iou for silhouette"}
+    try:
+        meta = render_stl_views(stl, out, [str(v) for v in views])
+    except Exception as e:
+        return _err(f"render failed: {type(e).__name__}: {e}")
+    ctx.last_renders = dict(meta.get("views") or {})
     (out / "views.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
-    return _ok({"render_dir": str(out), "views": views, "raster": False})
+    # Cap images returned to the model (loop attaches PNG bytes)
+    image_paths = [ctx.last_renders[v] for v in ("front", "side", "iso", "top", "back") if v in ctx.last_renders][:3]
+    return _ok(
+        {
+            "render_dir": str(out),
+            "views": ctx.last_renders,
+            "raster": True,
+            "stl": str(stl),
+            "image_paths": image_paths,
+        }
+    )
 
 
 def tool_check(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
-    targets = dict(args.get("targets_mm") or ctx.targets_mm or {})
-    if not ctx.parts:
-        return _err("no parts model; call build first")
-    # Approximate overall bbox from max extents of part dims (shop check, not mesh AABB).
-    max_t = max(p.thickness_mm for p in ctx.parts)
-    max_w = max(p.width_mm for p in ctx.parts)
-    max_l = max(p.length_mm for p in ctx.parts)
-    approx = {"w": max_w, "d": max_t if max_t < max_w else max_w, "h": max_l}
-    # Prefer length as height for vertical posts, width as overall width for shelves
-    shelf = next((p for p in ctx.parts if "shelf" in p.id or "seat" in p.id), None)
-    post = next((p for p in ctx.parts if "post" in p.id or "leg" in p.id or "stile" in p.id), None)
-    if shelf:
-        approx["w"] = max(approx["w"], shelf.length_mm, shelf.width_mm)
-        approx["d"] = max(approx.get("d", 0), min(shelf.length_mm, shelf.width_mm) if shelf.length_mm != shelf.width_mm else shelf.width_mm)
-    if post:
-        approx["h"] = max(approx.get("h", 0), post.length_mm)
+    from furniture_cad.geom_check import bbox_mm_from_solid, bbox_mm_from_stl, compare_targets
 
-    issues: list[str] = []
-    tol = 0.05
-    for key in ("w", "d", "h"):
-        if key in targets and targets[key]:
-            got = float(approx.get(key) or 0)
-            want = float(targets[key])
-            if want <= 0:
-                continue
-            err = abs(got - want) / want
-            if err > tol:
-                issues.append(f"{key}: got {got:.1f} want {want:.1f} ({err:.1%} > 5%)")
+    targets = dict(args.get("targets_mm") or ctx.targets_mm or {})
+    stl = ctx.find_stl()
+    bbox: dict[str, float] | None = None
+    source = None
+    if ctx.assembly is not None:
+        try:
+            bbox = bbox_mm_from_solid(ctx.assembly)
+            source = "solid"
+        except Exception:
+            bbox = None
+    if bbox is None and stl:
+        bbox = bbox_mm_from_stl(stl)
+        source = "stl"
+    if bbox is None:
+        return _err("no solid/STL for bbox; call build with assembly= first")
+
+    cmp = compare_targets(bbox, targets)
+    iou = None
+    iou_rating = None
     iou_min = args.get("iou_min")
-    return _ok(
-        {
-            "approx_bbox_mm": approx,
-            "targets_mm": targets,
-            "within_5pct": len(issues) == 0 if targets else None,
-            "issues": issues,
-            "iou_min": iou_min,
-            "piece_count": sum(p.qty for p in ctx.parts),
-            "part_types": len(ctx.parts),
-        }
-    )
+    pass_iou = None
+    if ctx.reference_photo and Path(ctx.reference_photo).is_file() and stl:
+        try:
+            from furniture_cad.silhouette import rating_for_iou, silhouette_iou
+
+            m = silhouette_iou(ctx.reference_photo, stl)
+            iou = m["iou"]
+            iou_rating = rating_for_iou(float(iou))
+            if iou_min is not None:
+                pass_iou = float(iou) >= float(iou_min)
+        except Exception as e:
+            iou = None
+            iou_rating = f"error:{type(e).__name__}"
+
+    overlaps_note = "per-part mesh overlap not computed (single assembly mesh); use unit tests for AABB overlap helpers"
+    passed = True
+    if cmp["within_5pct"] is False:
+        passed = False
+    if pass_iou is False:
+        passed = False
+
+    result = {
+        "bbox_mm": {k: round(float(bbox[k]), 2) for k in ("w", "d", "h")},
+        "bbox_source": source,
+        "targets_mm": targets,
+        "within_5pct": cmp["within_5pct"],
+        "issues": cmp["issues"],
+        "detail": cmp.get("detail"),
+        "iou": iou,
+        "iou_rating": iou_rating,
+        "iou_min": iou_min,
+        "iou_pass": pass_iou,
+        "pass": passed,
+        "overlaps": overlaps_note,
+        "piece_count": sum(p.qty for p in ctx.parts) if ctx.parts else None,
+        "part_types": len(ctx.parts) if ctx.parts else None,
+        "stl": str(stl) if stl else None,
+    }
+    ctx.last_check = result
+    return _ok(result)
 
 
 def tool_compare(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
@@ -252,17 +340,60 @@ def tool_compare(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
             matches[str(k)] = {"expected": v, "got": got, "ok": got == v}
             if got != v:
                 notes.append(f"{k}: expected {v} got {got}")
-    return _ok(
-        {
-            "has_photo": bool(ctx.reference_photo),
-            "photo": str(ctx.reference_photo) if ctx.reference_photo else None,
-            "views": args.get("views"),
-            "qty_matches": matches,
-            "qty_ok": all(m["ok"] for m in matches.values()) if matches else None,
-            "notes": notes,
-            "hint": "silhouette IoU still via measure:chair-iou --spec / Create path until raster render ships",
-        }
-    )
+
+    stl = ctx.find_stl()
+    photo = ctx.reference_photo
+    iou = None
+    rating = None
+    overlay = None
+    differences: list[str] = []
+    if photo and Path(photo).is_file() and stl:
+        try:
+            from furniture_cad.render_views import overlay_masks_png
+            from furniture_cad.silhouette import _aligned_iou, _photo_mask, _stl_front_mask, rating_for_iou, silhouette_iou
+
+            m = silhouette_iou(photo, stl)
+            iou = m["iou"]
+            rating = rating_for_iou(float(iou))
+            ref = _photo_mask(Path(photo), tuple(m["size"]))
+            model = _stl_front_mask(Path(stl), tuple(m["size"]))
+            # Re-align model like silhouette_iou for a fair overlay
+            _, align = _aligned_iou(ref, model)
+            from furniture_cad.silhouette import _resize_mask, _shift
+
+            model_a = _shift(_resize_mask(model, float(align["scale"]), tuple(m["size"])), int(align["dx"]), int(align["dy"]))
+            overlay_path = ctx.work_dir / "renders" / "compare_overlay.png"
+            overlay_masks_png(ref, model_a, overlay_path)
+            overlay = str(overlay_path)
+            if float(iou) < 0.4:
+                differences.append("silhouette mismatch is large (Wrong) — check proportions, foot shape, shelf count")
+            elif float(iou) < 0.55:
+                differences.append("silhouette is Close but not Close+ — refine outline vs photo")
+            else:
+                differences.append("silhouette within Close+/Match band on this view")
+            differences.append(f"align scale={align.get('scale')} dx={align.get('dx')} dy={align.get('dy')}")
+        except Exception as e:
+            notes.append(f"IoU/overlay failed: {type(e).__name__}: {e}")
+    else:
+        notes.append("need reference photo + STL for silhouette compare")
+
+    image_paths = [overlay] if overlay else []
+    result = {
+        "has_photo": bool(photo),
+        "photo": str(photo) if photo else None,
+        "views": args.get("views"),
+        "qty_matches": matches,
+        "qty_ok": all(m["ok"] for m in matches.values()) if matches else None,
+        "iou": iou,
+        "iou_rating": rating,
+        "overlay": overlay,
+        "image_paths": image_paths,
+        "differences": differences,
+        "notes": notes,
+        "stl": str(stl) if stl else None,
+    }
+    ctx.last_compare = result
+    return _ok(result)
 
 
 def tool_ask_user(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:

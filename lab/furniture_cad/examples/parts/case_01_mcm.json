@@ -4,7 +4,7 @@
     "source": "case_01 photo inventory hand-check (open 5-shelf MCM) — not drawer bookshelf fixture",
     "object": "case_01",
     "units": "mm",
-    "dims_from": "placeholder overall 900×300×1800 until catalog/tape"
+    "dims_from": "user: 48×12×71 in → 1219×305×1803 mm (part sizes still hand inventory, not derived)"
   },
   "parts": [
     {"id": "post", "name": "Vertical post", "qty": 4, "material": "walnut", "thickness_mm": 40, "width_mm": 40, "length_mm": 1720, "grain": "z", "how_made": "solid"},

@@ -1,12 +1,14 @@
 """CLI tool-use runner: offline tool scripts or Messages API loop.
 
-Phase 1: prove build + lists. render/check/compare stub until Phase 2.
+R1: photo image blocks, real render/check/compare, known-size targets.
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
 import json
+import mimetypes
 import os
 import sys
 import time
@@ -19,13 +21,56 @@ from furniture_cad.tools.handlers import ToolContext, dispatch
 # Prefer app aliases (same as browser Create); override with FURNITURE_CAD_MODEL.
 DEFAULT_MODEL = os.environ.get("FURNITURE_CAD_MODEL", "claude-haiku-4-5")
 
-SYSTEM = """You are a furniture CAD worker. Use tools to build a parts model and cut/material lists.
-Inside build(script) you may use: block(name), blocks, four_leg_chair(params), stool(params), PartRecord, Box, Pos, Compound.
-PartRecord / part dict fields (mm): id, name, qty, material, thickness_mm, width_mm, length_mm; optional grain, how_made, curved, blank_thickness_mm, blank_width_mm, blank_length_mm.
-Script must set `parts = [...]`. Optionally set `assembly` (a solid) for STL/STEP export.
-Prefer four_leg_chair({...}) then derive parts from params when building chairs.
-After a successful build, call lists(). Use measure() to verify dims. ask_user only when stuck on scale/material.
-Do not invent tools. Keep scripts short. Fix tool errors on the next round."""
+# Few-shot for open MCM casegoods — scale W/D/H to the user-known size.
+CASEGOOD_FEWSHOT = r'''
+Example casegood (set W,D,H from the known overall size in mm):
+```
+W, D, H = 1219.0, 305.0, 1803.0
+post_s, shelf_t, foot_h, overhang, clearance, fin_w = 32.0, 18.0, 64.0, 90.0, 48.0, 70.0
+run_t = post_s + 8.0
+shelf_w = W
+post_h = H - foot_h
+bay = (post_h - clearance - 5 * shelf_t) / 4.0
+hx, hy = W / 2.0 - overhang - post_s / 2.0, D / 2.0 - 18.0
+posts = [Pos(sx * hx, sy * hy, foot_h + post_h / 2.0) * Box(post_s, post_s, post_h)
+         for sx in (-1, 1) for sy in (-1, 1)]
+shelves = [Pos(0, 0, foot_h + clearance + shelf_t / 2.0 + i * (shelf_t + bay)) * Box(shelf_w, D, shelf_t)
+           for i in range(5)]
+feet = [
+  Pos(-hx, 0, foot_h / 2.0) * Box(run_t, D, foot_h),
+  Pos(hx, 0, foot_h / 2.0) * Box(run_t, D, foot_h),
+  Pos(-hx + run_t / 2.0 + fin_w / 2.0, 0, foot_h * 0.4) * Box(fin_w, D * 0.55, foot_h * 0.8),
+  Pos(hx - run_t / 2.0 - fin_w / 2.0, 0, foot_h * 0.4) * Box(fin_w, D * 0.55, foot_h * 0.8),
+]
+assembly = Compound(children=posts + shelves + feet)
+parts = [
+  PartRecord(id='post', name='Vertical post', qty=4, material='walnut', thickness_mm=36, width_mm=36, length_mm=H-foot_h, grain='z', how_made='solid'),
+  PartRecord(id='shelf', name='Shelf board', qty=5, material='walnut', thickness_mm=20, width_mm=D, length_mm=W, grain='x', how_made='solid'),
+  PartRecord(id='sled_foot', name='Sled foot', qty=2, material='walnut', thickness_mm=44, width_mm=70, length_mm=D, grain='y', how_made='solid', curved=True),
+]
+```
+'''.strip()
+
+SYSTEM = f"""You are a furniture CAD worker. You MUST use tools — never answer with text only.
+
+Procedure each job:
+1) Read the photo + known overall size (mm). Classify: casegood | chair | stool | other.
+2) List the visible parts mentally, then build(script) with assembly= set (solids export required).
+3) render(views=["front","side","iso"]) and look at the returned images.
+4) check(targets_mm) with the known W/D/H; compare() against the photo (IoU + overlay).
+5) If check/compare fail, fix with another build, then render/check/compare again.
+6) lists() when the solid is acceptable.
+Optional: ask_user only for missing material/hidden structure — never for overall size if given.
+
+Object class (match the PHOTO):
+- Open shelving / bookcase / etagere → CASEGOOD with Box, Pos, Compound (post, shelf, sled_foot). Never chair parts.
+- Chair / stool → four_leg_chair({{...}}) or stool({{...}}); assembly = result['assembly'].
+
+{CASEGOOD_FEWSHOT}
+
+Inside build(script): block, blocks, four_leg_chair, stool, PartRecord, Box, Pos, Compound.
+PartRecord fields (mm): id, name, qty, material, thickness_mm, width_mm, length_mm; optional grain, how_made, curved, blanks.
+At most three render images are returned per round. Keep scripts short. Ending without build+assembly+render+lists is a failure."""
 
 
 def _env_float(name: str, default: float) -> float:
@@ -56,6 +101,7 @@ def resolve_limits(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
             "FURNITURE_CAD_MAX_SPEND_USD_PER_DAY", float(base.get("max_spend_usd_per_day", 25.0))
         ),
         "max_wall_time_s": _env_int("FURNITURE_CAD_MAX_WALL_TIME_S", int(base.get("max_wall_time_s", 900))),
+        "max_images_per_round": _env_int("FURNITURE_CAD_MAX_IMAGES_PER_ROUND", int(base.get("max_images_per_round", 3))),
     }
     if overrides:
         out.update({k: v for k, v in overrides.items() if v is not None})
@@ -65,6 +111,102 @@ def resolve_limits(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
 def _approx_cost_usd(*, input_tokens: int, output_tokens: int) -> float:
     # Rough Sonnet-class estimate for spend caps; not billing-accurate.
     return (input_tokens / 1_000_000) * 3.0 + (output_tokens / 1_000_000) * 15.0
+
+
+def _downscale_image_bytes(data: bytes, *, max_edge: int = 1024) -> tuple[bytes, str]:
+    """Return (jpeg_bytes, media_type), downscaled to max_edge on the long side."""
+    from io import BytesIO
+
+    from PIL import Image, ImageOps
+
+    img = Image.open(BytesIO(data))
+    img = ImageOps.exif_transpose(img)
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+    elif img.mode == "L":
+        img = img.convert("RGB")
+    w, h = img.size
+    scale = min(1.0, float(max_edge) / float(max(w, h)))
+    if scale < 1.0:
+        img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.BILINEAR)
+    buf = BytesIO()
+    img.save(buf, format="JPEG", quality=85, optimize=True)
+    return buf.getvalue(), "image/jpeg"
+
+
+def _photo_content_block(path: Path, *, max_edge: int = 1024) -> dict[str, Any] | None:
+    """Anthropic image block from a local photo path, or None if unreadable."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    if not data:
+        return None
+    try:
+        data, mime = _downscale_image_bytes(data, max_edge=max_edge)
+    except Exception:
+        mime, _ = mimetypes.guess_type(str(path))
+        if mime not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+            mime = "image/jpeg"
+        if len(data) > 4_000_000:
+            return None
+    b64 = base64.standard_b64encode(data).decode("ascii")
+    return {
+        "type": "image",
+        "source": {"type": "base64", "media_type": mime, "data": b64},
+    }
+
+
+def _format_known_size(targets: dict[str, float]) -> str:
+    if not targets:
+        return "Known overall size: not provided — ask_user only if scale is ambiguous."
+    parts = []
+    labels = {"w": "width", "d": "depth", "h": "height"}
+    for k in ("w", "d", "h"):
+        if k in targets and targets[k]:
+            parts.append(f"{labels[k]}={float(targets[k]):.0f} mm")
+    return "Known overall size (from user, authoritative): " + ", ".join(parts) + "."
+
+
+def _user_content(prompt: str, photo: Path | None, targets: dict[str, float] | None = None) -> str | list[dict[str, Any]]:
+    """Labeled photo + known size + brief for the first Messages turn."""
+    targets = targets or {}
+    text = (
+        f"{prompt}\n\n"
+        f"{_format_known_size(targets)}\n"
+        "Image label: front (primary reference).\n"
+        "Procedure: classify from the PHOTO → build(assembly=) scaled to known size → "
+        "render front/side/iso → check(targets_mm) → compare → lists. Fix if check/compare fail."
+    )
+    if not photo or not photo.is_file():
+        return text
+    img = _photo_content_block(photo)
+    if not img:
+        return text
+    return [
+        {"type": "text", "text": "Reference photo (front):"},
+        img,
+        {"type": "text", "text": text},
+    ]
+
+
+def _tool_result_content(result: dict[str, Any], *, max_images: int = 3) -> str | list[dict[str, Any]]:
+    """JSON tool result, optionally with downscaled PNG/JPEG image blocks (≤ max_images)."""
+    paths = list(result.get("image_paths") or [])[:max_images]
+    payload = {k: v for k, v in result.items() if k != "image_paths"}
+    text = json.dumps(payload)
+    if not paths:
+        return text
+    blocks: list[dict[str, Any]] = [{"type": "text", "text": text}]
+    for p in paths:
+        path = Path(p)
+        if not path.is_file():
+            continue
+        block = _photo_content_block(path, max_edge=768)
+        if block:
+            blocks.append({"type": "text", "text": f"image:{path.name}"})
+            blocks.append(block)
+    return blocks if len(blocks) > 1 else text
 
 
 def run_tool_script(ctx: ToolContext, calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -107,7 +249,10 @@ def run_messages_loop(
 
     client = anthropic.Anthropic(api_key=key)
     tools = anthropic_tools()
-    messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
+    photo = ctx.reference_photo if isinstance(ctx.reference_photo, Path) else None
+    messages: list[dict[str, Any]] = [
+        {"role": "user", "content": _user_content(prompt, photo, ctx.targets_mm)}
+    ]
     spent = 0.0
     started = time.monotonic()
     rounds = 0
@@ -115,6 +260,7 @@ def run_messages_loop(
     max_spend = float(limits["max_spend_usd_per_job"])
     max_wall = float(limits["max_wall_time_s"])
     max_tokens = int(limits["max_tokens_per_request"])
+    max_images = int(limits.get("max_images_per_round", 3))
     stop_reason = "incomplete"
 
     while rounds < max_rounds:
@@ -144,8 +290,23 @@ def run_messages_loop(
         messages.append({"role": "assistant", "content": content})
 
         tool_uses = [b for b in content if getattr(b, "type", None) == "tool_use"]
+        built = bool(ctx.parts)
+        has_assembly = bool(ctx.last_build and (ctx.last_build.get("has_assembly") or ctx.last_build.get("exported")))
+        rendered = bool(ctx.last_renders)
         if not tool_uses:
             stop_reason = getattr(resp, "stop_reason", None) or "end_turn"
+            if (not built or not has_assembly or not rendered) and rounds < max_rounds:
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "Not done. Use the PHOTO + known size. "
+                            "build with assembly= (casegood Box/Pos/Compound if bookshelf), "
+                            "then render([\"front\",\"side\",\"iso\"]), check(targets_mm), compare(), lists()."
+                        ),
+                    }
+                )
+                continue
             break
 
         tool_results: list[dict[str, Any]] = []
@@ -153,12 +314,15 @@ def run_messages_loop(
         for block in tool_uses:
             name = block.name
             args = block.input if isinstance(block.input, dict) else {}
+            # Inject known targets into check if the model omitted them
+            if name == "check" and ctx.targets_mm and not (args.get("targets_mm")):
+                args = {**args, "targets_mm": dict(ctx.targets_mm)}
             result = dispatch(ctx, name, args)
             tool_results.append(
                 {
                     "type": "tool_result",
                     "tool_use_id": block.id,
-                    "content": json.dumps(result),
+                    "content": _tool_result_content(result, max_images=max_images),
                     "is_error": not bool(result.get("ok")),
                 }
             )
@@ -168,15 +332,75 @@ def run_messages_loop(
         if needs_user:
             stop_reason = "needs_user"
             break
-        if getattr(resp, "stop_reason", None) == "end_turn" and not tool_uses:
+        has_assembly = bool(ctx.last_build and (ctx.last_build.get("has_assembly") or ctx.last_build.get("exported")))
+        rendered = bool(ctx.last_renders)
+        if ctx.last_plan and ctx.parts and not has_assembly and rounds < max_rounds:
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "lists() ran but assembly was never set — no STL. Rebuild with "
+                        "assembly = result['assembly'] (chair/stool) or Compound(...) (casegood), then render/check/lists."
+                    ),
+                }
+            )
+            continue
+        if ctx.parts and has_assembly and ctx.last_plan and not rendered and rounds < max_rounds:
+            messages.append(
+                {
+                    "role": "user",
+                    "content": 'Call render(views=["front","side","iso"]) then check and compare before finishing.',
+                }
+            )
+            continue
+        if (
+            ctx.parts
+            and has_assembly
+            and rendered
+            and not ctx.last_plan
+            and rounds < max_rounds
+            and ctx.last_check is not None
+        ):
+            # Dims may pass while IoU is still Wrong — still emit lists so the project is complete.
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "You have assembly + renders + check. Call lists() now to finish. "
+                        "Further likeness fixes can be a later round if spend remains."
+                    ),
+                }
+            )
+            continue
+        # Done when parts + assembly + render + lists
+        if ctx.parts and has_assembly and ctx.last_plan and rendered:
             stop_reason = "end_turn"
             break
     else:
         stop_reason = "max_rounds"
 
+    built = bool(ctx.parts)
+    listed = bool(ctx.last_plan)
+    has_assembly = bool(ctx.last_build and (ctx.last_build.get("has_assembly") or ctx.last_build.get("exported")))
+    exported = bool(ctx.last_build and ctx.last_build.get("exported"))
+    rendered = bool(ctx.last_renders)
+    ok = stop_reason == "needs_user" or (
+        stop_reason == "end_turn" and built and listed and has_assembly and exported and rendered
+    )
+    reason = stop_reason
+    if stop_reason == "end_turn" and not ok:
+        if not built:
+            reason = "end_turn_no_build"
+        elif not has_assembly or not exported:
+            reason = "end_turn_no_assembly"
+        elif not rendered:
+            reason = "end_turn_no_render"
+        elif not listed:
+            reason = "end_turn_no_lists"
     return {
-        "ok": stop_reason in ("end_turn", "needs_user") or bool(ctx.parts),
-        "stop_reason": stop_reason,
+        "ok": ok,
+        "mode": "live",
+        "stop_reason": reason,
         "rounds": rounds,
         "spent_usd_approx": round(spent, 4),
         "limits": limits,
@@ -184,13 +408,26 @@ def run_messages_loop(
         "log": ctx.log,
         "last_build": ctx.last_build,
         "last_plan_totals": (ctx.last_plan or {}).get("totals"),
+        "last_check": ctx.last_check,
+        "last_compare": ctx.last_compare,
+        "renders": dict(ctx.last_renders),
+        "had_photo": bool(photo and photo.is_file()),
+        "targets_mm": dict(ctx.targets_mm),
     }
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="furniture_cad tool-use runner (Phase 1)")
     p.add_argument("--work", type=Path, default=Path("out/run"), help="job workspace directory")
-    p.add_argument("--photo", type=Path, default=None, help="optional reference photo path (stored on context)")
+    p.add_argument("--photo", type=Path, default=None, help="reference photo path (sent as image block)")
+    p.add_argument(
+        "--known-mm",
+        nargs=3,
+        type=float,
+        metavar=("W", "D", "H"),
+        default=None,
+        help="user-known overall size in mm (width depth height)",
+    )
     p.add_argument("--prompt", type=str, default=None, help="user prompt for live Messages loop")
     p.add_argument(
         "--script",
@@ -207,7 +444,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--freeze-set",
         nargs="*",
         metavar="ID",
-        help="run offline freeze scripts (default: chair_04 chair_02 case_01)",
+        help="run offline oracle scripts (hand-tuned; not baseline A). alias: --freeze-set",
     )
     return p
 
@@ -220,20 +457,20 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.freeze_set is not None:
-        from furniture_cad.tools.freeze_set import FREEZE_PIECES, freeze_tool_calls
+        from furniture_cad.tools.oracle_set import ORACLE_PIECES, oracle_tool_calls
 
-        ids = list(args.freeze_set) if args.freeze_set else list(FREEZE_PIECES.keys())
-        summary: dict[str, Any] = {"mode": "freeze_set", "pieces": {}}
+        ids = list(args.freeze_set) if args.freeze_set else list(ORACLE_PIECES.keys())
+        summary: dict[str, Any] = {"mode": "oracle_set", "pieces": {}}
         ok_all = True
         for pid in ids:
-            if pid not in FREEZE_PIECES:
-                summary["pieces"][pid] = {"ok": False, "error": "unknown freeze piece"}
+            if pid not in ORACLE_PIECES:
+                summary["pieces"][pid] = {"ok": False, "error": "unknown oracle piece"}
                 ok_all = False
                 continue
-            meta = FREEZE_PIECES[pid]
+            meta = ORACLE_PIECES[pid]
             piece_dir = Path(args.work) / pid
             pctx = ToolContext(work_dir=piece_dir)
-            results = run_tool_script(pctx, freeze_tool_calls(pid))
+            results = run_tool_script(pctx, oracle_tool_calls(pid))
             build_ok = bool(results and results[0]["result"].get("ok"))
             lists_ok = bool(len(results) > 1 and results[1]["result"].get("ok"))
             exported = bool((pctx.last_build or {}).get("exported"))
@@ -269,6 +506,8 @@ def main(argv: list[str] | None = None) -> int:
     ctx = ToolContext(work_dir=args.work)
     if args.photo:
         ctx.reference_photo = Path(args.photo)
+    if args.known_mm:
+        ctx.targets_mm = {"w": float(args.known_mm[0]), "d": float(args.known_mm[1]), "h": float(args.known_mm[2])}
 
     if args.call:
         name, raw = args.call

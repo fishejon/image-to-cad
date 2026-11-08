@@ -21,8 +21,9 @@
     {
       "id": "case_01",
       "iou_quality": "trusted",
-      "B": { "iou": 0.297, "rating": "Wrong", "source": "evals/photos/cases/case_01.score.json#create" },
-      "O": { "iou": 0.343, "rating": "Wrong", "piece_count": 31, "part_types": 5, "stl": "lab/furniture_cad/out/freeze/case_01/case_01.stl", "role": "oracle_answer_key", "notes": "Oracle still Wrong on silhouette; ceiling is low until helpers match knife-edge / sled feet." },
+      "known_size": { "w_in": 48, "d_in": 12, "h_in": 71, "w_mm": 1219, "d_mm": 305, "h_mm": 1803, "from": "user" },
+      "B": { "iou": 0.297, "rating": "Wrong", "source": "evals/photos/cases/case_01.score.json#create", "notes": "Create run used placeholder 900×300×1800; re-score B after known-size prompt if needed." },
+      "O": { "iou": 0.343, "rating": "Wrong", "piece_count": 31, "part_types": 5, "stl": "lab/furniture_cad/out/freeze/case_01/case_01.stl", "role": "oracle_answer_key", "notes": "Oracle still Wrong on silhouette; script W/D/H not yet retuned to 1219×305×1803." },
       "A0": { "status": "not_measured", "iou": null, "rating": null, "notes": "Shop Auto produced a bookshelf solid but not under blind protocol / not scored as A0." }
     }
   ],
