@@ -8,7 +8,7 @@ Plan: [`docs/plans/photo-to-cutlist.md`](../../docs/plans/photo-to-cutlist.md)
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Dining/side chair | `chair_04` (Lakin) | `chairs/chair_04.jpg` | catalog in `chair_04.json` | IoU **0.641 Close+** | IoU **0.671 Close+** | **not measured** | Primary studio wedge |
 | Dining/side chair | `chair_02` | `chairs/chair_02.jpg` | tape/brief | IoU **0.948\*** Close+ | IoU **0.727\*** | **not measured** | Room photo — IoU untrusted |
-| Rectilinear case | `case_01` bookshelf | `cases/case_01.jpg` | placeholder 900×300×1800 | IoU **0.297 Wrong** | IoU **0.343 Wrong** | **not measured** | See [`BASELINES_R0.json`](BASELINES_R0.json) |
+| Rectilinear case | `case_01` bookshelf | `cases/case_01.jpg` | **user:** 48×12×71 in (1219×305×1803 mm) | IoU **0.297 Wrong** | IoU **0.343 Wrong** | **not measured** | See [`BASELINES_R0.json`](BASELINES_R0.json) |
 
 > **A** = live photo→model under [`BLIND_PROTOCOL.md`](BLIND_PROTOCOL.md). **O** is not the system under test. Recovery track: [`R0.md`](R0.md).
 

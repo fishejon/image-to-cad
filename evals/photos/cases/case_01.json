@@ -3,16 +3,21 @@
   "id": "case_01",
   "status": "photo_ready",
   "object": "bookshelf",
-  "notes": "Studio photo of open 5-shelf MCM case: 4 square posts, shelves with side overhang + knife-edge taper, under-shelf rails, sled/coved side feet. Not the drawer bookshelf in examples/bookshelf.json — that fixture stays cut-list gold only. Overall dims still placeholder until catalog/tape.",
+  "notes": "Studio photo of open 5-shelf MCM case: 4 square posts, shelves with side overhang + knife-edge taper, under-shelf rails, sled/coved side feet. Not the drawer bookshelf in examples/bookshelf.json — that fixture stays cut-list gold only. Overall dims from user (inches → mm).",
   "source": {
     "file": "case_01.jpg",
     "license": "user-supplied reference (local; gitignored)",
-    "dims_mm": {
-      "overall_w": 900,
-      "overall_d": 300,
-      "overall_h": 1800
+    "dims_in": {
+      "overall_w": 48,
+      "overall_d": 12,
+      "overall_h": 71
     },
-    "dims_from": "placeholder — replace with measured/catalog; visual: ~5 equal bays, shelf overhang past posts, sled feet ~80–100 mm tall",
+    "dims_mm": {
+      "overall_w": 1219,
+      "overall_d": 305,
+      "overall_h": 1803
+    },
+    "dims_from": "user-provided: 48 in wide × 12 in deep × 71 in tall (converted at 25.4 mm/in, rounded)",
     "structure": {
       "shelves": 5,
       "posts": 4,

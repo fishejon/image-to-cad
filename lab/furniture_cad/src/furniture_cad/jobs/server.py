@@ -149,6 +149,14 @@ def run_job(store: JobStore, job_id: str, *, mode: str | None = None) -> dict[st
         ctx = ToolContext(work_dir=work)
         if job.photo:
             ctx.reference_photo = Path(job.photo)
+        targets_path = work / "targets_mm.json"
+        if targets_path.is_file():
+            try:
+                raw_t = json.loads(targets_path.read_text(encoding="utf-8"))
+                if isinstance(raw_t, dict):
+                    ctx.targets_mm = {k: float(raw_t[k]) for k in ("w", "d", "h") if k in raw_t}
+            except Exception:
+                pass
 
         try:
             piece = None
@@ -298,6 +306,17 @@ def make_handler(store: JobStore):
                 domain = body.get("domain")
                 if domain:
                     (work / "domain.txt").write_text(str(domain), encoding="utf-8")
+                known = body.get("known_mm") or body.get("targets_mm")
+                if isinstance(known, dict) and known:
+                    targets = {
+                        k: float(known[k])
+                        for k in ("w", "d", "h")
+                        if k in known and known[k] is not None
+                    }
+                    if targets:
+                        (work / "targets_mm.json").write_text(
+                            json.dumps(targets, indent=2) + "\n", encoding="utf-8"
+                        )
                 job = store.create(
                     prompt=prompt,
                     work_dir=work,
