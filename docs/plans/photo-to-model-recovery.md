@@ -38,8 +38,9 @@ See the Nov 8 recovery note in chat / this file’s source for full task lists, 
 | Phase | Status |
 | --- | --- |
 | R0 | **Done** — [`evals/photos/R0.md`](../../evals/photos/R0.md) |
-| R1 | **In progress** — eyes landed; `case_01` smoke OK — [`evals/photos/R1.md`](../../evals/photos/R1.md) |
-| R2–R7 | Not started |
+| R1 | **Done** (core) — [`evals/photos/R1.md`](../../evals/photos/R1.md) |
+| R2 | **Done** (core) — [`evals/photos/R2.md`](../../evals/photos/R2.md) |
+| R3–R7 | Not started |
 
 ## Product bar (blind eval ~10 pieces)
 

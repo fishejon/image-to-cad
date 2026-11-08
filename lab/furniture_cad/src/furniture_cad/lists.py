@@ -70,6 +70,8 @@ def cut_rows(parts: list[PartRecord]) -> list[dict[str, Any]]:
                 "blank_mm": [round(bt, 3), round(bw, 3), round(bl, 3)],
                 "board_feet": round(board_feet(bt, bw, bl, p.qty), 3),
                 "notes": p.notes,
+                "estimate_flag": getattr(p, "estimate_flag", None) or "Guessed",
+                "fill_ratio": getattr(p, "fill_ratio", None),
             }
         )
     return rows

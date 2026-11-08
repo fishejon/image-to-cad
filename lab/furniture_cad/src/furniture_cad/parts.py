@@ -28,6 +28,10 @@ class PartRecord:
     blank_length_mm: float | None = None
     notes: str = ""
     tags: list[str] = field(default_factory=list)
+    estimate_flag: str = "Guessed"  # Measured|Estimated|Guessed|Shaped from blank
+    fill_ratio: float | None = None
+    # In-memory only — never serialized
+    solid_ref: Any = field(default=None, repr=False, compare=False)
 
     def blank_twl(self) -> tuple[float, float, float]:
         t = self.blank_thickness_mm if self.blank_thickness_mm is not None else self.thickness_mm
@@ -39,7 +43,9 @@ class PartRecord:
         return float(self.thickness_mm), float(self.width_mm), float(self.length_mm)
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        d.pop("solid_ref", None)
+        return d
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> PartRecord:
@@ -67,6 +73,8 @@ class PartRecord:
             blank_length_mm=_opt_float(d.get("blank_length_mm")),
             notes=str(d.get("notes") or ""),
             tags=list(d.get("tags") or []),
+            estimate_flag=str(d.get("estimate_flag") or ("Guessed" if not d.get("tags") else (d["tags"][0] if d.get("tags") else "Guessed"))),
+            fill_ratio=_opt_float(d.get("fill_ratio")),
         )
 
 
