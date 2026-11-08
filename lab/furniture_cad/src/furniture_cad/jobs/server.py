@@ -41,17 +41,45 @@ DEFAULT_ROOT = Path("out/jobs")
 _ARTIFACT_SAFE = re.compile(r"^[A-Za-z0-9._\- ]+$")
 _RUN_LOCKS: dict[str, threading.Lock] = {}
 _RUN_LOCKS_GUARD = threading.Lock()
+_RATE: dict[str, list[float]] = {}
+_RATE_GUARD = threading.Lock()
+_DAILY_SPEND: dict[str, float] = {}  # YYYY-MM-DD → approx USD
 
 
 def _expected_token() -> str:
     return (os.environ.get("WORKER_JOBS_TOKEN") or os.environ.get("JOBS_TOKEN") or "").strip()
 
 
+def _require_auth() -> bool:
+    return (os.environ.get("FURNITURE_CAD_REQUIRE_AUTH") or os.environ.get("JOBS_REQUIRE_AUTH") or "").strip() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _cors_origin(handler: BaseHTTPRequestHandler) -> str:
+    """Restrict CORS to JOBS_CORS_ORIGINS (comma list); default localhost + empty deny *."""
+    allowed = [
+        o.strip()
+        for o in (os.environ.get("JOBS_CORS_ORIGINS") or "http://127.0.0.1:8787,http://localhost:8787").split(",")
+        if o.strip()
+    ]
+    origin = (handler.headers.get("origin") or "").strip()
+    if origin and origin in allowed:
+        return origin
+    if not origin and allowed:
+        return allowed[0]
+    return allowed[0] if allowed else "null"
+
+
 def _authorized(handler: BaseHTTPRequestHandler) -> bool:
-    """If WORKER_JOBS_TOKEN is set, require Authorization: Bearer <token> (or x-jobs-token)."""
+    """Require Bearer token when WORKER_JOBS_TOKEN is set, or when REQUIRE_AUTH is on."""
     expected = _expected_token()
     if not expected:
-        return True
+        if _require_auth():
+            return False
+        return True  # local dx without token
     auth = (handler.headers.get("authorization") or "").strip()
     if auth.lower().startswith("bearer ") and auth[7:].strip() == expected:
         return True
@@ -60,12 +88,43 @@ def _authorized(handler: BaseHTTPRequestHandler) -> bool:
     return False
 
 
+def _rate_limit_ok(handler: BaseHTTPRequestHandler, *, limit: int = 30, window_s: float = 60.0) -> bool:
+    """Simple per-client POST rate limit (R6)."""
+    ip = (handler.client_address[0] if handler.client_address else "unknown") or "unknown"
+    now = time.time()
+    with _RATE_GUARD:
+        bucket = _RATE.setdefault(ip, [])
+        bucket[:] = [t for t in bucket if now - t < window_s]
+        if len(bucket) >= limit:
+            return False
+        bucket.append(now)
+        return True
+
+
+def _daily_spend_ok(add_usd: float = 0.0) -> bool:
+    day = time.strftime("%Y-%m-%d", time.gmtime())
+    cap = float(os.environ.get("FURNITURE_CAD_MAX_SPEND_USD_PER_DAY") or resolve_limits()["max_spend_usd_per_day"])
+    with _RATE_GUARD:
+        used = _DAILY_SPEND.get(day, 0.0) + add_usd
+        if used > cap:
+            return False
+        _DAILY_SPEND[day] = used
+        return True
+
+
+def _cors_headers(handler: BaseHTTPRequestHandler) -> None:
+    handler.send_header("access-control-allow-origin", _cors_origin(handler))
+    handler.send_header("access-control-allow-methods", "GET,POST,OPTIONS")
+    handler.send_header("access-control-allow-headers", "content-type, authorization, x-jobs-token")
+    handler.send_header("vary", "origin")
+
+
 def _json(handler: BaseHTTPRequestHandler, status: int, body: dict[str, Any]) -> None:
     data = json.dumps(body).encode("utf-8")
     handler.send_response(status)
     handler.send_header("content-type", "application/json")
     handler.send_header("content-length", str(len(data)))
-    handler.send_header("access-control-allow-origin", "*")
+    _cors_headers(handler)
     handler.end_headers()
     handler.wfile.write(data)
 
@@ -74,7 +133,7 @@ def _bytes(handler: BaseHTTPRequestHandler, status: int, data: bytes, content_ty
     handler.send_response(status)
     handler.send_header("content-type", content_type)
     handler.send_header("content-length", str(len(data)))
-    handler.send_header("access-control-allow-origin", "*")
+    _cors_headers(handler)
     if filename:
         handler.send_header("content-disposition", f'attachment; filename="{filename}"')
     handler.end_headers()
@@ -236,9 +295,7 @@ def make_handler(store: JobStore):
 
         def do_OPTIONS(self) -> None:  # noqa: N802
             self.send_response(204)
-            self.send_header("access-control-allow-origin", "*")
-            self.send_header("access-control-allow-methods", "GET,POST,OPTIONS")
-            self.send_header("access-control-allow-headers", "content-type, authorization, x-jobs-token")
+            _cors_headers(self)
             self.end_headers()
 
         def do_GET(self) -> None:  # noqa: N802
@@ -292,6 +349,10 @@ def make_handler(store: JobStore):
                 return _json(self, 400, {"error": "invalid JSON"})
 
             if path == "/jobs":
+                if not _rate_limit_ok(self):
+                    return _json(self, 429, {"error": "rate limit — try again shortly"})
+                if not _daily_spend_ok(0.0):
+                    return _json(self, 402, {"error": "daily spend cap reached"})
                 prompt = str(body.get("prompt") or "").strip()
                 if not prompt:
                     return _json(self, 400, {"error": "prompt required"})

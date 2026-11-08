@@ -32,10 +32,22 @@ function workerTarget(req, suffix, base) {
   return base + '/jobs' + (rest ? '/' + rest : '');
 }
 
+function corsOrigin(req) {
+  const raw = (process.env.JOBS_CORS_ORIGINS || process.env.CORS_ORIGINS || '').trim();
+  const allowed = raw
+    ? raw.split(',').map(s => s.trim()).filter(Boolean)
+    : ['http://127.0.0.1:8787', 'http://localhost:8787'];
+  const origin = (req.headers && req.headers.origin) || '';
+  if (origin && allowed.includes(origin)) return origin;
+  return allowed[0] || 'null';
+}
+
 async function relayJobs(req, res, suffix) {
   res.setHeader('cache-control', 'no-store');
   res.setHeader('x-content-type-options', 'nosniff');
-  res.setHeader('access-control-allow-origin', '*');
+  const origin = corsOrigin(req);
+  res.setHeader('access-control-allow-origin', origin);
+  res.setHeader('vary', 'origin');
   if (req.method === 'OPTIONS') {
     res.setHeader('access-control-allow-methods', 'GET,POST,OPTIONS');
     res.setHeader('access-control-allow-headers', 'content-type, authorization, x-jobs-token');

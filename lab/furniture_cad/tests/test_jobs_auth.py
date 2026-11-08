@@ -11,9 +11,27 @@ from furniture_cad.jobs import server as jobs_server
 def test_auth_open_when_no_token(monkeypatch) -> None:
     monkeypatch.delenv("WORKER_JOBS_TOKEN", raising=False)
     monkeypatch.delenv("JOBS_TOKEN", raising=False)
+    monkeypatch.delenv("FURNITURE_CAD_REQUIRE_AUTH", raising=False)
     h = MagicMock()
     h.headers = {}
     assert jobs_server._authorized(h) is True
+
+
+def test_auth_required_without_token_fails(monkeypatch) -> None:
+    monkeypatch.delenv("WORKER_JOBS_TOKEN", raising=False)
+    monkeypatch.setenv("FURNITURE_CAD_REQUIRE_AUTH", "1")
+    h = MagicMock()
+    h.headers = {}
+    assert jobs_server._authorized(h) is False
+
+
+def test_cors_origin_allowlist(monkeypatch) -> None:
+    monkeypatch.setenv("JOBS_CORS_ORIGINS", "https://app.example,http://localhost:8787")
+    h = MagicMock()
+    h.headers = {"origin": "https://app.example"}
+    assert jobs_server._cors_origin(h) == "https://app.example"
+    h.headers = {"origin": "https://evil.example"}
+    assert jobs_server._cors_origin(h) == "https://app.example"  # fall back to first allowed
 
 
 def test_auth_bearer(monkeypatch) -> None:
