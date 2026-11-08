@@ -13,6 +13,7 @@ image-to-cad*.zip
 
 # Offline build123d lab
 lab/**/out/
+lab/**/build/
 lab/**/.venv/
 lab/**/venv/
 lab/**/__pycache__/

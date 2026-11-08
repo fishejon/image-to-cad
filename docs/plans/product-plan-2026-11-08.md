@@ -57,7 +57,25 @@ Typed contracts: `observation.v1`, `furniture_ir.v1`, PartRecord v2 (local frame
 4. Write scorer (Hungarian part match, size error, feature recall); run **A0** under blind protocol.
 5. Adopt IR + stage pipeline; retire per-chair scripts as the active path.
 
-**Exit:** trusted baseline table, A0 measured, one page stating direction (this doc).
+**In repo (Phase 0):** fixed-scale IoU v3, `eval.scorer`, `observation.v1` / `furniture_ir.v1`, console IR + stub compiler, intake/verify hooks, `tools.v2.json`, corrected B/O table. Fusion STEP + live A0 remain operator tasks.
+
+**Exit:** trusted baseline table, IR expresses console, stage hooks land; A0 live under D6 when scheduled.
+
+## Phase 1 (weeks 3–8): Casegood vertical slice
+
+Tier-1 blocks + IR compiler; Perceive/Dimension stages; shaded verify + discrepancy critic; local-frame lists with joinery allowances. Exit: console within targets; 10-piece set ≥70% of bar; A beats B on a majority.
+
+## Phase 2 (weeks 9–14): Generalize and harden
+
+Tier-2 blocks; hardware registry; DXF/PDF shop sheets; sandbox freeform; expand real set to ~30; full blind eval. Exit: Tier-1 bar on blind set; Tier-2 ~70%; safe for 10–20 testers.
+
+## Phase 3 (weeks 15–22): Curves and chairs
+
+Spline/sweep/laminate blanks; template-free chair from blocks. Gate: only if Phase 2 numbers hold.
+
+## Phase 4 (parallel from week 12): Productization
+
+Tester cohort, consented dataset loop, capture guidance, export integrations (Fusion STEP, SketchUp, CNC DXF).
 
 ## Stop doing now
 
@@ -75,4 +93,5 @@ Shop UI polish, Langfuse expansion beyond eval needs, few-shot from example bank
 
 If the console cannot be expressed in IR by day 10, fix IR before building on it.
 
-Full architecture (blocks, verify metrics, derive allowances, module layout, tool contract v2) is in the source brief; implement phase-by-phase without expanding UI.
+Implement phase-by-phase without expanding UI. Tracker: [`evals/photos/PHASE0_PRODUCT.md`](../../evals/photos/PHASE0_PRODUCT.md).
+
