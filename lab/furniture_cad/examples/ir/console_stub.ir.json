@@ -1,0 +1,33 @@
+{
+  "schema": "furniture_ir.v1",
+  "units": "mm",
+  "params": { "W": 1194, "H": 762, "D": 305, "t": 19, "leg_h": 165 },
+  "material": { "default": "walnut", "panels": "walnut_ply" },
+  "root": {
+    "type": "casegood",
+    "carcass": { "joinery": "dado_rabbet", "top": { "overhang": [0, 0, 0] }, "back": "rabbeted_ply_6" },
+    "legs": {
+      "style": "tapered_splayed",
+      "count": 4,
+      "top": [38, 38],
+      "foot": [24, 24],
+      "splay_deg": 6,
+      "inset": [45, 45]
+    },
+    "bays": [
+      { "kind": "open", "width": "auto", "shelf": false },
+      {
+        "kind": "drawer_bank",
+        "n": 2,
+        "width": "auto",
+        "slide": "side_mount_250",
+        "front": { "t": 19, "reveal": 3, "overlay": "inset" }
+      }
+    ],
+    "divider": { "t": 19, "joinery": "dado" }
+  },
+  "notes": [
+    "Hand IR for walnut console (47×30×12 in) — proves representation before compiler exists.",
+    "Needs drawer_box / drawer_front / leg_set blocks in Phase 1."
+  ]
+}

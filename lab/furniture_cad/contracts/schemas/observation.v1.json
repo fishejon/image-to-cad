@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-to-cad.local/schemas/observation.v1.json",
+  "title": "observation.v1",
+  "description": "Perceive output — components and dims with provenance; never geometry.",
+  "type": "object",
+  "required": ["schema", "class", "components", "dims_mm"],
+  "properties": {
+    "schema": { "const": "observation.v1" },
+    "class": {
+      "type": "string",
+      "description": "e.g. casegood.console, casegood.bookcase, chair.side"
+    },
+    "views": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "photo_id": { "type": "string" },
+          "role": { "type": "string", "enum": ["front", "three_quarter", "side", "detail", "other"] },
+          "rectified": { "type": "boolean" },
+          "px_per_mm": { "type": ["number", "null"] },
+          "scale_source": { "type": "string" }
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "count"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string" },
+          "count": { "type": "integer", "minimum": 1 },
+          "style": { "type": "string" },
+          "bbox_px": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 },
+          "conf": { "type": "number", "minimum": 0, "maximum": 1 },
+          "evidence": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "dims_mm": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["v", "src"],
+        "properties": {
+          "v": { "type": "number" },
+          "src": { "type": "string", "enum": ["user", "pixel", "prior", "assumed"] },
+          "ci": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+          "conf": { "type": "number" }
+        }
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "q": { "type": "string" },
+          "default": {},
+          "ask": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}
