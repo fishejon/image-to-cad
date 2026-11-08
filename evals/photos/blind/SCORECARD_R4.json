@@ -1,0 +1,101 @@
+{
+  "schema": "furniture_cad.blind_scorecard.v1",
+  "protocol": "evals/photos/BLIND_PROTOCOL.md",
+  "recorded_at": "2026-11-08T17:51:25.196650+00:00",
+  "pieces": [
+    {
+      "id": "chair_04",
+      "known_mm": {
+        "w": 457.0,
+        "d": 524.0,
+        "h": 813.0
+      },
+      "B": {
+        "iou": 0.641,
+        "rating": "Close+",
+        "geometryOk": true,
+        "specPath": "evals/photos/chairs/out/chair_04.create.json",
+        "iou_quality": null
+      },
+      "O": {
+        "role": "answer_key_hand_tuned_script",
+        "parts_path_found": true,
+        "part_types": 6,
+        "piece_count": 10,
+        "iou": 0.671,
+        "rating": "Close+",
+        "stl": "/Users/jonnyfisher/Desktop/Projects/image-to-cad/lab/furniture_cad/out/freeze/chair_04/chair_04.stl"
+      },
+      "A": {
+        "status": "not_measured",
+        "iou": null,
+        "rating": null,
+        "notes": "A0 pending R1 blind protocol runs."
+      },
+      "oracle_beats_B": true
+    },
+    {
+      "id": "chair_02",
+      "known_mm": null,
+      "B": {
+        "iou": 0.948,
+        "rating": "Close+",
+        "geometryOk": true,
+        "specPath": "evals/photos/chairs/out/chair_02.create.json",
+        "iou_quality": "untrusted_room_background"
+      },
+      "O": {
+        "role": "answer_key_hand_tuned_script",
+        "parts_path_found": true,
+        "part_types": 5,
+        "piece_count": 10,
+        "iou": 0.727,
+        "rating": "Match",
+        "stl": "/Users/jonnyfisher/Desktop/Projects/image-to-cad/lab/furniture_cad/out/freeze/chair_02/chair_02.stl"
+      },
+      "A": {
+        "status": "not_measured",
+        "iou": null,
+        "rating": null,
+        "notes": "A0 pending R1 blind protocol runs."
+      },
+      "oracle_beats_B": false
+    },
+    {
+      "id": "case_01",
+      "known_mm": {
+        "w": 1219.0,
+        "d": 305.0,
+        "h": 1803.0
+      },
+      "B": {
+        "iou": 0.297,
+        "rating": "Wrong",
+        "geometryOk": true,
+        "specPath": "evals/photos/cases/out/case_01.create.json",
+        "iou_quality": null
+      },
+      "O": {
+        "role": "answer_key_hand_tuned_script",
+        "parts_path_found": true,
+        "part_types": 5,
+        "piece_count": 31,
+        "iou": 0.343,
+        "rating": "Wrong",
+        "stl": "/Users/jonnyfisher/Desktop/Projects/image-to-cad/lab/furniture_cad/out/freeze/case_01/case_01.stl"
+      },
+      "A": {
+        "status": "not_measured",
+        "iou": null,
+        "rating": null,
+        "notes": "Shop Auto bookshelf runs do not count as A0 until blind protocol + scoring."
+      },
+      "oracle_beats_B": true
+    }
+  ],
+  "summary": {
+    "n": 3,
+    "A_measured": 0,
+    "note": "A not measured under three-run blind protocol yet. O is oracle ceiling only. Decision uses available evidence."
+  }
+}

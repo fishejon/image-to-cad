@@ -1,0 +1,11 @@
+{
+  "decision": "continue_fix_loop_and_helpers",
+  "rationale": "Infrastructure for eyes + helpers exists; live A likeness still Wrong on case_01 while dims can hit within 5%. Full 8\u201310 piece \u00d7 3-run blind pending more user photos/dims. Do not stop the shop-grade track; do not claim the product bar is met.",
+  "bar_met": false,
+  "next": [
+    "expand eval photos with user dims",
+    "improve open_etagere likeness",
+    "R5 honest UI"
+  ],
+  "scorecard": "evals/photos/blind/SCORECARD_R4.json"
+}
