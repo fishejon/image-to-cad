@@ -82,6 +82,12 @@ docker run --rm -p 8787:8787 \
 - Cold start after idle can take ~30–60 s; the UI polls until ready.
 - Spend caps remain `$2/run` · `$25/day` on the worker.
 
+### Fly trial limit (important)
+
+On a **Fly trial without a payment method**, machines are **force-stopped after 5 minutes**. Shop-grade builds often need longer, so the job looks “stuck” and job files in `/tmp` are wiped on restart.
+
+**Fix:** add a credit card at [fly.io/trial](https://fly.io/trial) (or upgrade), then redeploy. Optional: uncomment the `[mounts]` volume in `fly.toml` so job artifacts survive restarts.
+
 ## Smoke test
 
 ```bash

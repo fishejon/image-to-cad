@@ -1222,10 +1222,21 @@ async function adoptShopJobSuccess(job) {
   renderLists();
   toast('Shop build ready — review Lists and downloads');
 }
+function failShopPoll(msg) {
+  stopShopPoll();
+  S.ai.busy = false;
+  CAD.shop.state.statusLine = msg;
+  toast(msg);
+  if (S.shopScreen === 'progress') renderAI();
+}
 async function pollShopJobOnce() {
   if (!CAD.shop || !CAD.shop.state.jobId || CAD.shop.state.cancelRequested) return;
   try {
     const job = await CAD.shop.pollJob(CAD.shop.state.jobId);
+    if (!job || !job.status) {
+      failShopPoll('Job lost on worker (restarted?) — try Create again');
+      return;
+    }
     const lines = CAD.shop.applyJobSnapshot(job);
     if (lines && lines.length) {
       S.ai.log = lines.slice();
@@ -1236,16 +1247,23 @@ async function pollShopJobOnce() {
       stopShopPoll();
       await adoptShopJobSuccess(job);
     } else if (job.status === 'failed') {
-      stopShopPoll();
-      S.ai.busy = false;
-      toast('Worker job failed — try Classic Create');
+      failShopPoll('Worker job failed — try Classic Create');
       CAD.shop.state.statusLine = 'Failed: ' + (job.error || 'unknown');
       renderAI();
     } else if (job.status === 'needs_user') {
       /* stay on progress; ask UI shown */
       renderAI();
+    } else if (CAD.shop.state.startedAt && Date.now() - CAD.shop.state.startedAt > 6 * 60 * 1000
+               && (job.status === 'running' || job.status === 'queued')) {
+      /* Fly trial force-stops machines at ~5 min; warn once we pass that */
+      CAD.shop.state.statusLine = 'Still running past 5 min — if Fly trial has no card, the machine may stop soon';
+      if (S.shopScreen === 'progress') renderAI();
     }
   } catch (e) {
+    if (e && (e.status === 404 || /not found/i.test(String(e.message || '')))) {
+      failShopPoll('Job gone (worker restarted or Fly trial timed out) — add a Fly payment method for runs >5 min, then Create again');
+      return;
+    }
     CAD.shop.state.statusLine = 'Poll error: ' + e.message;
     if (S.shopScreen === 'progress') renderAI();
   }
