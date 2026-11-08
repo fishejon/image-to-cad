@@ -93,5 +93,13 @@ Shop UI polish, Langfuse expansion beyond eval needs, few-shot from example bank
 
 If the console cannot be expressed in IR by day 10, fix IR before building on it.
 
-Implement phase-by-phase without expanding UI. Tracker: [`evals/photos/PHASE0_PRODUCT.md`](../../evals/photos/PHASE0_PRODUCT.md).
+Implement phase-by-phase without expanding UI.
+
+| Phase | Tracker |
+| --- | --- |
+| 0 | [`PHASE0_PRODUCT.md`](../../evals/photos/PHASE0_PRODUCT.md) |
+| 1 | [`PHASE1_PRODUCT.md`](../../evals/photos/PHASE1_PRODUCT.md) |
+| 2 | [`PHASE2_PRODUCT.md`](../../evals/photos/PHASE2_PRODUCT.md) |
+| 3 | [`PHASE3_PRODUCT.md`](../../evals/photos/PHASE3_PRODUCT.md) |
+| 4 | [`PHASE4_PRODUCT.md`](../../evals/photos/PHASE4_PRODUCT.md) |
 
