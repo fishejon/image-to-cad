@@ -16,6 +16,23 @@ function workerHeaders() {
   return headers;
 }
 
+/** Build worker path /jobs/... — never forward Vercel's ?path= catch-all query. */
+function workerTarget(req, suffix, base) {
+  const incoming = new URL(req.url || '/api/jobs', 'http://local');
+  let rest = incoming.pathname.replace(/^\/api\/jobs\/?/, '');
+  if (!rest && suffix != null && String(suffix).length) {
+    rest = String(suffix).replace(/^\/+/, '');
+  }
+  // Vercel sometimes exposes catch-all as ?path=a&path=b
+  if (!rest) {
+    const q = incoming.searchParams.getAll('path').filter(Boolean);
+    if (q.length) rest = q.join('/');
+  }
+  incoming.searchParams.delete('path');
+  const qs = incoming.searchParams.toString();
+  return base + '/jobs' + (rest ? '/' + rest : '') + (qs ? '?' + qs : '');
+}
+
 async function relayJobs(req, res, suffix) {
   res.setHeader('cache-control', 'no-store');
   res.setHeader('x-content-type-options', 'nosniff');
@@ -44,11 +61,7 @@ async function relayJobs(req, res, suffix) {
     });
   }
   try {
-    const incoming = new URL(req.url || '/api/jobs', 'http://local');
-    const pathSuffix = suffix != null
-      ? ('/jobs' + (suffix ? '/' + String(suffix).replace(/^\/+/, '') : ''))
-      : (incoming.pathname.replace(/^\/api\/jobs/, '/jobs') || '/jobs');
-    const target = base + pathSuffix + incoming.search;
+    const target = workerTarget(req, suffix, base);
     const init = { method: req.method, headers: workerHeaders() };
     if (req.method === 'POST') init.body = await readBody(req);
     const r = await fetch(target, init);
@@ -75,4 +88,4 @@ async function relayJobs(req, res, suffix) {
   }
 }
 
-module.exports = { relayJobs, readBody, workerHeaders };
+module.exports = { relayJobs, readBody, workerHeaders, workerTarget };
