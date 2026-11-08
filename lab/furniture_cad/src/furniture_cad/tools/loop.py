@@ -63,12 +63,13 @@ Procedure each job:
 Optional: ask_user only for missing material/hidden structure — never for overall size if given.
 
 Object class (match the PHOTO):
-- Open shelving / bookcase / etagere → CASEGOOD with Box, Pos, Compound (post, shelf, sled_foot). Never chair parts.
-- Chair / stool → four_leg_chair({{...}}) or stool({{...}}); assembly = result['assembly'].
+- Open shelving / bookcase / etagere → prefer open_etagere(W=…, D=…, H=…) then assembly/parts = result; or Box/Pos/Compound. Never chair parts.
+- Closed case → carcass(W=…, D=…, H=…).
+- Chair / stool → four_leg_chair({{...}}) or stool({{...}}) (legacy templates); or tapered_leg + seat_panel helpers.
 
 {CASEGOOD_FEWSHOT}
 
-Inside build(script): block, blocks, four_leg_chair, stool, PartRecord, Box, Pos, Compound.
+Inside build(script): open_etagere, carcass, panel, shelf_board, part, block, blocks, four_leg_chair, stool, PartRecord, Box, Pos, Compound.
 PartRecord fields (mm): id, name, qty, material, thickness_mm, width_mm, length_mm; optional grain, how_made, curved, blanks.
 At most three render images are returned per round. Keep scripts short. Ending without build+assembly+render+lists is a failure."""
 
