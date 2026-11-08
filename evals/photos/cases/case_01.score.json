@@ -26,5 +26,18 @@
     "ratingHint": "Wrong",
     "wedge": false,
     "measuredAt": "2026-11-07T21:38:52.000Z"
+  },
+  "oracle": {
+    "iou": 0.343,
+    "rating": "Wrong",
+    "role": "oracle_answer_key",
+    "stl": "lab/furniture_cad/out/freeze/case_01/case_01.stl",
+    "measuredAt": "2026-11-08"
+  },
+  "blind_A": {
+    "status": "not_measured",
+    "iou": null,
+    "rating": null,
+    "notes": "Shop Auto bookshelf runs do not count as A0 until blind protocol + scoring."
   }
 }

@@ -36,5 +36,18 @@
     "ratingHint": "Close+",
     "wedge": true,
     "measuredAt": "2026-11-01T22:34:59.727Z"
+  },
+  "oracle": {
+    "iou": 0.671,
+    "rating": "Close+",
+    "role": "oracle_answer_key",
+    "stl": "lab/furniture_cad/out/freeze/chair_04/chair_04.stl",
+    "measuredAt": "2026-11-08"
+  },
+  "blind_A": {
+    "status": "not_measured",
+    "iou": null,
+    "rating": null,
+    "notes": "A0 pending R1 blind protocol runs."
   }
 }

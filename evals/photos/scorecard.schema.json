@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-to-cad.local/evals/photos/scorecard.schema.json",
+  "title": "Photo→CAD blind scorecard row",
+  "type": "object",
+  "required": ["schemaVersion", "id", "B", "O", "A"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "description": "Piece id, e.g. chair_04" },
+    "photo": { "type": "string" },
+    "iou_quality": {
+      "type": "string",
+      "enum": ["trusted", "untrusted_room_background", "unknown"]
+    },
+    "B": {
+      "type": "object",
+      "description": "Classic Create baseline",
+      "properties": {
+        "iou": { "type": ["number", "null"] },
+        "rating": { "type": ["string", "null"] },
+        "geometryOk": { "type": ["boolean", "null"] },
+        "at": { "type": "string" },
+        "source": { "type": "string" }
+      }
+    },
+    "O": {
+      "type": "object",
+      "description": "Oracle (hand script) — not the system under test",
+      "properties": {
+        "iou": { "type": ["number", "null"] },
+        "rating": { "type": ["string", "null"] },
+        "piece_count": { "type": ["integer", "null"] },
+        "part_types": { "type": ["integer", "null"] },
+        "stl": { "type": ["string", "null"] },
+        "role": { "const": "oracle_answer_key" }
+      }
+    },
+    "A": {
+      "type": "object",
+      "description": "Live blind agent aggregate",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["not_measured", "smoke", "blind_r1", "blind_r4"]
+        },
+        "iou_mean": { "type": ["number", "null"] },
+        "iou_worst": { "type": ["number", "null"] },
+        "rating_majority": { "type": ["string", "null"] },
+        "valid_solid_rate": { "type": ["number", "null"] },
+        "part_count_exact_rate": { "type": ["number", "null"] },
+        "cost_usd_median": { "type": ["number", "null"] },
+        "wall_s_median": { "type": ["number", "null"] },
+        "notes": { "type": "string" },
+        "runs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/run" }
+        }
+      }
+    },
+    "prompt_version": { "type": "string" },
+    "helper_version": { "type": "string" },
+    "git_sha": { "type": "string" }
+  },
+  "$defs": {
+    "run": {
+      "type": "object",
+      "required": ["n", "valid_solid"],
+      "properties": {
+        "n": { "type": "integer", "minimum": 1 },
+        "valid_solid": { "type": "boolean" },
+        "rounds": { "type": ["integer", "null"] },
+        "iou": { "type": ["number", "null"] },
+        "rating": { "type": ["string", "null"] },
+        "part_count": { "type": ["integer", "null"] },
+        "part_count_expected": { "type": ["integer", "null"] },
+        "dim_error_pct": { "type": ["number", "null"] },
+        "cutlist_size_error_pct": { "type": ["number", "null"] },
+        "cutlist_qty_exact": { "type": ["boolean", "null"] },
+        "cost_usd": { "type": ["number", "null"] },
+        "tokens": { "type": ["integer", "null"] },
+        "wall_s": { "type": ["number", "null"] },
+        "human_rating": {
+          "type": ["string", "null"],
+          "enum": ["Match", "Close", "Wrong", null]
+        },
+        "reasons": { "type": "array", "items": { "type": "string" } },
+        "job_id": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

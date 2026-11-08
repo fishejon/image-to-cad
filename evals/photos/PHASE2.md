@@ -1,34 +1,43 @@
 # Phase 2 — Loop and scoring (job service + IoU)
 
-Plan: [`docs/plans/photo-to-cutlist.md`](../../docs/plans/photo-to-cutlist.md)
+Plan: [`docs/plans/photo-to-cutlist.md`](../../docs/plans/photo-to-cutlist.md) · Recovery: [`R0.md`](R0.md)
 
-**Status: GATE PASSED (2026-11-07).** Job service + A/B harness + STL silhouette IoU. Baseline A beats Create on `chair_04` (0.671 > 0.641) and `case_01` (0.343 > 0.297); studio Close+ on 2/3 (`chair_04`, `chair_02`); exact lists on 5/5 freeze pieces.
+**Status: PRODUCT GATE NOT PASSED.**  
+Infrastructure landed (job service, relay stub, silhouette helper, A/B harness). The 2026-11-07 “GATE PASSED / baseline A beats Create” result scored **oracle STLs** as if they were the agent. That is an **oracle ceiling (O)**, not live **A**.
 
-## Delivered
+## What actually landed
 
 | Piece | Path |
 | --- | --- |
-| Job store / HTTP | `jobs/store.py`, `jobs/server.py` — `python -m furniture_cad jobs` |
-| Vercel relay | `api/jobs.js` (`WORKER_JOBS_URL`) |
-| A/B scorecard | `python -m furniture_cad ab` |
-| STL silhouette IoU | `silhouette.py` (aligned orthographic) |
-| Freeze expansion | `chair_04`, `chair_02`, `case_01`, `stool_01`, `case_fixture` |
-| `check` / `compare` | `tools/handlers.py` |
+| Job store / HTTP | `jobs/store.py`, `jobs/server.py` |
+| Vercel relay | `api/jobs.js` |
+| Scorecard | `python -m furniture_cad ab` → labels **B / O / A** (v2) |
+| STL silhouette IoU | `silhouette.py` |
+| Oracle set | `tools/oracle_set.py` |
+| `check` / `compare` | Handlers largely stubbed for in-loop photo IoU — **R1** |
 
-## Gate checklist
+## Corrected checklist
 
-- [x] Job service: create / get / run
-- [x] Vercel starter stub
-- [x] Exact part count lists on **5/5** freeze pieces
-- [x] IoU ≥ 0.55 Close+ on studio photos for A: **2/3** (`chair_04` 0.671, `chair_02` 0.727)
-- [x] Beats Create IoU on same photos: `chair_04`, `case_01`
-- [x] A/B scorecard `gate.passed == true`
+- [x] Job service: create / get / run (local file store)
+- [x] Vercel starter / relay scaffolding
+- [x] Oracle lists + IoU measurable offline
+- [ ] Live agent A beats Create B on same photos under blind protocol — **R4**
+- [ ] In-loop real render + check + compare — **R1**
+
+## Oracle ceiling (not a product gate)
+
+| Piece | B Create IoU | O oracle IoU |
+| --- | ---: | ---: |
+| `chair_04` | 0.641 | 0.671 |
+| `chair_02` | 0.948\* | 0.727\* |
+| `case_01` | 0.297 | 0.343 |
+
+\*Untrusted room photo. Full table: [`BASELINES_R0.json`](BASELINES_R0.json).
 
 ## Commands
 
 ```bash
 cd lab/furniture_cad && source .venv/bin/activate
-python -m furniture_cad run --freeze-set --work out/freeze
-python -m furniture_cad ab --ids chair_04 chair_02 case_01 stool_01 case_fixture --out out/ab_score.json
-pytest -q tests/test_phase2_jobs.py tests/test_phase1_freeze.py
+python -m furniture_cad run --freeze-set --work out/oracle
+python -m furniture_cad ab --ids chair_04 chair_02 case_01 --out out/ab_score.json
 ```

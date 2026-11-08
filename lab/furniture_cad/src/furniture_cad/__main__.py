@@ -15,12 +15,12 @@ def main(argv: list[str] | None = None) -> int:
             "  fail --kind missing_block --need bent_panel --photo-id ...\n"
             "  lists --parts FILE [--out plan.json]\n"
             "  run --script FILE [--work DIR]   # offline tool-use dry-run\n"
-            "  run --freeze-set [--work DIR]    # Phase 1 freeze solids+lists\n"
+            "  run --freeze-set [--work DIR]    # oracle solids+lists (hand scripts; not live A)\n"
             "  run --prompt TEXT [--work DIR]  # Messages API tool-use loop\n"
             "  run --contract                  # print tools.v1.json summary\n"
-            "  jobs --port 8787 [--root DIR]   # Phase 2 job HTTP service\n"
-            "  ab [--ids …] [--out FILE]       # A/B Create vs tool-use scorecard\n"
-            "  rebuild --project DIR --set KEY VAL  # Phase 4 no-model rebuild\n"
+            "  jobs --port 8787 [--root DIR]   # job HTTP service\n"
+            "  ab [--ids …] [--out FILE]       # B/O/A scorecard (oracle ≠ product gate)\n"
+            "  rebuild --project DIR --set KEY VAL  # no-model rebuild\n"
             "This lab is offline and NOT deployed to prod."
         )
         return 0

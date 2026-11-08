@@ -1,6 +1,6 @@
 # Phase 4 — Editable parts / no-model rebuild
 
-**Status: GATE PASSED.** Saved `build_script.py` rebuilds with `--set KEY VAL` in &lt; 5 s (no model).
+**Status: WORKER PATH ONLY.** Saved `build_script.py` rebuilds with `--set KEY VAL` in &lt; 5 s (no model). Product Adjust UI is recovery **R5**.
 
 ## Commands
 

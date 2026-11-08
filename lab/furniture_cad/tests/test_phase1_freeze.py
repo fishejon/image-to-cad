@@ -6,7 +6,7 @@ from pathlib import Path
 
 from furniture_cad.lists import material_plan
 from furniture_cad.parts import load_parts
-from furniture_cad.tools.freeze_set import FREEZE_PIECES, freeze_tool_calls
+from furniture_cad.tools.oracle_set import ORACLE_PIECES as FREEZE_PIECES, oracle_tool_calls as freeze_tool_calls
 from furniture_cad.tools.handlers import ToolContext
 from furniture_cad.tools.loop import run_tool_script
 

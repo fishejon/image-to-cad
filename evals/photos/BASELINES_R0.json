@@ -1,0 +1,34 @@
+{
+  "schema": "furniture_cad.baselines_r0.v1",
+  "recorded_at": "2026-11-08",
+  "note": "B = Classic Create. O = oracle hand scripts (NOT the product). A0 = live blind agent — not measured yet under BLIND_PROTOCOL.md.",
+  "protocol": "evals/photos/BLIND_PROTOCOL.md",
+  "pieces": [
+    {
+      "id": "chair_04",
+      "iou_quality": "trusted",
+      "B": { "iou": 0.641, "rating": "Close+", "source": "evals/photos/chairs/chair_04.score.json#create" },
+      "O": { "iou": 0.671, "rating": "Close+", "piece_count": 10, "part_types": 6, "stl": "lab/furniture_cad/out/freeze/chair_04/chair_04.stl", "role": "oracle_answer_key" },
+      "A0": { "status": "not_measured", "iou": null, "rating": null, "notes": "No blind-protocol live run. Prior shop Auto / freeze jobs do not count as A." }
+    },
+    {
+      "id": "chair_02",
+      "iou_quality": "untrusted_room_background",
+      "B": { "iou": 0.948, "rating": "Close+", "iou_quality": "untrusted_room_background", "source": "evals/photos/chairs/chair_02.score.json#create", "notes": "Raw IoU untrusted (room clutter). Human stance Close+." },
+      "O": { "iou": 0.727, "rating": "Match", "piece_count": 14, "part_types": 7, "stl": "lab/furniture_cad/out/freeze/chair_02/chair_02.stl", "role": "oracle_answer_key", "notes": "Oracle IoU also vs room photo — treat as untrusted for gates." },
+      "A0": { "status": "not_measured", "iou": null, "rating": null, "notes": "No blind-protocol live run." }
+    },
+    {
+      "id": "case_01",
+      "iou_quality": "trusted",
+      "B": { "iou": 0.297, "rating": "Wrong", "source": "evals/photos/cases/case_01.score.json#create" },
+      "O": { "iou": 0.343, "rating": "Wrong", "piece_count": 31, "part_types": 5, "stl": "lab/furniture_cad/out/freeze/case_01/case_01.stl", "role": "oracle_answer_key", "notes": "Oracle still Wrong on silhouette; ceiling is low until helpers match knife-edge / sled feet." },
+      "A0": { "status": "not_measured", "iou": null, "rating": null, "notes": "Shop Auto produced a bookshelf solid but not under blind protocol / not scored as A0." }
+    }
+  ],
+  "summary": {
+    "product_gate_status": "not_started",
+    "prior_phase2_claim": "Invalid as product gate — scored oracle scripts as baseline A.",
+    "next": "R1: measure A0 under blind protocol with photo image blocks + real check/compare."
+  }
+}

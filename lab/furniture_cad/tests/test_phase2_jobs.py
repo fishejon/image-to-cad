@@ -7,7 +7,7 @@ from pathlib import Path
 from furniture_cad.jobs.ab_score import build_scorecard
 from furniture_cad.jobs.store import JobStore
 from furniture_cad.jobs.server import run_job
-from furniture_cad.tools.freeze_set import freeze_tool_calls
+from furniture_cad.tools.oracle_set import oracle_tool_calls as freeze_tool_calls
 from furniture_cad.tools.handlers import ToolContext, dispatch
 from furniture_cad.tools.loop import run_tool_script
 

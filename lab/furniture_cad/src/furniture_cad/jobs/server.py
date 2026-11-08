@@ -29,12 +29,16 @@ from urllib.parse import unquote, urlparse
 
 from furniture_cad.jobs.resume import pending_question, resume_job
 from furniture_cad.jobs.store import JobStore
-from furniture_cad.tools.freeze_set import FREEZE_PIECES, freeze_tool_calls
+from furniture_cad.tools.oracle_set import ORACLE_PIECES, oracle_tool_calls
+
+FREEZE_PIECES = ORACLE_PIECES  # alias
+freeze_tool_calls = oracle_tool_calls  # alias
 from furniture_cad.tools.handlers import ToolContext
 from furniture_cad.tools.loop import resolve_limits, run_messages_loop, run_tool_script
 
 DEFAULT_ROOT = Path("out/jobs")
-_ARTIFACT_SAFE = re.compile(r"^[A-Za-z0-9._\-]+$")
+# Allow spaces (URL-decoded) but block path traversal
+_ARTIFACT_SAFE = re.compile(r"^[A-Za-z0-9._\- ]+$")
 _RUN_LOCKS: dict[str, threading.Lock] = {}
 _RUN_LOCKS_GUARD = threading.Lock()
 
@@ -152,12 +156,12 @@ def run_job(store: JobStore, job_id: str, *, mode: str | None = None) -> dict[st
                 if pid in (job.prompt or "") or (mode == "freeze" and job.prompt.strip() == pid):
                     piece = pid
                     break
-            if mode == "freeze" or (job.prompt.strip() in FREEZE_PIECES):
+            if mode in ("freeze", "oracle") or (job.prompt.strip() in FREEZE_PIECES):
                 piece = job.prompt.strip() if job.prompt.strip() in FREEZE_PIECES else piece
             if piece:
                 results = run_tool_script(ctx, freeze_tool_calls(piece))
                 summary = {
-                    "mode": "freeze",
+                    "mode": "oracle",
                     "piece": piece,
                     "results": results,
                     "parts_count": len(ctx.parts),

@@ -1,6 +1,6 @@
 # Phase 6 — Hardening and coverage (ongoing)
 
-**Status: SCAFFOLDED.** Failure → next-block log already exists (`python -m furniture_cad fail`). Expand corpus toward ≥20 pieces; prefer helpers over templates.
+**Status: SCAFFOLDED / ongoing as recovery R7.** Failure → next-block log already exists (`python -m furniture_cad fail`). Expand corpus toward ≥20 pieces; prefer helpers over templates. Do not treat UI banners as proof the live loop meets the bar.
 
 ## Done in product
 
