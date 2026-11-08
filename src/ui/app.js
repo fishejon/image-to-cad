@@ -1865,6 +1865,10 @@ function setTab(t) {
   if (t === 'lists') renderLists();
   if (t === 'spec') renderSpecPane();
   if (t === 'export') renderExport();
+  if (t === 'review') renderReview();
+  if (t === 'insp') renderInspect();
+  if (t === 'param') renderParam();
+  if (t === 'motion') renderMotion();
 }
 $$('.tabs button').forEach(b => b.onclick = () => setTab(b.dataset.t));
 applyNavMode();
