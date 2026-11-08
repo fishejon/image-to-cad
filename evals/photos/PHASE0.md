@@ -4,11 +4,13 @@ Plan: [`docs/plans/photo-to-cutlist.md`](../../docs/plans/photo-to-cutlist.md)
 
 ## Frozen set (3 pieces)
 
-| Role | id | Photo | Dims | Baseline B (current Create) | Baseline A (build123d loop) | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| Dining/side chair | `chair_04` (Lakin) | `chairs/chair_04.jpg` | catalog in `chair_04.json` | **Done** Careful Create IoU **0.641 Close+** (2026-11-01); stance OK | pending Phase 1 | Primary studio wedge |
-| Dining/side chair | `chair_02` | `chairs/chair_02.jpg` | tape/brief | **Done** Careful Create Close+\*; bespoke STL gold Close+\* | pending Phase 1 | Room photo — IoU untrusted until subject mask |
-| Rectilinear case | `case_01` bookshelf | `cases/case_01.jpg` | placeholder 900×300×1800 (tape/catalog still open) | **Done** Careful Create IoU **0.297 Wrong** (2026-11-07); inventory OK (5 shelves / 4 posts) | pending Phase 1 | Open 5-shelf MCM; Create overfills silhouette; console deferred Phase 2 |
+| Role | id | Photo | Dims | **B** Classic Create | **O** oracle | **A0** live blind | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Dining/side chair | `chair_04` (Lakin) | `chairs/chair_04.jpg` | catalog in `chair_04.json` | IoU **0.641 Close+** | IoU **0.671 Close+** | **not measured** | Primary studio wedge |
+| Dining/side chair | `chair_02` | `chairs/chair_02.jpg` | tape/brief | IoU **0.948\*** Close+ | IoU **0.727\*** | **not measured** | Room photo — IoU untrusted |
+| Rectilinear case | `case_01` bookshelf | `cases/case_01.jpg` | placeholder 900×300×1800 | IoU **0.297 Wrong** | IoU **0.343 Wrong** | **not measured** | See [`BASELINES_R0.json`](BASELINES_R0.json) |
+
+> **A** = live photo→model under [`BLIND_PROTOCOL.md`](BLIND_PROTOCOL.md). **O** is not the system under test. Recovery track: [`R0.md`](R0.md).
 
 ## Baseline B checklist
 

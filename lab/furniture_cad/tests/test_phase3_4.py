@@ -7,7 +7,7 @@ from pathlib import Path
 from furniture_cad.jobs.resume import simulate_ask_pause
 from furniture_cad.jobs.store import JobStore
 from furniture_cad.rebuild import apply_params, rebuild_from_project, save_project_script
-from furniture_cad.tools.freeze_set import SCRIPT_CASE_01, freeze_tool_calls
+from furniture_cad.tools.oracle_set import SCRIPT_CASE_01, oracle_tool_calls as freeze_tool_calls
 from furniture_cad.tools.handlers import ToolContext
 from furniture_cad.tools.loop import run_tool_script
 

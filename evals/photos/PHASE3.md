@@ -1,6 +1,6 @@
 # Phase 3 — Photo-to-spec with questions (`ask_user`)
 
-**Status: GATE PASSED (worker wiring).** `ask_user` pauses jobs (`needs_user`); resume via `POST /jobs/:id/resume`.
+**Status: BACKEND ONLY (not a product gate).** `ask_user` pauses jobs (`needs_user`); resume via `POST /jobs/:id/resume`. No shop UI path yet — recovery **R5**.
 
 ## Delivered
 

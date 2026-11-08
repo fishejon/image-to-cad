@@ -39,5 +39,19 @@
     "wedge": true,
     "measuredAt": "2026-11-01T22:35:11.603Z",
     "notes": "Raw Create IoU=0.948 vs room photo is not trusted (same mask saturation issue as gold STL). Keep Close+ until subject-masked IoU. Stance profile correct (front forward, aft above seat, break at seat)."
+  },
+  "oracle": {
+    "iou": 0.727,
+    "rating": "Match",
+    "role": "oracle_answer_key",
+    "iou_quality": "untrusted_room_background",
+    "stl": "lab/furniture_cad/out/freeze/chair_02/chair_02.stl",
+    "measuredAt": "2026-11-08"
+  },
+  "blind_A": {
+    "status": "not_measured",
+    "iou": null,
+    "rating": null,
+    "notes": "A0 pending R1 blind protocol runs."
   }
 }
