@@ -12,6 +12,13 @@ from furniture_cad.construct.blocks.casegood import (
     top_panel,
     TIER1_BLOCKS,
 )
+from furniture_cad.construct.blocks.curves import (
+    CURVE_BLOCKS,
+    chair_side_assembly,
+    laminate_blank,
+    spline_stile_approx,
+    sweep_rail,
+)
 from furniture_cad.construct.blocks.tier2 import (
     TIER2_BLOCKS,
     angled_leg,
@@ -23,6 +30,7 @@ from furniture_cad.construct.blocks.tier2 import (
 __all__ = [
     "TIER1_BLOCKS",
     "TIER2_BLOCKS",
+    "CURVE_BLOCKS",
     "apron",
     "divider",
     "door",
@@ -36,4 +44,8 @@ __all__ = [
     "bench",
     "stool",
     "table",
+    "sweep_rail",
+    "laminate_blank",
+    "spline_stile_approx",
+    "chair_side_assembly",
 ]
