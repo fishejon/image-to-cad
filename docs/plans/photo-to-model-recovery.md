@@ -1,7 +1,7 @@
 # Photo to Model: Recovery and Next-Phase Plan
 
-> **Status: ACTIVE (R0).** Supersedes “everything landed” claims in older Phase trackers.  
-> Full product bar and R0–R7 sequence live here. Legacy phase docs are historical + corrected status only.
+> **Status: HISTORICAL (R0–R7).** Active direction: [`product-plan-2026-11-08.md`](product-plan-2026-11-08.md) (Phase 0 measure + IR pipeline).  
+> R-phase trackers remain as audit trail; do not expand shop UI / chair bespoke on this path.
 
 **Author:** Jonny Fisher · **Date:** 2026-11-08
 

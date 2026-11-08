@@ -94,7 +94,8 @@ def _resize_mask(mask: np.ndarray, scale: float, size: tuple[int, int]) -> np.nd
     return np.asarray(canvas) > 127
 
 
-def _aligned_iou(ref: np.ndarray, model: np.ndarray) -> tuple[float, dict[str, Any]]:
+def _aligned_iou_legacy_scale_search(ref: np.ndarray, model: np.ndarray) -> tuple[float, dict[str, Any]]:
+    """DEPRECATED product metric — searches scale 0.65–1.35. Kept for A/B of the broken stick."""
     best_iou = 0.0
     best_meta: dict[str, Any] = {"scale": 1.0, "dx": 0, "dy": 0}
     h, w = ref.shape
@@ -114,19 +115,75 @@ def _aligned_iou(ref: np.ndarray, model: np.ndarray) -> tuple[float, dict[str, A
     return best_iou, best_meta
 
 
-def silhouette_iou(photo: Path | str, stl: Path | str, *, size: tuple[int, int] = (384, 384)) -> dict[str, Any]:
+def _fixed_scale_iou(
+    ref: np.ndarray,
+    model: np.ndarray,
+    *,
+    scale: float = 1.0,
+    max_shift_frac: float = 0.02,
+) -> tuple[float, dict[str, Any]]:
+    """Contour IoU with fixed scale; only a small translation search (±max_shift_frac of size)."""
+    h, w = ref.shape
+    m0 = _resize_mask(model, float(scale), (w, h)) if abs(float(scale) - 1.0) > 1e-9 else model
+    if m0.shape != ref.shape:
+        m0 = _resize_mask(m0, 1.0, (w, h))
+    max_dx = max(1, int(round(w * max_shift_frac)))
+    max_dy = max(1, int(round(h * max_shift_frac)))
+    # Coarse then fine grid within the window
+    step = max(1, max_dx // 4)
+    best_iou = 0.0
+    best_meta: dict[str, Any] = {"scale": float(scale), "dx": 0, "dy": 0}
+    for dy in range(-max_dy, max_dy + 1, step):
+        for dx in range(-max_dx, max_dx + 1, step):
+            m = _shift(m0, dx, dy)
+            inter = np.logical_and(ref, m).sum()
+            union = np.logical_or(ref, m).sum()
+            if union == 0:
+                continue
+            iou = float(inter / union)
+            if iou > best_iou:
+                best_iou = iou
+                best_meta = {
+                    "scale": float(scale),
+                    "dx": dx,
+                    "dy": dy,
+                    "inter": int(inter),
+                    "union": int(union),
+                    "max_shift_frac": max_shift_frac,
+                }
+    return best_iou, best_meta
+
+
+def _aligned_iou(ref: np.ndarray, model: np.ndarray) -> tuple[float, dict[str, Any]]:
+    """Default product alignment = fixed scale (Phase 0)."""
+    return _fixed_scale_iou(ref, model, scale=1.0, max_shift_frac=0.02)
+
+
+def silhouette_iou(
+    photo: Path | str,
+    stl: Path | str,
+    *,
+    size: tuple[int, int] = (384, 384),
+    scale: float = 1.0,
+    legacy_scale_search: bool = False,
+) -> dict[str, Any]:
     photo = Path(photo)
     stl = Path(stl)
     ref = _photo_mask(photo, size)
     model = _stl_front_mask(stl, size)
-    iou, align = _aligned_iou(ref, model)
+    if legacy_scale_search:
+        iou, align = _aligned_iou_legacy_scale_search(ref, model)
+        method = "stl_front_orthographic_aligned_v2_legacy_scale_search"
+    else:
+        iou, align = _fixed_scale_iou(ref, model, scale=scale, max_shift_frac=0.02)
+        method = "stl_front_orthographic_fixed_scale_v3"
     return {
         "iou": round(iou, 3),
         "ref_fill": int(ref.sum()),
         "model_fill": int(model.sum()),
         "size": list(size),
         "align": align,
-        "method": "stl_front_orthographic_aligned_v2",
+        "method": method,
     }
 
 

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-to-cad.local/schemas/furniture_ir.v1.json",
+  "title": "furniture_ir.v1",
+  "description": "Declarative furniture IR — compiled to build123d; LLM must not emit freeform Python for Tier 1.",
+  "type": "object",
+  "required": ["schema", "units", "params", "root"],
+  "properties": {
+    "schema": { "const": "furniture_ir.v1" },
+    "units": { "const": "mm" },
+    "params": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "material": {
+      "type": "object",
+      "properties": {
+        "default": { "type": "string" },
+        "panels": { "type": "string" }
+      }
+    },
+    "root": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["casegood", "table", "stool", "chair"]
+        },
+        "carcass": { "type": "object" },
+        "legs": { "type": "object" },
+        "bays": { "type": "array", "items": { "type": "object" } },
+        "divider": { "type": "object" },
+        "shelves": { "type": "object" },
+        "top": { "type": "object" },
+        "back": { "type": "object" }
+      }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}
