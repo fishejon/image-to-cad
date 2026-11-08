@@ -81,6 +81,7 @@ def _build_namespace() -> dict[str, Any]:
     """Allowlisted helpers available inside build(script)."""
     from build123d import Box, Compound, Pos
 
+    from furniture_cad.derive import part
     from furniture_cad.templates import TEMPLATE_FNS, four_leg_chair, stool
 
     return {
@@ -88,6 +89,7 @@ def _build_namespace() -> dict[str, Any]:
         "blocks": dict(BLOCK_FNS),
         "block": get_block,
         "PartRecord": PartRecord,
+        "part": part,  # R2: derive PartRecord from a solid
         "AllowlistError": AllowlistError,
         "templates": dict(TEMPLATE_FNS),
         "four_leg_chair": four_leg_chair,
@@ -194,10 +196,24 @@ def tool_lists(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
         return _err(f"invalid parts: {e}")
 
     plan = material_plan(parts)
+    try:
+        from furniture_cad.derive import consistency_report
+
+        plan["consistency"] = consistency_report(parts, ctx.assembly)
+    except Exception as e:
+        plan["consistency"] = {"warnings": [f"consistency skipped: {type(e).__name__}: {e}"]}
     ctx.last_plan = plan
     out = ctx.work_dir / "lists.json"
     out.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
-    return _ok({"plan_path": str(out), "totals": plan["totals"], "summary": plan["summary"], "cut_list": plan["cut_list"]})
+    return _ok(
+        {
+            "plan_path": str(out),
+            "totals": plan["totals"],
+            "summary": plan["summary"],
+            "cut_list": plan["cut_list"],
+            "consistency": plan.get("consistency"),
+        }
+    )
 
 
 def tool_measure(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
