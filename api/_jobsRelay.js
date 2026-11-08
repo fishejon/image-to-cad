@@ -19,18 +19,17 @@ function workerHeaders() {
 /** Build worker path /jobs/... — never forward Vercel's ?path= catch-all query. */
 function workerTarget(req, suffix, base) {
   const incoming = new URL(req.url || '/api/jobs', 'http://local');
-  let rest = incoming.pathname.replace(/^\/api\/jobs\/?/, '');
+  let rest = incoming.pathname.replace(/^\/api\/jobs\/?/, '').replace(/^\/+/, '');
   if (!rest && suffix != null && String(suffix).length) {
     rest = String(suffix).replace(/^\/+/, '');
   }
-  // Vercel sometimes exposes catch-all as ?path=a&path=b
+  // Vercel sometimes exposes catch-all as ?path=a&path=b (and may omit it from pathname)
   if (!rest) {
     const q = incoming.searchParams.getAll('path').filter(Boolean);
     if (q.length) rest = q.join('/');
   }
-  incoming.searchParams.delete('path');
-  const qs = incoming.searchParams.toString();
-  return base + '/jobs' + (rest ? '/' + rest : '') + (qs ? '?' + qs : '');
+  // Jobs API does not use query strings; dropping them avoids leftover ?path= on the worker.
+  return base + '/jobs' + (rest ? '/' + rest : '');
 }
 
 async function relayJobs(req, res, suffix) {
