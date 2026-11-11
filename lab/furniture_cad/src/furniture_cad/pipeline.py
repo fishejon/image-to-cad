@@ -13,13 +13,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from furniture_cad.construct import compile_ir, load_ir
+from furniture_cad.construct import load_ir
 from furniture_cad.dimension import apply_dims
 from furniture_cad.export import export_solid
 from furniture_cad.geom_check import bbox_mm_from_solid
 from furniture_cad.intake import intake_photo
 from furniture_cad.perceive import feature_counts_from_observation, perceive_casegood, perceive_vision
-from furniture_cad.verify import verify_against_dims
+from furniture_cad.verify import repair_loop
 
 LAB = Path(__file__).resolve().parents[2]
 CONSOLE_IR = LAB / "examples" / "ir" / "console_01.ir.json"
@@ -49,6 +49,7 @@ def run_pipeline(
     seed_ir: Path | str | dict[str, Any] | None = None,
     class_hint: str = "casegood.console",
     use_vision: bool | None = None,
+    max_repair_rounds: int = 4,
 ) -> dict[str, Any]:
     work = Path(work_dir)
     work.mkdir(parents=True, exist_ok=True)
@@ -111,7 +112,7 @@ def run_pipeline(
         within_3pct=dims.get("within_3pct"),
     )
 
-    # 4–5. Construct + Compile (seed IR with anchored dims)
+    # 4–6. Construct + Compile + Verify (+ IR patch repair)
     ir_src = seed_ir or CONSOLE_IR
     ir = load_ir(ir_src)
     if ir.get("schema") == "furniture_ir.v2":
@@ -122,11 +123,34 @@ def run_pipeline(
             if entry.get("v") is not None:
                 params[letter] = float(entry["v"])
         ir = {**ir, "params": params}
-    (work / "ir.json").write_text(json.dumps(ir, indent=2) + "\n", encoding="utf-8")
     _event(events, "construct", ok=True, schema=ir.get("schema"), ir_path=str(ir_src))
 
-    compiled = compile_ir(ir)
-    _event(events, "compile", ok=True, features=compiled.get("features"), ir_hash=compiled.get("report", {}).get("ir_hash"))
+    expected_feats = {"drawer": 2, "leg": 4} if "console" in class_hint else None
+    targets = {
+        "w": float((dims.get("overall_mm") or {}).get("W", {}).get("v") or 0),
+        "d": float((dims.get("overall_mm") or {}).get("D", {}).get("v") or 0),
+        "h": float((dims.get("overall_mm") or {}).get("H", {}).get("v") or 0),
+    }
+    repair = repair_loop(
+        ir,
+        targets_mm=targets,
+        features_expected=expected_feats,
+        max_rounds=max_repair_rounds,
+    )
+    spend += float(repair.get("spent_usd_approx") or 0.0)
+    ir = repair["ir"]
+    compiled = repair["compiled"]
+    verify = repair["verify"] or {"ok": False, "discrepancies": []}
+    (work / "ir.json").write_text(json.dumps(ir, indent=2) + "\n", encoding="utf-8")
+    (work / "repair.json").write_text(json.dumps({k: v for k, v in repair.items() if k != "compiled"}, indent=2, default=str) + "\n", encoding="utf-8")
+    _event(
+        events,
+        "compile",
+        ok=True,
+        features=(compiled or {}).get("features"),
+        ir_hash=((compiled or {}).get("report") or {}).get("ir_hash"),
+        repair_rounds=repair.get("rounds"),
+    )
 
     # Export
     paths = export_solid(compiled["assembly"], work / "model", formats=("stl", "step"))
@@ -137,21 +161,14 @@ def run_pipeline(
     )
     (work / "cut_list_v2.json").write_text(json.dumps(compiled.get("cut_list_v2") or {}, indent=2) + "\n", encoding="utf-8")
 
-    # 6. Verify dims + IR feature tags (vision recall is scored separately vs GT)
-    expected_feats = {"drawer": 2, "leg": 4} if "console" in class_hint else None
-    targets = {
-        "w": float((dims.get("overall_mm") or {}).get("W", {}).get("v") or bb["w"]),
-        "d": float((dims.get("overall_mm") or {}).get("D", {}).get("v") or bb["d"]),
-        "h": float((dims.get("overall_mm") or {}).get("H", {}).get("v") or bb["h"]),
-    }
-    verify = verify_against_dims(
-        compiled["assembly"],
-        targets,
-        features_expected=expected_feats,
-        features_found=compiled.get("features"),
-    )
     (work / "verify.json").write_text(json.dumps(verify, indent=2) + "\n", encoding="utf-8")
-    _event(events, "verify", ok=bool(verify.get("ok")), discrepancies=len(verify.get("discrepancies") or []))
+    _event(
+        events,
+        "verify",
+        ok=bool(verify.get("ok")),
+        discrepancies=len(verify.get("discrepancies") or []),
+        repair_rounds=repair.get("rounds"),
+    )
 
     # 7. Derive already in cut_list_v2
     _event(events, "derive", ok=True, parts=len(compiled["parts"]))
@@ -170,6 +187,7 @@ def run_pipeline(
         "piece_count": sum(int(p.qty) for p in compiled["parts"]),
         "exported": {k: str(v) for k, v in paths.items()},
         "verify": verify,
+        "repair": {"rounds": repair.get("rounds"), "ok": repair.get("ok"), "history": repair.get("history")},
         "observation_class": obs.get("class"),
         "dimension": {
             "ready": dims.get("ready"),
@@ -178,7 +196,7 @@ def run_pipeline(
         },
         "ir_hash": (compiled.get("report") or {}).get("ir_hash"),
         "spent_usd_approx": round(spend, 4),
-        "rounds": 1,
+        "rounds": int(repair.get("rounds") or 1),
         "perceive_mode": (obs.get("meta") or {}).get("perceive"),
         "stop_reason": "pipeline_complete" if verify.get("ok") else "verify_failed",
     }

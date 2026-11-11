@@ -25,6 +25,7 @@ def main(argv: list[str] | None = None) -> int:
             "  calibrate-console                   # P0/D8 camera-fit calibration table\n"
             "  pipeline --photo PATH --known-mm W D H [--vision]  # staged IR pipeline\n"
             "  perceive --photo PATH [--features FILE] [--known-mm W D H]  # P3 vision score\n"
+            "  p4-a0 [--vision|--no-vision] [--runs 3]  # P4 console A0 ×N\n"
             "  rebuild --project DIR --set KEY VAL  # no-model rebuild\n"
             "This lab is offline and NOT deployed to prod."
         )
@@ -132,6 +133,10 @@ def main(argv: list[str] | None = None) -> int:
         if fr and float(fr.get("recall") or 0) < 0.9:
             return 1
         return 0 if (obs.get("meta") or {}).get("perceive") == "vision_v1" else 2
+    if cmd in ("p4-a0", "p4_a0"):
+        from furniture_cad.eval.p4_a0 import main as p4_main
+
+        return p4_main(rest)
     if cmd == "rebuild":
 
 
