@@ -22,17 +22,23 @@ def _load_json(path: Path) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def score_piece(piece_id: str, *, measure_iou: bool = True) -> dict[str, Any]:
+def _piece_paths(piece_id: str) -> tuple[Path | None, Path | None, Path | None]:
+    """Return (pack_dir, photo, score_json)."""
+    if piece_id == "console_01":
+        pack = ROOT / "evals" / "photos" / "cases" / "console_01"
+        return pack, pack / "console_01.jpg", pack / "score.json"
     if piece_id.startswith("case_") and piece_id != "case_fixture":
         pack = ROOT / "evals" / "photos" / "cases"
-        photo = pack / f"{piece_id}.jpg"
-    elif piece_id.startswith("chair_"):
+        return pack, pack / f"{piece_id}.jpg", pack / f"{piece_id}.score.json"
+    if piece_id.startswith("chair_"):
         pack = ROOT / "evals" / "photos" / "chairs"
-        photo = pack / f"{piece_id}.jpg"
-    else:
-        pack = None
-        photo = None
-    score = _load_json(pack / f"{piece_id}.score.json") if pack else {}
+        return pack, pack / f"{piece_id}.jpg", pack / f"{piece_id}.score.json"
+    return None, None, None
+
+
+def score_piece(piece_id: str, *, measure_iou: bool = True) -> dict[str, Any]:
+    pack, photo, score_path = _piece_paths(piece_id)
+    score = _load_json(score_path) if score_path else {}
     score = score or {}
     create = score.get("create") or {}
     oracle_parts = None
@@ -41,8 +47,9 @@ def score_piece(piece_id: str, *, measure_iou: bool = True) -> dict[str, Any]:
     for stl_cand in (
         LAB / "out" / "oracle" / piece_id / f"{piece_id}.stl",
         LAB / "out" / "freeze" / piece_id / f"{piece_id}.stl",
+        LAB / "out" / "console_01_gt" / "console_01.stl" if piece_id == "console_01" else None,
     ):
-        if stl_cand.is_file():
+        if stl_cand is not None and stl_cand.is_file():
             stl = stl_cand
             break
     for cand in (
@@ -50,11 +57,17 @@ def score_piece(piece_id: str, *, measure_iou: bool = True) -> dict[str, Any]:
         LAB / "examples" / "parts" / f"{piece_id}_curved.json",
         LAB / "out" / "oracle" / piece_id / f"{piece_id}.parts.json",
         LAB / "out" / "freeze" / piece_id / f"{piece_id}.parts.json",
+        ROOT / "evals" / "photos" / "cases" / "console_01" / "cut_list.hand.json"
+        if piece_id == "console_01"
+        else None,
     ):
+        if cand is None:
+            continue
         data = _load_json(cand)
         if data and data.get("parts"):
             oracle_parts = data["parts"]
             break
+
 
     o_qty = sum(int(p.get("qty") or 0) for p in (oracle_parts or []))
     o_types = len(oracle_parts or [])

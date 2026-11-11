@@ -4,7 +4,7 @@ Status: tracker only. Fill photos + dims + GT over time.
 
 | # | Id | Class | Dims | Photo | GT | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | console_01 | casegood.console | 1194×305×762 | pending | IR stub / Fusion TBD | Phase 0 |
+| 1 | console_01 | casegood.console | 1194×305×762 | yes (local) | STEP + hand cut list | GT ready |
 | 2 | case_01 | casegood.bookcase | 1219×305×1803 | yes | hand / oracle | |
 | 3 | chair_04 | chair.side | known | yes | oracle | |
 | 4 | chair_02 | chair.side | known | yes | oracle | room — untrusted IoU |

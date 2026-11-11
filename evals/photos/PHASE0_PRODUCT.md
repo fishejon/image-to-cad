@@ -17,10 +17,9 @@ Do **not** expand: shop UI polish, Langfuse dashboards, build guide, bespoke cha
 - [x] Verify shaded-render stub with orthographic fallback (`verify/render_shaded.py`)
 - [x] Tool contract v2 draft (`contracts/tools.v2.json`)
 - [x] Corrected B/O table (fixed-scale): [`blind/CORRECTED_BASELINES.md`](blind/CORRECTED_BASELINES.md)
-- [x] Console GT placeholder set: [`cases/console_01/`](cases/console_01/) (STEP pending Jonny)
-- [ ] Fusion console STEP + hand cut list (Jonny) → replace placeholder
+- [x] Console GT set: [`cases/console_01/`](cases/console_01/) — STEP + hand cut list / joinery plan + local photo
 - [ ] SAM / full homography rectification (replace brightness mask)
-- [ ] Blind A0 live runs under frozen prompts (spend-capped; operator ≠ tuner)
+- [x] Blind A0 smoke (1 run) on `console_01` under $2 cap — see `cases/console_01/score.json` (full 3× protocol still open)
 
 ## A0 status
 

@@ -15,11 +15,13 @@ from furniture_cad.jobs.ab_score import score_piece
 
 LAB = Path(__file__).resolve().parents[3]
 ROOT = LAB.parent.parent
-DEFAULT_SET = ["chair_04", "chair_02", "case_01"]
+DEFAULT_SET = ["chair_04", "chair_02", "case_01", "console_01"]
 
 
 def _known_mm(piece_id: str) -> dict[str, float] | None:
-    if piece_id.startswith("case_"):
+    if piece_id == "console_01":
+        path = ROOT / "evals" / "photos" / "cases" / "console_01.json"
+    elif piece_id.startswith("case_"):
         path = ROOT / "evals" / "photos" / "cases" / f"{piece_id}.json"
     elif piece_id.startswith("chair_"):
         path = ROOT / "evals" / "photos" / "chairs" / f"{piece_id}.json"
