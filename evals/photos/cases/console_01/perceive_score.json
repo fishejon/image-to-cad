@@ -1,0 +1,143 @@
+{
+  "observation": {
+    "schema": "observation.v1",
+    "class": "casegood.console",
+    "views": [
+      {
+        "photo_id": "../../evals/photos/cases/console_01/console_01_front_clean.jpg",
+        "role": "front",
+        "rectified": false,
+        "px_per_mm": null,
+        "scale_source": "none"
+      }
+    ],
+    "components": [
+      {
+        "id": "drawer_1",
+        "type": "drawer",
+        "count": 2,
+        "style": "mid_century_modern",
+        "conf": 0.95
+      },
+      {
+        "id": "leg",
+        "type": "leg",
+        "count": 4,
+        "style": "tapered",
+        "conf": 0.9
+      },
+      {
+        "id": "open_shelf_bay",
+        "type": "open_cubby",
+        "count": 1,
+        "style": "recessed_shelf_bay",
+        "conf": 0.9
+      }
+    ],
+    "dims_mm": {
+      "W": {
+        "v": 1193.8,
+        "src": "user",
+        "conf": 1.0
+      },
+      "D": {
+        "v": 304.8,
+        "src": "user",
+        "conf": 1.0
+      },
+      "H": {
+        "v": 762.0,
+        "src": "user",
+        "conf": 1.0
+      }
+    },
+    "counts": {
+      "drawer": 2,
+      "door": 0,
+      "shelf": 1,
+      "leg": 4,
+      "open_cubby": 1,
+      "pull": 0,
+      "end_block_carved": 2
+    },
+    "counts_pass1": {
+      "drawer": 2,
+      "door": 0,
+      "shelf": 1,
+      "leg": 4,
+      "open_cubby": 1,
+      "pull": 0,
+      "end_block_carved": 0
+    },
+    "end_form": "swept",
+    "leg_style": "tapered",
+    "unknowns": [
+      {
+        "q": "How many pulls? (pass1=0, pass2=2)",
+        "default": 0,
+        "ask": true
+      },
+      {
+        "q": "How many end_block_carveds? (pass1=0, pass2=2)",
+        "default": 2,
+        "ask": true
+      }
+    ],
+    "meta": {
+      "perceive": "vision_v1",
+      "model": "claude-haiku-4-5",
+      "input_tokens": 2021,
+      "output_tokens": 385,
+      "spend_usd_approx": 0.0118
+    }
+  },
+  "counts": {
+    "drawer": 2,
+    "door": 0,
+    "shelf": 1,
+    "leg": 4,
+    "open_cubby": 1,
+    "pull": 0,
+    "end_block_carved": 2
+  },
+  "feature_recall": {
+    "recall": 1.0,
+    "per_feature": {
+      "door": {
+        "pred": 0,
+        "truth": 0,
+        "ok": true
+      },
+      "drawer": {
+        "pred": 2,
+        "truth": 2,
+        "ok": true
+      },
+      "end_block_carved": {
+        "pred": 2,
+        "truth": 2,
+        "ok": true
+      },
+      "leg": {
+        "pred": 4,
+        "truth": 4,
+        "ok": true
+      },
+      "open_cubby": {
+        "pred": 1,
+        "truth": 1,
+        "ok": true
+      },
+      "pull": {
+        "pred": 0,
+        "truth": 0,
+        "ok": true
+      },
+      "shelf": {
+        "pred": 1,
+        "truth": 1,
+        "ok": true
+      }
+    }
+  }
+}

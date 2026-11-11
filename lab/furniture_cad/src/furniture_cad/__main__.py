@@ -23,7 +23,8 @@ def main(argv: list[str] | None = None) -> int:
             "  blind [--ids …]                 # R4 blind scorecard + decision JSON\n"
             "  score-console [--ceiling|--ir-stub]  # console_01 vs Fusion GT + hand list\n"
             "  calibrate-console                   # P0/D8 camera-fit calibration table\n"
-            "  pipeline --photo PATH --known-mm W D H  # staged IR pipeline (P2)\n"
+            "  pipeline --photo PATH --known-mm W D H [--vision]  # staged IR pipeline\n"
+            "  perceive --photo PATH [--features FILE] [--known-mm W D H]  # P3 vision score\n"
             "  rebuild --project DIR --set KEY VAL  # no-model rebuild\n"
             "This lab is offline and NOT deployed to prod."
         )
@@ -82,15 +83,55 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--known-mm", nargs=3, type=float, metavar=("W", "D", "H"), required=True)
         p.add_argument("--work", type=Path, default=Path("out/pipeline"))
         p.add_argument("--ir", type=Path, default=None)
+        p.add_argument("--vision", action="store_true", help="P3 Anthropic Perceive")
         args = p.parse_args(rest)
         summary = run_pipeline(
             work_dir=args.work,
             photo=args.photo,
             known_mm={"w": args.known_mm[0], "d": args.known_mm[1], "h": args.known_mm[2]},
             seed_ir=args.ir,
+            use_vision=True if args.vision else None,
         )
         print(json.dumps(summary, indent=2))
         return 0 if summary.get("ok") else 1
+    if cmd == "perceive":
+        import argparse
+        import json
+        from pathlib import Path
+
+        from furniture_cad.eval.scorer import feature_recall
+        from furniture_cad.perceive import feature_counts_from_observation, perceive_vision
+
+        p = argparse.ArgumentParser(description="P3 vision Perceive + optional feature recall")
+        p.add_argument("--photo", type=Path, required=True)
+        p.add_argument("--features", type=Path, default=None, help="features.json with counts")
+        p.add_argument("--known-mm", nargs=3, type=float, metavar=("W", "D", "H"), default=None)
+        p.add_argument("--out", type=Path, default=None)
+        args = p.parse_args(rest)
+        known = None
+        if args.known_mm:
+            known = {"w": args.known_mm[0], "d": args.known_mm[1], "h": args.known_mm[2]}
+        intake = {
+            "schema": "intake.v1",
+            "path": str(args.photo),
+            "segmentation": {"score": 0.5, "quality": "cli"},
+            "rectify": {"rectified": False},
+            "scale": None,
+        }
+        obs = perceive_vision(intake, known_mm=known, photo=args.photo)
+        pred = feature_counts_from_observation(obs)
+        out: dict = {"observation": obs, "counts": pred}
+        if args.features and args.features.is_file():
+            truth = json.loads(args.features.read_text(encoding="utf-8")).get("counts") or {}
+            out["feature_recall"] = feature_recall(pred, truth)
+        if args.out:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(out, indent=2))
+        fr = out.get("feature_recall") or {}
+        if fr and float(fr.get("recall") or 0) < 0.9:
+            return 1
+        return 0 if (obs.get("meta") or {}).get("perceive") == "vision_v1" else 2
     if cmd == "rebuild":
 
 

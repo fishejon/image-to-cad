@@ -1,12 +1,14 @@
-"""P2 staged pipeline: Intake → Perceive → Dimension → Construct → Compile → Verify → Derive.
+"""P2/P3 staged pipeline: Intake → Perceive → Dimension → Construct → Compile → Verify → Derive.
 
-Perceive is heuristic until P3 (vision). Construct loads a seed IR (console) or builds
-params from known dims. No model calls on this path.
+Perceive is heuristic by default ($0). Set use_vision=True or FURNITURE_CAD_PERCEIVE=vision
+for Anthropic two-pass counts (P3). Construct loads a seed IR (console) or builds
+params from known dims.
 """
 
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -16,7 +18,7 @@ from furniture_cad.dimension import apply_dims
 from furniture_cad.export import export_solid
 from furniture_cad.geom_check import bbox_mm_from_solid
 from furniture_cad.intake import intake_photo
-from furniture_cad.perceive import perceive_casegood
+from furniture_cad.perceive import feature_counts_from_observation, perceive_casegood, perceive_vision
 from furniture_cad.verify import verify_against_dims
 
 LAB = Path(__file__).resolve().parents[2]
@@ -27,6 +29,18 @@ def _event(events: list[dict[str, Any]], stage: str, **kwargs: Any) -> None:
     events.append({"stage": stage, "at": datetime.now(timezone.utc).isoformat(), **kwargs})
 
 
+def _want_vision(use_vision: bool | None) -> bool:
+    if use_vision is not None:
+        return bool(use_vision)
+    return (os.environ.get("FURNITURE_CAD_PERCEIVE") or "").strip().lower() in (
+        "vision",
+        "vision_v1",
+        "1",
+        "true",
+        "yes",
+    )
+
+
 def run_pipeline(
     *,
     work_dir: Path | str,
@@ -34,14 +48,16 @@ def run_pipeline(
     known_mm: dict[str, float] | None = None,
     seed_ir: Path | str | dict[str, Any] | None = None,
     class_hint: str = "casegood.console",
+    use_vision: bool | None = None,
 ) -> dict[str, Any]:
     work = Path(work_dir)
     work.mkdir(parents=True, exist_ok=True)
     events: list[dict[str, Any]] = []
     known_mm = known_mm or {}
+    vision = _want_vision(use_vision)
+    spend = 0.0
 
     # 1. Intake
-    intake = None
     if photo and Path(photo).is_file():
         intake = intake_photo(photo, known_mm=known_mm or None)
         (work / "intake.json").write_text(
@@ -60,15 +76,40 @@ def run_pipeline(
         }
         _event(events, "intake", ok=True, note="no_photo")
 
-    # 2. Perceive (heuristic)
-    obs = perceive_casegood(intake, class_hint=class_hint, known_mm=known_mm or None)
+    # 2. Perceive
+    if vision:
+        obs = perceive_vision(
+            intake,
+            class_hint=class_hint,
+            known_mm=known_mm or None,
+            photo=photo,
+        )
+    else:
+        obs = perceive_casegood(intake, class_hint=class_hint, known_mm=known_mm or None)
     (work / "observation.json").write_text(json.dumps(obs, indent=2) + "\n", encoding="utf-8")
-    _event(events, "perceive", ok=True, class_=obs.get("class"), unknowns=len(obs.get("unknowns") or []))
+    feat_counts = feature_counts_from_observation(obs)
+    spend += float((obs.get("meta") or {}).get("spend_usd_approx") or 0.0)
+    _event(
+        events,
+        "perceive",
+        ok=True,
+        class_=obs.get("class"),
+        mode=(obs.get("meta") or {}).get("perceive"),
+        unknowns=len(obs.get("unknowns") or []),
+        counts=feat_counts,
+    )
 
     # 3. Dimension
     dims = apply_dims(obs, known_mm=known_mm or None)
     (work / "dimension.json").write_text(json.dumps(dims, indent=2) + "\n", encoding="utf-8")
-    _event(events, "dimension", ok=bool(dims.get("ready")), overall=dims.get("overall_mm"))
+    _event(
+        events,
+        "dimension",
+        ok=bool(dims.get("ready")),
+        overall=dims.get("overall_mm"),
+        conflicts=len(dims.get("conflicts") or []),
+        within_3pct=dims.get("within_3pct"),
+    )
 
     # 4–5. Construct + Compile (seed IR with anchored dims)
     ir_src = seed_ir or CONSOLE_IR
@@ -96,7 +137,8 @@ def run_pipeline(
     )
     (work / "cut_list_v2.json").write_text(json.dumps(compiled.get("cut_list_v2") or {}, indent=2) + "\n", encoding="utf-8")
 
-    # 6. Verify
+    # 6. Verify dims + IR feature tags (vision recall is scored separately vs GT)
+    expected_feats = {"drawer": 2, "leg": 4} if "console" in class_hint else None
     targets = {
         "w": float((dims.get("overall_mm") or {}).get("W", {}).get("v") or bb["w"]),
         "d": float((dims.get("overall_mm") or {}).get("D", {}).get("v") or bb["d"]),
@@ -105,7 +147,7 @@ def run_pipeline(
     verify = verify_against_dims(
         compiled["assembly"],
         targets,
-        features_expected={"drawer": 2, "leg": 4} if "console" in class_hint else None,
+        features_expected=expected_feats,
         features_found=compiled.get("features"),
     )
     (work / "verify.json").write_text(json.dumps(verify, indent=2) + "\n", encoding="utf-8")
@@ -123,14 +165,21 @@ def run_pipeline(
         "events": events,
         "bbox_mm": bb,
         "features": compiled.get("features"),
+        "observation_counts": feat_counts,
         "parts_count": len(compiled["parts"]),
         "piece_count": sum(int(p.qty) for p in compiled["parts"]),
         "exported": {k: str(v) for k, v in paths.items()},
         "verify": verify,
         "observation_class": obs.get("class"),
+        "dimension": {
+            "ready": dims.get("ready"),
+            "within_3pct": dims.get("within_3pct"),
+            "conflicts": dims.get("conflicts"),
+        },
         "ir_hash": (compiled.get("report") or {}).get("ir_hash"),
-        "spent_usd_approx": 0.0,
+        "spent_usd_approx": round(spend, 4),
         "rounds": 1,
+        "perceive_mode": (obs.get("meta") or {}).get("perceive"),
         "stop_reason": "pipeline_complete" if verify.get("ok") else "verify_failed",
     }
     (work / "run_summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
