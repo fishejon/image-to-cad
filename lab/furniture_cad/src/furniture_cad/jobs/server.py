@@ -225,7 +225,7 @@ def run_job(store: JobStore, job_id: str, *, mode: str | None = None) -> dict[st
                     break
             if mode in ("freeze", "oracle") or (job.prompt.strip() in FREEZE_PIECES):
                 piece = job.prompt.strip() if job.prompt.strip() in FREEZE_PIECES else piece
-            if mode in ("pipeline", "ir"):
+            if mode in ("pipeline", "pipeline_vision", "ir"):
                 from furniture_cad.pipeline import run_pipeline
 
                 known = dict(ctx.targets_mm or {})
@@ -234,6 +234,7 @@ def run_job(store: JobStore, job_id: str, *, mode: str | None = None) -> dict[st
                     photo=ctx.reference_photo,
                     known_mm=known or None,
                     class_hint="casegood.console",
+                    use_vision=True if mode == "pipeline_vision" else None,
                 )
             elif piece:
                 results = run_tool_script(ctx, freeze_tool_calls(piece))
