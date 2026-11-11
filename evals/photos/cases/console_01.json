@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "console_01",
+  "status": "gt_ready",
+  "object": "console",
+  "notes": "Walnut console with open cubby over two drawers; carved end sweeps and flared legs. GT: Fusion STEP + hand cut/joinery plan + studio photo.",
+  "source": {
+    "file": "console_01/console_01.jpg",
+    "step": "console_01/console_01.step",
+    "cut_list": "console_01/cut_list.hand.json",
+    "joinery_plan": "console_01/CUT_LIST_JOINERY.md",
+    "license": "user-supplied reference (photo local/gitignored; STEP+lists tracked)",
+    "dims_in": { "overall_w": 47, "overall_d": 12, "overall_h": 30 },
+    "dims_mm": { "overall_w": 1193.8, "overall_d": 304.8, "overall_h": 762.0 },
+    "dims_from": "user + Fusion: 47×12×30 in",
+    "structure": {
+      "drawers": 2,
+      "open_cubby": 1,
+      "legs": 4,
+      "end_blocks_carved": 2,
+      "back": "floating_1/2in",
+      "pulls": false
+    }
+  },
+  "exampleSpec": null
+}

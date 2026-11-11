@@ -1,0 +1,226 @@
+{
+  "schema": "furniture_cad.console_gt_bundle.v1",
+  "ceiling": {
+    "schema": "furniture_cad.console_gt_ceiling.v1",
+    "piece": "console_01",
+    "step_bbox_mm": {
+      "w": 1191.692831792506,
+      "d": 304.80000020000017,
+      "h": 762.0000002200185
+    },
+    "hand_dims_mm": {
+      "w": 1193.8,
+      "d": 304.8,
+      "h": 762.0
+    },
+    "overall_dims_within_3pct": true,
+    "overall_dims": {
+      "w": {
+        "got": 1191.692831792506,
+        "want": 1193.8,
+        "err": 0.0018
+      },
+      "d": {
+        "got": 304.80000020000017,
+        "want": 304.8,
+        "err": 0.0
+      },
+      "h": {
+        "got": 762.0000002200185,
+        "want": 762.0,
+        "err": 0.0
+      }
+    },
+    "gt_stl_vs_photo_iou": 0.179,
+    "gt_stl_vs_photo_rating": "Wrong",
+    "hand_part_types": 13,
+    "hand_piece_count": 34,
+    "recorded_at": "2026-11-11T00:58:58.760239+00:00"
+  },
+  "ir_stub": {
+    "schema": "furniture_cad.score_run.v1",
+    "parts": {
+      "matched": 9,
+      "precision": 0.9,
+      "recall": 0.6923,
+      "cut_list_match_share": 0.0769,
+      "pairs": [
+        {
+          "pred_i": 1,
+          "truth_j": 0,
+          "cost": 14.910686164229512
+        },
+        {
+          "pred_i": 8,
+          "truth_j": 11,
+          "cost": 74.83787401574807
+        },
+        {
+          "pred_i": 6,
+          "truth_j": 9,
+          "cost": 136.21555118110237
+        },
+        {
+          "pred_i": 9,
+          "truth_j": 6,
+          "cost": 146.6174671916011
+        },
+        {
+          "pred_i": 2,
+          "truth_j": 2,
+          "cost": 291.1356861642294
+        },
+        {
+          "pred_i": 3,
+          "truth_j": 5,
+          "cost": 370.75590551181097
+        },
+        {
+          "pred_i": 0,
+          "truth_j": 1,
+          "cost": 470.25
+        },
+        {
+          "pred_i": 5,
+          "truth_j": 7,
+          "cost": 602.7812335958006
+        },
+        {
+          "pred_i": 4,
+          "truth_j": 4,
+          "cost": 620.4606861642295
+        }
+      ],
+      "size_errors": [
+        {
+          "pred": "T1",
+          "truth": "T1",
+          "max_abs_mm": 3.2250000000000014,
+          "max_pct": 0.14510686164229478,
+          "within_5mm_or_3pct": true
+        },
+        {
+          "pred": "DBT1",
+          "truth": "DBT1",
+          "max_abs_mm": 19.08000000000004,
+          "max_pct": 0.3700787401574803,
+          "within_5mm_or_3pct": false
+        },
+        {
+          "pred": "DS1",
+          "truth": "DS1",
+          "max_abs_mm": 114.375,
+          "max_pct": 1.2007874015748032,
+          "within_5mm_or_3pct": false
+        },
+        {
+          "pred": "DF1",
+          "truth": "DF1",
+          "max_abs_mm": 108.98749999999998,
+          "max_pct": 0.8475746087294642,
+          "within_5mm_or_3pct": false
+        },
+        {
+          "pred": "B1",
+          "truth": "B1",
+          "max_abs_mm": 276.42499999999995,
+          "max_pct": 0.3012560281175925,
+          "within_5mm_or_3pct": false
+        },
+        {
+          "pred": "BK1",
+          "truth": "BK1",
+          "max_abs_mm": 317.7,
+          "max_pct": 1.316618317447161,
+          "within_5mm_or_3pct": false
+        },
+        {
+          "pred": "E1",
+          "truth": "E1",
+          "max_abs_mm": 292.2,
+          "max_pct": 0.9586614173228346,
+          "within_5mm_or_3pct": false
+        },
+        {
+          "pred": "L1",
+          "truth": "L1",
+          "max_abs_mm": 355.70000000000005,
+          "max_pct": 0.8382634603107044,
+          "within_5mm_or_3pct": false
+        },
+        {
+          "pred": "D1",
+          "truth": "D1",
+          "max_abs_mm": 584.0,
+          "max_pct": 0.510936132983377,
+          "within_5mm_or_3pct": false
+        }
+      ]
+    },
+    "features": {
+      "recall": 0.5,
+      "per_feature": {
+        "door": {
+          "pred": 0,
+          "truth": 0,
+          "ok": true
+        },
+        "drawer": {
+          "pred": 2,
+          "truth": 2,
+          "ok": true
+        },
+        "end_block": {
+          "pred": 0,
+          "truth": 2,
+          "ok": false
+        },
+        "leg": {
+          "pred": 4,
+          "truth": 4,
+          "ok": true
+        },
+        "open_cubby": {
+          "pred": 0,
+          "truth": 1,
+          "ok": false
+        },
+        "shelf": {
+          "pred": 0,
+          "truth": 0,
+          "ok": true
+        }
+      }
+    },
+    "overall_dims_within_3pct": true,
+    "overall_dims": {
+      "w": {
+        "got": 1194.0,
+        "want": 1193.8,
+        "err": 0.0002
+      },
+      "d": {
+        "got": 305.0,
+        "want": 304.8,
+        "err": 0.0007
+      },
+      "h": {
+        "got": 762.0,
+        "want": 762.0,
+        "err": 0.0
+      }
+    },
+    "iou": 0.393,
+    "cost_usd": null,
+    "wall_s": null,
+    "piece": "console_01",
+    "iou_rating": "Wrong",
+    "truth_features": {
+      "drawer": 2,
+      "leg": 4,
+      "end_block": 2,
+      "open_cubby": 1
+    }
+  },
+  "recorded_at": "2026-11-11T00:58:58.822924+00:00"
+}

@@ -21,11 +21,13 @@ def main(argv: list[str] | None = None) -> int:
             "  jobs --port 8787 [--root DIR]   # job HTTP service\n"
             "  ab [--ids …] [--out FILE]       # B/O/A scorecard (oracle ≠ product gate)\n"
             "  blind [--ids …]                 # R4 blind scorecard + decision JSON\n"
+            "  score-console [--ceiling|--ir-stub]  # console_01 vs Fusion GT + hand list\n"
             "  rebuild --project DIR --set KEY VAL  # no-model rebuild\n"
             "This lab is offline and NOT deployed to prod."
         )
         return 0
     cmd, rest = argv[0], argv[1:]
+
     if cmd == "export":
         from furniture_cad.export import main as export_main
 
@@ -58,7 +60,12 @@ def main(argv: list[str] | None = None) -> int:
         from furniture_cad.jobs.blind_eval import main as blind_main
 
         return blind_main(rest)
+    if cmd in ("score-console", "console-gt"):
+        from furniture_cad.eval.console_gt import main as console_gt_main
+
+        return console_gt_main(rest)
     if cmd == "rebuild":
+
         from furniture_cad.rebuild import main as rebuild_main
 
         return rebuild_main(rest)
