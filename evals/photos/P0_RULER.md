@@ -9,8 +9,8 @@ Plan: [`docs/plans/product-plan-2026-11-10.md`](../../docs/plans/product-plan-20
 - [x] Camera-fit silhouette search (`verify/camera_fit.py`)
 - [x] Calibration test (D8): GT STEP vs photo — **fail until front-on photo**
 - [x] Publish calibrated table noting IoU untrusted on current 3/4 shot
-- [x] Front-on photo confirmed (`console_01.jpg`); iso + **iso_clean** (no props, white bg)
-- [ ] D8 pass (≥ 0.8) — clean iso reaches ~0.41; need **front-on + no props + plain bg**
+- [x] Clean front-on (`console_01_front_clean.jpg`) + clean iso
+- [ ] D8 pass (≥ 0.8) — currently **~0.50 Close** on clean front; still short of gate
 
 ## Gate
 
