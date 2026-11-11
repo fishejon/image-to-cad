@@ -1,31 +1,31 @@
 {
   "schema": "furniture_cad.calibrated_table.v1",
-  "recorded_at": "2026-11-11T01:23:59.979642+00:00",
+  "recorded_at": "2026-11-11T01:27:05.364725+00:00",
   "piece": "console_01",
   "photo": {
     "file": "console_01.jpg",
-    "pose_hint": "three_quarter_right",
-    "d8_eligible": false
+    "pose_hint": "front",
+    "d8_eligible": true
   },
   "d8_calibration": {
     "schema": "calibration.d8.v1",
     "passed": false,
     "threshold": 0.8,
-    "iou": 0.1126,
+    "iou": 0.0412,
     "rating": "Wrong",
     "camera": {
-      "yaw_deg": 55.0,
-      "pitch_deg": 0.0,
-      "fov_deg": 32.0,
-      "perspective": true,
+      "yaw_deg": 0.0,
+      "pitch_deg": 24.0,
+      "fov_deg": 35.0,
+      "perspective": false,
       "align": {
-        "dx": 5,
+        "dx": -19,
         "dy": 17,
-        "inter": 9917,
-        "union": 88073
+        "inter": 2847,
+        "union": 69171
       }
     },
-    "pose_hint": "three_quarter_right",
+    "pose_hint": "front",
     "gate_note": "IoU untrusted for gates \u2014 use part/dimension metrics until front-on photo + calibration pass"
   },
   "legacy_fixed_scale_ortho": {

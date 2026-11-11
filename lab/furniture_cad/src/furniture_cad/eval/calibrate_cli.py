@@ -21,9 +21,11 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     views = json.loads((GT / "views.json").read_text(encoding="utf-8")) if (GT / "views.json").is_file() else {}
-    photo_meta = (views.get("photos") or [{}])[0]
-    pose = photo_meta.get("pose_hint") or "three_quarter_right"
-    photo = GT / "console_01.jpg"
+    photos = views.get("photos") or [{}]
+    # Prefer D8-eligible front photo
+    photo_meta = next((p for p in photos if p.get("d8_calibration_eligible")), photos[0])
+    pose = photo_meta.get("pose_hint") or "front"
+    photo = GT / str(photo_meta.get("file") or "console_01.jpg")
     step = GT / "console_01.step"
 
     ensure_gt_stl()

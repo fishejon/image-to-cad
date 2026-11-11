@@ -4,19 +4,22 @@
   "photos": [
     {
       "file": "console_01.jpg",
-      "pose_hint": "three_quarter_right",
+      "pose_hint": "front",
       "rectified": false,
       "clutter": true,
-      "props": ["books", "vase"],
+      "props": ["books_in_cubby", "book_on_top", "vase"],
+      "d8_calibration_eligible": true,
+      "notes": "Straight-on front reference for D8 calibration"
+    },
+    {
+      "file": "console_01_iso.jpg",
+      "pose_hint": "three_quarter_left",
+      "rectified": false,
+      "clutter": true,
+      "props": ["books", "bowl", "vase", "sculpture"],
       "d8_calibration_eligible": false,
-      "notes": "Not front-on — D8 IoU gate requires a straight-on studio shot"
+      "notes": "Iso / depth reference — not used for D8 gate"
     }
   ],
-  "needed": [
-    {
-      "pose_hint": "front",
-      "required_for": "D8_calibration",
-      "status": "missing"
-    }
-  ]
+  "needed": []
 }
