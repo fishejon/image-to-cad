@@ -23,6 +23,7 @@ def main(argv: list[str] | None = None) -> int:
             "  blind [--ids …]                 # R4 blind scorecard + decision JSON\n"
             "  score-console [--ceiling|--ir-stub]  # console_01 vs Fusion GT + hand list\n"
             "  calibrate-console                   # P0/D8 camera-fit calibration table\n"
+            "  pipeline --photo PATH --known-mm W D H  # staged IR pipeline (P2)\n"
             "  rebuild --project DIR --set KEY VAL  # no-model rebuild\n"
             "This lab is offline and NOT deployed to prod."
         )
@@ -69,7 +70,29 @@ def main(argv: list[str] | None = None) -> int:
         from furniture_cad.eval.calibrate_cli import main as calibrate_main
 
         return calibrate_main(rest)
+    if cmd == "pipeline":
+        import argparse
+        import json
+        from pathlib import Path
+
+        from furniture_cad.pipeline import run_pipeline
+
+        p = argparse.ArgumentParser(description="Run staged IR pipeline")
+        p.add_argument("--photo", type=Path, default=None)
+        p.add_argument("--known-mm", nargs=3, type=float, metavar=("W", "D", "H"), required=True)
+        p.add_argument("--work", type=Path, default=Path("out/pipeline"))
+        p.add_argument("--ir", type=Path, default=None)
+        args = p.parse_args(rest)
+        summary = run_pipeline(
+            work_dir=args.work,
+            photo=args.photo,
+            known_mm={"w": args.known_mm[0], "d": args.known_mm[1], "h": args.known_mm[2]},
+            seed_ir=args.ir,
+        )
+        print(json.dumps(summary, indent=2))
+        return 0 if summary.get("ok") else 1
     if cmd == "rebuild":
+
 
 
         from furniture_cad.rebuild import main as rebuild_main
