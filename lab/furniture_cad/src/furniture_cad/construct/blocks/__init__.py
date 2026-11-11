@@ -19,6 +19,8 @@ from furniture_cad.construct.blocks.curves import (
     spline_stile_approx,
     sweep_rail,
 )
+from furniture_cad.construct.blocks.flared_leg import leg_set_flared, two_profile_flared_leg
+from furniture_cad.construct.blocks.swept_shell import swept_shell
 from furniture_cad.construct.blocks.tier2 import (
     TIER2_BLOCKS,
     angled_leg,
@@ -48,4 +50,7 @@ __all__ = [
     "laminate_blank",
     "spline_stile_approx",
     "chair_side_assembly",
+    "swept_shell",
+    "two_profile_flared_leg",
+    "leg_set_flared",
 ]

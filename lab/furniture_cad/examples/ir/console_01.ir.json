@@ -1,0 +1,51 @@
+{
+  "schema": "furniture_ir.v2",
+  "units": "mm",
+  "params": {
+    "W": 1193.8,
+    "H": 762.0,
+    "D": 304.8,
+    "wall": 22.225,
+    "under_z": 495.3,
+    "lean_deg": 6.0,
+    "sweep_r": 121.92,
+    "back_t": 12.7
+  },
+  "material": { "default": "walnut", "hidden": "poplar" },
+  "carcass": {
+    "form": "swept_shell",
+    "outline": {
+      "lean_deg": 6.0,
+      "sweep_r": 121.92,
+      "wall": 22.225,
+      "under_z": 495.3
+    },
+    "open_front": true,
+    "top": { "kind": "plank", "edge_r": 6.35, "end_cut_deg": 6 },
+    "back": { "t": 12.7, "kind": "floating" }
+  },
+  "layout": {
+    "split": "z",
+    "children": [
+      {
+        "kind": "drawer_bank",
+        "cols": 2,
+        "front": { "t": 19.05, "reveal": 1.6, "corner": "follow_outline" }
+      },
+      { "kind": "open", "setback": 19.05 }
+    ]
+  },
+  "legs": {
+    "style": "two_profile_flared",
+    "count": 4,
+    "top": [76.2, 50.8],
+    "foot": [28.0, 25.4],
+    "flare_r": [25.4, 50.8, 25.4],
+    "splay_deg": 8.0,
+    "inset": [45.0, 40.0]
+  },
+  "notes": [
+    "Hand IR for console_01 from Fusion dims + cut/joinery plan.",
+    "Geometry is an approximation of swept ends and two-profile legs for golden compile."
+  ]
+}

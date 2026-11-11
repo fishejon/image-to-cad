@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-to-cad.local/schemas/furniture_ir.v2.json",
+  "title": "furniture_ir.v2",
+  "description": "Profile + layout IR for casegoods (D7). Compiled deterministically by build123d.",
+  "type": "object",
+  "required": ["schema", "units", "params", "carcass", "layout"],
+  "properties": {
+    "schema": { "const": "furniture_ir.v2" },
+    "units": { "const": "mm" },
+    "params": {
+      "type": "object",
+      "required": ["W", "H", "D"],
+      "additionalProperties": { "type": "number" }
+    },
+    "material": {
+      "type": "object",
+      "properties": {
+        "default": { "type": "string" },
+        "hidden": { "type": "string" }
+      }
+    },
+    "carcass": {
+      "type": "object",
+      "required": ["form"],
+      "properties": {
+        "form": { "type": "string", "enum": ["swept_shell", "box"] },
+        "outline": {
+          "type": "object",
+          "properties": {
+            "lean_deg": { "type": "number" },
+            "sweep_r": { "type": "number" },
+            "wall": { "type": "number" },
+            "under_z": { "type": "number" }
+          }
+        },
+        "open_front": { "type": "boolean" },
+        "top": { "type": "object" },
+        "back": { "type": "object" }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "description": "Split tree of openings",
+      "properties": {
+        "split": { "type": "string", "enum": ["z", "x", "y"] },
+        "children": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "legs": {
+      "type": "object",
+      "properties": {
+        "style": { "type": "string" },
+        "count": { "type": "integer" },
+        "top": { "type": "array", "items": { "type": "number" } },
+        "foot": { "type": "array", "items": { "type": "number" } },
+        "flare_r": { "type": "array", "items": { "type": "number" } },
+        "splay_deg": { "type": "number" },
+        "inset": { "type": "array", "items": { "type": "number" } }
+      }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}
