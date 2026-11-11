@@ -26,6 +26,11 @@ def _calibration_photo_mask(path: Path, size: tuple[int, int] = (384, 384)) -> n
     img = img.resize(size, Image.Resampling.BILINEAR)
     arr = np.asarray(img, dtype=np.float32)
     candidates: list[np.ndarray] = []
+    # Pure white / near-white studio backdrop (best for D8)
+    corner = float(np.mean([arr[0, 0], arr[0, -1], arr[-1, 0], arr[-1, -1]]))
+    if corner > 220:
+        candidates.append(arr < 245)
+        candidates.append(arr < 235)
     # Dark subject on light bg
     bg = float(np.percentile(arr, 90))
     candidates.append(arr < (bg - 15))
@@ -69,7 +74,7 @@ def _calibration_photo_mask(path: Path, size: tuple[int, int] = (384, 384)) -> n
     return best
 
 
-def _load_mesh(stl: Path, *, max_faces: int = 4000) -> tuple[np.ndarray, np.ndarray]:
+def _load_mesh(stl: Path, *, max_faces: int = 12000) -> tuple[np.ndarray, np.ndarray]:
     import trimesh
 
     mesh = trimesh.load_mesh(str(stl), force="mesh")
@@ -198,9 +203,13 @@ def fit_camera_iou(
         yaw0 = 0.0
         perspective = False if pose_hint == "front" else True
 
-    yaw_grid = [yaw0 - 20, yaw0, yaw0 + 20] if coarse else [yaw0 - 8, yaw0, yaw0 + 8]
-    pitch_grid = [0.0, 12.0, 24.0] if coarse else [0.0, 8.0, 16.0]
-    fov_grid = [32.0, 42.0] if perspective else [35.0]
+    if pose_hint and "three_quarter" in pose_hint:
+        yaw_grid = [yaw0 - 25, yaw0 - 10, yaw0, yaw0 + 10, yaw0 + 25] if coarse else [yaw0 - 8, yaw0, yaw0 + 8]
+        pitch_grid = [-5.0, 5.0, 15.0, 25.0, 35.0] if coarse else [5.0, 15.0, 25.0]
+    else:
+        yaw_grid = [yaw0 - 20, yaw0, yaw0 + 20] if coarse else [yaw0 - 8, yaw0, yaw0 + 8]
+        pitch_grid = [0.0, 12.0, 24.0] if coarse else [0.0, 8.0, 16.0]
+    fov_grid = [28.0, 35.0, 45.0] if perspective else [35.0]
 
     best: dict[str, Any] = {"iou": 0.0}
     for yaw in yaw_grid:

@@ -9,7 +9,7 @@
       "clutter": true,
       "props": ["books_in_cubby", "book_on_top", "vase"],
       "d8_calibration_eligible": true,
-      "notes": "Straight-on front reference for D8 calibration"
+      "notes": "Straight-on front; props hurt segmentation"
     },
     {
       "file": "console_01_iso.jpg",
@@ -18,8 +18,27 @@
       "clutter": true,
       "props": ["books", "bowl", "vase", "sculpture"],
       "d8_calibration_eligible": false,
-      "notes": "Iso / depth reference — not used for D8 gate"
+      "notes": "Room iso with props"
+    },
+    {
+      "file": "console_01_iso_clean.jpg",
+      "pose_hint": "three_quarter_left",
+      "rectified": false,
+      "clutter": false,
+      "props": [],
+      "backdrop": "white_studio",
+      "d8_calibration_eligible": false,
+      "notes": "Clean iso, no objects — best silhouette for camera-fit debugging; D8 still prefers front"
     }
   ],
-  "needed": []
+  "needed": [
+    {
+      "pose_hint": "front",
+      "backdrop": "white_studio",
+      "props": false,
+      "required_for": "D8_calibration",
+      "status": "missing",
+      "notes": "Front-on equivalent of iso_clean (no props, white/plain bg)"
+    }
+  ]
 }

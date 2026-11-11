@@ -1,6 +1,6 @@
 {
   "schema": "furniture_cad.calibrated_table.v1",
-  "recorded_at": "2026-11-11T01:27:05.364725+00:00",
+  "recorded_at": "2026-11-11T01:40:30.832934+00:00",
   "piece": "console_01",
   "photo": {
     "file": "console_01.jpg",
@@ -11,22 +11,43 @@
     "schema": "calibration.d8.v1",
     "passed": false,
     "threshold": 0.8,
-    "iou": 0.0412,
+    "iou": 0.0753,
     "rating": "Wrong",
     "camera": {
-      "yaw_deg": 0.0,
+      "yaw_deg": -20.0,
       "pitch_deg": 24.0,
       "fov_deg": 35.0,
-      "perspective": false,
+      "perspective": true,
       "align": {
         "dx": -19,
         "dy": 17,
-        "inter": 2847,
-        "union": 69171
+        "inter": 5892,
+        "union": 78206
       }
     },
     "pose_hint": "front",
-    "gate_note": "IoU untrusted for gates \u2014 use part/dimension metrics until front-on photo + calibration pass"
+    "gate_note": "IoU untrusted for gates \u2014 use part/dimension metrics until D8 calibration passes"
+  },
+  "diagnostic_iso_clean": {
+    "schema": "calibration.d8.v1",
+    "passed": false,
+    "threshold": 0.8,
+    "iou": 0.4132,
+    "rating": "Close",
+    "camera": {
+      "yaw_deg": -60.0,
+      "pitch_deg": -5.0,
+      "fov_deg": 28.0,
+      "perspective": true,
+      "align": {
+        "dx": 11,
+        "dy": -1,
+        "inter": 21074,
+        "union": 51006
+      }
+    },
+    "pose_hint": "three_quarter_left",
+    "gate_note": "IoU untrusted for gates \u2014 use part/dimension metrics until D8 calibration passes"
   },
   "legacy_fixed_scale_ortho": {
     "gt_stl_iou": 0.179,

@@ -30,6 +30,11 @@ def main(argv: list[str] | None = None) -> int:
 
     ensure_gt_stl()
     cal = calibrate_gt(photo=photo, step_or_stl=step, pose_hint=pose)
+    # Diagnostic: clean iso (not D8-eligible) — shows mask quality when props are gone
+    iso_clean = GT / "console_01_iso_clean.jpg"
+    iso_cal = None
+    if iso_clean.is_file():
+        iso_cal = calibrate_gt(photo=iso_clean, step_or_stl=step, pose_hint="three_quarter_left")
     ceiling = score_gt_ceiling(measure_iou=True)  # legacy fixed-scale ortho for comparison
     ir = score_ir_stub()
     a0 = {}
@@ -42,11 +47,12 @@ def main(argv: list[str] | None = None) -> int:
         "recorded_at": datetime.now(timezone.utc).isoformat(),
         "piece": "console_01",
         "photo": {
-            "file": "console_01.jpg",
+            "file": str(photo_meta.get("file") or photo.name),
             "pose_hint": pose,
             "d8_eligible": bool(photo_meta.get("d8_calibration_eligible")),
         },
         "d8_calibration": cal,
+        "diagnostic_iso_clean": iso_cal,
         "legacy_fixed_scale_ortho": {
             "gt_stl_iou": ceiling.get("gt_stl_vs_photo_iou"),
             "gt_rating": ceiling.get("gt_stl_vs_photo_rating"),
@@ -79,10 +85,17 @@ def main(argv: list[str] | None = None) -> int:
                 "",
                 f"Recorded: `{table['recorded_at']}`",
                 "",
-                f"**D8 calibration:** {'PASS' if cal.get('passed') else 'FAIL'} — "
+                f"**D8 calibration (front):** {'PASS' if cal.get('passed') else 'FAIL'} — "
                 f"camera-fit IoU **{cal.get('iou')}** (need ≥ {cal.get('threshold')}).",
                 "",
-                f"Photo pose: `{pose}` — front-on still **missing** for a trusted ruler.",
+                (
+                    f"**Clean iso diagnostic:** IoU **{iso_cal.get('iou')}** ({iso_cal.get('rating')}) "
+                    f"on `console_01_iso_clean.jpg` — not a D8 gate, but shows white-bg helps."
+                    if iso_cal
+                    else ""
+                ),
+                "",
+                f"D8 still wants a **front-on, no-props, plain-bg** shot (same as iso_clean but straight-on).",
                 "",
                 "| Source | Legacy ortho IoU | Rating |",
                 "| --- | ---: | --- |",
@@ -98,7 +111,17 @@ def main(argv: list[str] | None = None) -> int:
         ),
         encoding="utf-8",
     )
-    print(json.dumps({"wrote": str(args.out), "d8_passed": cal.get("passed"), "d8_iou": cal.get("iou")}, indent=2))
+    print(
+        json.dumps(
+            {
+                "wrote": str(args.out),
+                "d8_passed": cal.get("passed"),
+                "d8_iou": cal.get("iou"),
+                "iso_clean_iou": (iso_cal or {}).get("iou"),
+            },
+            indent=2,
+        )
+    )
     return 0
 
 
