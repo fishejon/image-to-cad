@@ -1,0 +1,22 @@
+{
+  "schema": "views.v1",
+  "id": "console_01",
+  "photos": [
+    {
+      "file": "console_01.jpg",
+      "pose_hint": "three_quarter_right",
+      "rectified": false,
+      "clutter": true,
+      "props": ["books", "vase"],
+      "d8_calibration_eligible": false,
+      "notes": "Not front-on — D8 IoU gate requires a straight-on studio shot"
+    }
+  ],
+  "needed": [
+    {
+      "pose_hint": "front",
+      "required_for": "D8_calibration",
+      "status": "missing"
+    }
+  ]
+}

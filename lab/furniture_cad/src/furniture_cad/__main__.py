@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> int:
             "  ab [--ids …] [--out FILE]       # B/O/A scorecard (oracle ≠ product gate)\n"
             "  blind [--ids …]                 # R4 blind scorecard + decision JSON\n"
             "  score-console [--ceiling|--ir-stub]  # console_01 vs Fusion GT + hand list\n"
+            "  calibrate-console                   # P0/D8 camera-fit calibration table\n"
             "  rebuild --project DIR --set KEY VAL  # no-model rebuild\n"
             "This lab is offline and NOT deployed to prod."
         )
@@ -64,7 +65,12 @@ def main(argv: list[str] | None = None) -> int:
         from furniture_cad.eval.console_gt import main as console_gt_main
 
         return console_gt_main(rest)
+    if cmd in ("calibrate-console", "calibrate"):
+        from furniture_cad.eval.calibrate_cli import main as calibrate_main
+
+        return calibrate_main(rest)
     if cmd == "rebuild":
+
 
         from furniture_cad.rebuild import main as rebuild_main
 

@@ -1,7 +1,7 @@
 # Image-to-CAD: Product Plan and Technical Spec
 
-> **Status: ACTIVE.** Supersedes day-to-day sequencing in [`photo-to-model-recovery.md`](photo-to-model-recovery.md) (R0–R7 remain historical).  
-> Prepared for Jonny, November 8, 2026.
+> **Status: SUPERSEDED for sequencing** by [`product-plan-2026-11-10.md`](product-plan-2026-11-10.md).  
+> D1–D6 remain locked. R0–R7 remain historical. Prepared for Jonny, November 8, 2026.
 
 ## Bottom line
 

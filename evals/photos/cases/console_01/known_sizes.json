@@ -1,0 +1,12 @@
+{
+  "schema": "known_sizes.v1",
+  "id": "console_01",
+  "units": "mm",
+  "overall": {
+    "w": { "v": 1193.8, "src": "user", "in": 47 },
+    "d": { "v": 304.8, "src": "user", "in": 12 },
+    "h": { "v": 762.0, "src": "user", "in": 30 }
+  },
+  "anchor": "w",
+  "notes": "User-known overall; Fusion STEP bbox ~1191.7 × 304.8 × 762"
+}

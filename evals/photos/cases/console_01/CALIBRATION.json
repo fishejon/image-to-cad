@@ -1,0 +1,57 @@
+{
+  "schema": "furniture_cad.calibrated_table.v1",
+  "recorded_at": "2026-11-11T01:23:59.979642+00:00",
+  "piece": "console_01",
+  "photo": {
+    "file": "console_01.jpg",
+    "pose_hint": "three_quarter_right",
+    "d8_eligible": false
+  },
+  "d8_calibration": {
+    "schema": "calibration.d8.v1",
+    "passed": false,
+    "threshold": 0.8,
+    "iou": 0.1126,
+    "rating": "Wrong",
+    "camera": {
+      "yaw_deg": 55.0,
+      "pitch_deg": 0.0,
+      "fov_deg": 32.0,
+      "perspective": true,
+      "align": {
+        "dx": 5,
+        "dy": 17,
+        "inter": 9917,
+        "union": 88073
+      }
+    },
+    "pose_hint": "three_quarter_right",
+    "gate_note": "IoU untrusted for gates \u2014 use part/dimension metrics until front-on photo + calibration pass"
+  },
+  "legacy_fixed_scale_ortho": {
+    "gt_stl_iou": 0.179,
+    "gt_rating": "Wrong",
+    "ir_stub_iou": 0.393,
+    "ir_stub_rating": "Wrong",
+    "a0_iou": 0.245,
+    "a0_rating": "Wrong",
+    "note": "Orthographic fixed-scale \u2014 untrusted when D8 fails"
+  },
+  "non_iou_metrics": {
+    "gt_dims_within_3pct": true,
+    "ir_stub_dims_within_3pct": true,
+    "ir_stub_parts_recall": 0.6923,
+    "a0_parts_recall": 0.2308,
+    "a0_cut_list_match_share": 0.0769,
+    "a0_cost_usd": 0.0981
+  },
+  "gate": {
+    "iou_trusted_for_product_gates": false,
+    "use_until_pass": [
+      "overall_dims",
+      "part_recall",
+      "feature_recall",
+      "cut_list_match"
+    ]
+  }
+}
