@@ -1,10 +1,12 @@
 # console_01 — calibrated metric table (P0 / D8)
 
-Recorded: `2026-11-11T01:27:05.364725+00:00`
+Recorded: `2026-11-11T01:40:30.832934+00:00`
 
-**D8 calibration:** FAIL — camera-fit IoU **0.0412** (need ≥ 0.8).
+**D8 calibration (front):** FAIL — camera-fit IoU **0.0753** (need ≥ 0.8).
 
-Photo pose: `front` — front-on still **missing** for a trusted ruler.
+**Clean iso diagnostic:** IoU **0.4132** (Close) on `console_01_iso_clean.jpg` — not a D8 gate, but shows white-bg helps.
+
+D8 still wants a **front-on, no-props, plain-bg** shot (same as iso_clean but straight-on).
 
 | Source | Legacy ortho IoU | Rating |
 | --- | ---: | --- |
