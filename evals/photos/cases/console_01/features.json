@@ -1,0 +1,21 @@
+{
+  "schema": "features.v1",
+  "id": "console_01",
+  "counts": {
+    "drawer": 2,
+    "door": 0,
+    "shelf": 1,
+    "leg": 4,
+    "end_block_carved": 2,
+    "open_cubby": 1,
+    "pull": 0
+  },
+  "attrs": {
+    "end_form": "swept_leaning",
+    "leg_style": "two_profile_flared",
+    "top_kind": "plank",
+    "back": "floating",
+    "drawer_pulls": false
+  },
+  "notes": "From hand cut/joinery plan + photo. Shelf = divider under cubby."
+}
