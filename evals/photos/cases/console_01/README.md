@@ -5,7 +5,8 @@ Two drawers under an open cubby; carved ends/legs; Japanese joinery.
 
 | Artifact | Status |
 | --- | --- |
-| Photo | `console_01.jpg` (local; 3/4 + clutter — **front-on still needed for D8**) |
+| Photo (front) | `console_01.jpg` (local; front-on — D8 still fails on mask quality) |
+| Photo (iso) | `console_01_iso.jpg` (local; depth reference) |
 | Views / features / sizes | [`views.json`](views.json), [`features.json`](features.json), [`known_sizes.json`](known_sizes.json) |
 | Fusion STEP | [`console_01.step`](console_01.step) |
 | Hand cut list + joinery | [`cut_list.hand.json`](cut_list.hand.json) + [`CUT_LIST_JOINERY.md`](CUT_LIST_JOINERY.md) |

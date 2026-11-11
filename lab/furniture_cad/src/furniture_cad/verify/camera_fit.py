@@ -17,6 +17,58 @@ from furniture_cad.silhouette import _photo_mask, _shift, rating_for_iou
 D8_THRESHOLD = 0.8
 
 
+def _calibration_photo_mask(path: Path, size: tuple[int, int] = (384, 384)) -> np.ndarray:
+    """Studio-aware mask: try both polarities and keep the mid-fill connected blob."""
+    from PIL import Image, ImageFilter, ImageOps
+
+    img = Image.open(path).convert("L")
+    img = ImageOps.exif_transpose(img)
+    img = img.resize(size, Image.Resampling.BILINEAR)
+    arr = np.asarray(img, dtype=np.float32)
+    candidates: list[np.ndarray] = []
+    # Dark subject on light bg
+    bg = float(np.percentile(arr, 90))
+    candidates.append(arr < (bg - 15))
+    # Light subject on dark bg
+    fg = float(np.percentile(arr, 10))
+    candidates.append(arr > (fg + 15))
+    # Adaptive
+    thr = float(arr.mean())
+    candidates.append(arr < thr)
+    candidates.append(arr > thr)
+
+    best = None
+    best_score = -1.0
+    for mask in candidates:
+        # cleanup
+        pil = Image.fromarray((mask.astype(np.uint8) * 255))
+        pil = pil.filter(ImageFilter.MaxFilter(3))
+        pil = pil.filter(ImageFilter.MinFilter(3))
+        m = np.asarray(pil) > 127
+        fill = float(m.mean())
+        if fill < 0.02 or fill > 0.45:
+            continue
+        # Prefer compact central mass
+        ys, xs = np.where(m)
+        if len(xs) == 0:
+            continue
+        cx, cy = xs.mean() / size[0], ys.mean() / size[1]
+        center_bonus = 1.0 - abs(cx - 0.5) - abs(cy - 0.55)
+        score = (1.0 - abs(fill - 0.18)) + 0.3 * center_bonus
+        if score > best_score:
+            best_score = score
+            best = m
+    if best is None:
+        best = _photo_mask(path, size=size)
+        # If still huge, take inverted if that is mid-fill
+        fill = float(best.mean())
+        if fill > 0.45:
+            inv = ~best
+            if 0.02 < float(inv.mean()) < 0.45:
+                best = inv
+    return best
+
+
 def _load_mesh(stl: Path, *, max_faces: int = 4000) -> tuple[np.ndarray, np.ndarray]:
     import trimesh
 
@@ -132,7 +184,7 @@ def fit_camera_iou(
     """Multi-start camera fit; scale fixed via AABB → frame mapping."""
     photo = Path(photo)
     stl = Path(stl)
-    ref = _photo_mask(photo, size=size)
+    ref = _calibration_photo_mask(photo, size=size)
     verts, faces = _load_mesh(stl)
 
     # Seed yaw from pose hint
@@ -207,6 +259,6 @@ def calibrate_gt(
         "gate_note": (
             None
             if passed
-            else "IoU untrusted for gates — use part/dimension metrics until front-on photo + calibration pass"
+            else "IoU untrusted for gates — use part/dimension metrics until D8 calibration passes"
         ),
     }
