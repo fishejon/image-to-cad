@@ -69,7 +69,8 @@ Only **Perceive** and **Verify** call a model. Compile/Derive/Dimension/Intake a
 | --- | --- |
 | P0 | [`evals/photos/P0_RULER.md`](../../evals/photos/P0_RULER.md) |
 | P1 | [`evals/photos/P1_CONSOLE.md`](../../evals/photos/P1_CONSOLE.md) |
-| P2–P7 | add as each phase starts |
+| P2 | [`evals/photos/P2_PIPELINE.md`](../../evals/photos/P2_PIPELINE.md) |
+| P3–P7 | add as each phase starts |
 
 ## Stop doing
 
