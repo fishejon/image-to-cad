@@ -3,13 +3,23 @@
   "id": "console_01",
   "photos": [
     {
+      "file": "console_01_front_clean.jpg",
+      "pose_hint": "front",
+      "rectified": false,
+      "clutter": false,
+      "props": [],
+      "backdrop": "white_studio",
+      "d8_calibration_eligible": true,
+      "notes": "Clean front-on — primary D8 calibration photo"
+    },
+    {
       "file": "console_01.jpg",
       "pose_hint": "front",
       "rectified": false,
       "clutter": true,
       "props": ["books_in_cubby", "book_on_top", "vase"],
-      "d8_calibration_eligible": true,
-      "notes": "Straight-on front; props hurt segmentation"
+      "d8_calibration_eligible": false,
+      "notes": "Front with props (legacy)"
     },
     {
       "file": "console_01_iso.jpg",
@@ -28,17 +38,8 @@
       "props": [],
       "backdrop": "white_studio",
       "d8_calibration_eligible": false,
-      "notes": "Clean iso, no objects — best silhouette for camera-fit debugging; D8 still prefers front"
+      "notes": "Clean iso depth reference"
     }
   ],
-  "needed": [
-    {
-      "pose_hint": "front",
-      "backdrop": "white_studio",
-      "props": false,
-      "required_for": "D8_calibration",
-      "status": "missing",
-      "notes": "Front-on equivalent of iso_clean (no props, white/plain bg)"
-    }
-  ]
+  "needed": []
 }

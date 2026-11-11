@@ -29,8 +29,10 @@ def _calibration_photo_mask(path: Path, size: tuple[int, int] = (384, 384)) -> n
     # Pure white / near-white studio backdrop (best for D8)
     corner = float(np.mean([arr[0, 0], arr[0, -1], arr[-1, 0], arr[-1, -1]]))
     if corner > 220:
-        candidates.append(arr < 245)
-        candidates.append(arr < 235)
+        # Strict white studio — drop soft floor shadow by using high threshold + cleanup
+        candidates.append(arr < 248)
+        candidates.append(arr < 240)
+        candidates.append(arr < float(np.percentile(arr, 85)))
     # Dark subject on light bg
     bg = float(np.percentile(arr, 90))
     candidates.append(arr < (bg - 15))
@@ -115,7 +117,11 @@ def _project_mask(
     fov_deg: float = 35.0,
     cam_dist_factor: float = 2.8,
 ) -> np.ndarray:
-    """Rasterize projected triangles into a boolean mask (scale fixed via AABB fit)."""
+    """Rasterize a filled outer silhouette (convex hull of projected verts).
+
+    Face fill alone is too hollow on thin-shell STEP exports; hull matches D8's
+    outer-contour intent and is stable for calibration.
+    """
     from PIL import Image, ImageDraw
 
     R = _rot_yaw_pitch(yaw_deg, pitch_deg)
@@ -145,17 +151,31 @@ def _project_mask(
     cx, cz = (xmin + xmax) * 0.5, (zmin + zmax) * 0.5
     half = span * (0.5 + pad)
 
-    def to_px(xv: np.ndarray, zv: np.ndarray) -> list[tuple[int, int]]:
-        xs = (xv - (cx - half)) / (2 * half) * (w - 1)
-        zs = (1.0 - (zv - (cz - half)) / (2 * half)) * (h - 1)
-        return list(zip(xs.astype(int).tolist(), zs.astype(int).tolist()))
+    xs = (xp - (cx - half)) / (2 * half) * (w - 1)
+    zs = (1.0 - (zp - (cz - half)) / (2 * half)) * (h - 1)
+    pts = np.column_stack([xs, zs])
 
     img = Image.new("1", size, 0)
     draw = ImageDraw.Draw(img)
-    for a, b, c_i in faces:
-        draw.polygon(to_px(xp[[a, b, c_i]], zp[[a, b, c_i]]), fill=1)
-    return np.asarray(img, dtype=bool)
+    # Convex hull of projected points → solid silhouette
+    try:
+        from scipy.spatial import ConvexHull
 
+        hull = ConvexHull(pts)
+        poly = [(int(pts[i, 0]), int(pts[i, 1])) for i in hull.vertices]
+        draw.polygon(poly, fill=1)
+    except Exception:
+        # Fallback: fill face triangles
+        for a, b, c_i in faces:
+            draw.polygon(
+                [
+                    (int(xs[a]), int(zs[a])),
+                    (int(xs[b]), int(zs[b])),
+                    (int(xs[c_i]), int(zs[c_i])),
+                ],
+                fill=1,
+            )
+    return np.asarray(img, dtype=bool)
 
 def _iou(ref: np.ndarray, model: np.ndarray, *, max_shift_frac: float = 0.05) -> tuple[float, dict[str, Any]]:
     h, w = ref.shape
