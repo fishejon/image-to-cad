@@ -73,11 +73,27 @@ def size_errors(pred: dict[str, Any], truth: dict[str, Any]) -> dict[str, float]
     }
 
 
+def _dims_ok(pred: dict[str, Any], truth: dict[str, Any]) -> list[bool]:
+    """Per-dimension (sorted) within 5 mm or 3%."""
+    ps, ts = sorted(_size_tuple(pred)), sorted(_size_tuple(truth))
+    out = []
+    for a, b in zip(ps, ts):
+        d = abs(a - b)
+        out.append(d <= 5.0 or (b > 0 and d / b <= 0.03))
+    return out
+
+
+# Truth-part classes. ``visible``: seen in the photo. ``construction``: implied by a visible
+# feature through convention (drawer box parts). ``joinery``: hidden hardware (tongues,
+# wedges, runners). Untagged truth parts count as ``visible``.
+PART_CLASSES = ("visible", "construction", "joinery")
+
+
 def score_parts(
     predicted: list[dict[str, Any]],
     ground_truth: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Part precision/recall and cut-list size match share."""
+    """Part precision/recall, cut-list size match share, per-dimension share, per-class split."""
     pairs = hungarian_match(predicted, ground_truth)
     matched = len(pairs)
     prec = matched / len(predicted) if predicted else 0.0
@@ -90,7 +106,36 @@ def score_parts(
         if se["within_5mm_or_3pct"]:
             size_ok += 1
     cut_match = size_ok / len(ground_truth) if ground_truth else 0.0
+
+    by_t = {j: i for i, j, _ in pairs}
+    dim_hits = 0
+    classes: dict[str, dict[str, int]] = {}
+    for j, t in enumerate(ground_truth):
+        c = str(t.get("class") or "visible")
+        row = classes.setdefault(c, {"n": 0, "matched": 0, "size_ok": 0})
+        row["n"] += 1
+        if j in by_t:
+            row["matched"] += 1
+            oks = _dims_ok(predicted[by_t[j]], t)
+            dim_hits += sum(oks)
+            if all(oks):
+                row["size_ok"] += 1
+    dim_total = 3 * len(ground_truth)
+    by_class = {
+        c: {
+            "n": r["n"],
+            "recall": round(r["matched"] / r["n"], 4),
+            "cut_list_match_share": round(r["size_ok"] / r["n"], 4),
+        }
+        for c, r in classes.items()
+    }
+    non_joinery = [c for c in classes if c != "joinery"]
+    n_nj = sum(classes[c]["n"] for c in non_joinery)
+    recall_nj = (sum(classes[c]["matched"] for c in non_joinery) / n_nj) if n_nj else None
     return {
+        "dim_match_share": round(dim_hits / dim_total, 4) if dim_total else 0.0,
+        "by_class": by_class,
+        "recall_excl_joinery": round(recall_nj, 4) if recall_nj is not None else None,
         "matched": matched,
         "precision": round(prec, 4),
         "recall": round(rec, 4),

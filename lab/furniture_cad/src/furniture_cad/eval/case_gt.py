@@ -152,6 +152,7 @@ def truth_parts(hand: dict[str, Any]) -> list[dict[str, Any]]:
             "length_mm": float(p["length_mm"]),
             "type": p["id"],
             "material": p.get("material"),
+            "class": p.get("class") or "visible",
         }
         for p in hand.get("parts") or []
     ]

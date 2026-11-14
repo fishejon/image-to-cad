@@ -18,6 +18,7 @@ LAB = Path(__file__).resolve().parents[3]
 REPO = LAB.parent.parent
 GT = REPO / "evals" / "photos" / "cases" / "console_01"
 FEATURES = GT / "features.json"
+PROPORTIONS = GT / "proportions.json"
 PHOTO = GT / "console_01_front_clean.jpg"
 KNOWN = {"w": 1193.8, "d": 304.8, "h": 762.0}
 
@@ -45,6 +46,14 @@ def _run_one(work: Path, *, use_vision: bool) -> dict[str, Any]:
         overall_pred_mm={"w": bb.get("w"), "d": bb.get("d"), "h": bb.get("h")},
     )
     bf = score_board_feet(load_hand_cut_list(), parts)
+    obs_props = summary.get("observation_proportions") or {}
+    prop_err = None
+    if PROPORTIONS.is_file():
+        truth_props = json.loads(PROPORTIONS.read_text(encoding="utf-8")).get("proportions") or {}
+        prop_err = {
+            k: (round(abs(float(obs_props[k]) - float(v)), 4) if k in obs_props else None)
+            for k, v in truth_props.items()
+        }
     dim_ok = True
     for k, want in KNOWN.items():
         got = float(bb.get(k) or 0)
@@ -58,6 +67,8 @@ def _run_one(work: Path, *, use_vision: bool) -> dict[str, Any]:
         "parts": gt_score.get("parts"),
         "cut_list_match_share": (gt_score.get("parts") or {}).get("cut_list_match_share"),
         "board_feet": bf,
+        "observation_proportions": obs_props,
+        "proportion_abs_err": prop_err,
         "construct_answer_key_seeded": bool(summary.get("construct_answer_key_seeded")),
         "gt_score": gt_score,
         "spent_usd_approx": summary.get("spent_usd_approx"),
@@ -111,6 +122,25 @@ def main(argv: list[str] | None = None) -> int:
         ]
         return round(sum(vals) / len(vals), 4) if vals else None
 
+    def _mean_parts(path: tuple[str, ...]) -> float | None:
+        vals = []
+        for r in runs:
+            v: Any = r.get("parts") or {}
+            for k in path:
+                v = (v or {}).get(k) if isinstance(v, dict) else None
+            if isinstance(v, (int, float)):
+                vals.append(float(v))
+        return round(sum(vals) / len(vals), 4) if vals else None
+
+    def _mean_prop_err() -> float | None:
+        vals = [
+            float(e)
+            for r in runs
+            for e in ((r.get("proportion_abs_err") or {}).values())
+            if e is not None
+        ]
+        return round(sum(vals) / len(vals), 4) if vals else None
+
     seeded = any(r.get("construct_answer_key_seeded") for r in runs)
     report = {
         "schema": "p4_a0.v1",
@@ -124,6 +154,12 @@ def main(argv: list[str] | None = None) -> int:
             "all_ok": all(r.get("ok") for r in runs),
             "mean_feature_recall": _mean("feature_recall"),
             "mean_part_recall": _mean("part_recall"),
+            "mean_part_recall_excl_joinery": _mean_parts(("recall_excl_joinery",)),
+            "mean_recall_visible": _mean_parts(("by_class", "visible", "recall")),
+            "mean_recall_construction": _mean_parts(("by_class", "construction", "recall")),
+            "mean_recall_joinery": _mean_parts(("by_class", "joinery", "recall")),
+            "mean_dim_match_share": _mean_parts(("dim_match_share",)),
+            "mean_proportion_abs_err": _mean_prop_err(),
             "mean_spend_usd": _mean("spent_usd_approx"),
             "mean_wall_s": _mean("wall_s"),
             "mean_cut_list_match_share": _mean("cut_list_match_share"),

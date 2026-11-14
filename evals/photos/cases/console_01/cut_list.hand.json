@@ -61,6 +61,7 @@
     },
     {
       "id": "LT",
+      "class": "joinery",
       "name": "Loose tongue, bottom panel joint",
       "qty": 2,
       "finished_in": { "t": 0.375, "w": 1, "l": 11 },
@@ -132,6 +133,7 @@
     },
     {
       "id": "W1",
+      "class": "joinery",
       "name": "Wedge (kusabi)",
       "qty": 8,
       "finished_in": { "t": 0.1875, "w": 0.625, "l": 2.5 },
@@ -145,6 +147,7 @@
     },
     {
       "id": "DS1",
+      "class": "construction",
       "name": "Drawer side",
       "qty": 4,
       "finished_in": { "t": 0.5, "w": 3.75, "l": 10.625 },
@@ -159,6 +162,7 @@
     },
     {
       "id": "DB1",
+      "class": "construction",
       "name": "Drawer back",
       "qty": 2,
       "finished_in": { "t": 0.5, "w": 3.25, "l": 18 },
@@ -173,6 +177,7 @@
     },
     {
       "id": "DBT1",
+      "class": "construction",
       "name": "Drawer bottom, floating",
       "qty": 2,
       "finished_in": { "t": 0.375, "w": 10, "l": 18 },
@@ -187,6 +192,7 @@
     },
     {
       "id": "R1",
+      "class": "joinery",
       "name": "Drawer runner",
       "qty": 4,
       "finished_in": { "t": 0.375, "w": 0.75, "l": 10.5 },

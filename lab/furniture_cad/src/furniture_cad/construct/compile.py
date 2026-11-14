@@ -166,6 +166,10 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
         if (_c or {}).get("kind") == "open" and (_c or {}).get("setback") is not None:
             setback = float(_c["setback"])
     back_groove = float((carcass.get("back") or {}).get("groove") or 0.0)
+    bank_open_h = None
+    for _c in (ir.get("layout") or {}).get("children") or []:
+        if (_c or {}).get("kind") == "drawer_bank" and (_c or {}).get("bank_frac") is not None:
+            bank_open_h = float(_c["bank_frac"]) * max(40.0, H - under_z)
     children: list[Any] = []
     parts: list[Any] = []
     features: dict[str, int] = {"drawer": 0, "door": 0, "leg": 0, "shelf": 0, "end_block": 0, "open_cubby": 0}
@@ -183,6 +187,7 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
             open_front=bool(carcass.get("open_front", True)),
             front_setback=setback,
             back_groove=back_groove,
+            bank_open_h=bank_open_h,
             material=mat,
         )
         children.append(shell["assembly"])
@@ -206,11 +211,25 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
             front = (child or {}).get("front") or {}
             ft = float(front.get("t") or 19.05)
             bay_w = (W - 2 * wall) / cols
-            drawer_h = max(40.0, (div_z - under_z - wall) * 0.85)
+            reveal = float(front.get("reveal") or 1.6)
+            # Drawer box depth: front sits ahead of the box; leave 1/8 in at the back
+            # (usual convention). Applies on every path.
+            box_d = max(60.0, D - ft - back_t - 3.175)
+            if bank_open_h is not None:
+                # Measured bank: front fills the opening less two reveals; box clears
+                # the bottom and the divider by 1/2 in each.
+                span = max(20.0, min(bank_open_h, case_h - 3 * wall))
+                front_h = max(30.0, span - 2 * reveal)
+                box_h = max(25.0, front_h - 25.4)
+                z = under_z + wall + span / 2
+            else:
+                drawer_h = max(40.0, (div_z - under_z - wall) * 0.85)
+                front_h = drawer_h * 0.9
+                box_h = drawer_h * 0.75
+                z = under_z + wall + drawer_h / 2 + 8
             for i in range(cols):
                 cx = -W / 2 + wall + bay_w * (i + 0.5)
-                z = under_z + wall + drawer_h / 2 + 8
-                box = drawer_box(W=bay_w * 0.9, D=D * 0.82, H=drawer_h * 0.75, material=hidden, front_applied=True)
+                box = drawer_box(W=bay_w * 0.9, D=box_d, H=box_h, material=hidden, front_applied=True)
                 children.append(Pos(cx, 0, z) * box["assembly"])
                 if i == 0:
                     for p in box["parts"]:
@@ -223,7 +242,7 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
                         elif p.id == "drawer_bottom":
                             p.id = "DBT1"
                         parts.append(p)
-                fr = drawer_front(W=bay_w * 0.94, H=drawer_h * 0.9, t=ft, material=mat)
+                fr = drawer_front(W=bay_w * 0.94, H=front_h, t=ft, material=mat)
                 fr["parts"][0].id = "DF1"
                 fr["parts"][0].name = "Drawer front"
                 children.append(Pos(cx, D / 2 - ft / 2, z) * fr["solid"])
