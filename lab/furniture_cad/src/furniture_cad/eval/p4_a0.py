@@ -23,12 +23,19 @@ PHOTO = GT / "console_01_front_clean.jpg"
 KNOWN = {"w": 1193.8, "d": 304.8, "h": 762.0}
 
 
-def _run_one(work: Path, *, use_vision: bool) -> dict[str, Any]:
+def _assist_known() -> dict[str, float]:
+    """Extra known sizes a user could type in (leg height, one drawer-front height)."""
+    if not PROPORTIONS.is_file():
+        return {}
+    return {k: float(v) for k, v in (json.loads(PROPORTIONS.read_text()).get("known_mm_assist") or {}).items()}
+
+
+def _run_one(work: Path, *, use_vision: bool, assist: bool = False) -> dict[str, Any]:
     t0 = time.time()
     summary = run_pipeline(
         work_dir=work,
         photo=PHOTO if PHOTO.is_file() else None,
-        known_mm=KNOWN,
+        known_mm={**KNOWN, **(_assist_known() if assist else {})},
         use_vision=use_vision,
         class_hint="casegood.console",
     )
@@ -84,9 +91,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", type=Path, default=GT / "P4_A0.json")
     p.add_argument("--vision", action="store_true", default=True)
     p.add_argument("--no-vision", action="store_true")
+    p.add_argument(
+        "--assist",
+        action="store_true",
+        help="also pass leg + drawer-front height as user-known sizes (not blind; writes P4_A0_assisted.json)",
+    )
     p.add_argument("--runs", type=int, default=3)
     args = p.parse_args(argv)
     use_vision = not args.no_vision
+    if args.assist and args.out == GT / "P4_A0.json":
+        args.out = GT / "P4_A0_assisted.json"
     runs = []
     out_root = args.out.parent / "p4_a0_runs"
     out_root.mkdir(parents=True, exist_ok=True)
@@ -97,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
             pass
         work.mkdir(parents=True, exist_ok=True)
         print(f"run {i}/{args.runs} vision={use_vision} …", flush=True)
-        runs.append(_run_one(work, use_vision=use_vision))
+        runs.append(_run_one(work, use_vision=use_vision, assist=args.assist))
 
     def _mean(key: str) -> float | None:
         vals = []
@@ -148,6 +162,8 @@ def main(argv: list[str] | None = None) -> int:
         "at": datetime.now(timezone.utc).isoformat(),
         "photo": str(PHOTO),
         "use_vision": use_vision,
+        "assisted": bool(args.assist),
+        "known_extra_mm": _assist_known() if args.assist else {},
         "runs": runs,
         "aggregate": {
             "n": len(runs),

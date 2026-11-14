@@ -110,6 +110,33 @@ def apply_dims(
     t_raw = _obs_value(obs_dims, "t_panel", "t") or default_t
     t = snap_stock(t_raw)
 
+    # Optional extra known sizes (mm): leg height (floor to case underside) and one drawer-front
+    # height. A photo cannot give these reliably, so the user supplies them or we ask.
+    known_extra: dict[str, float] = {}
+    for key, name in (("leg", "leg_h"), ("drawer_front", "drawer_front_h")):
+        v = known_mm.get(key)
+        if v is not None and float(v) > 0:
+            known_extra[name] = float(v)
+    counts = observation.get("counts") or {}
+    asks: list[dict[str, Any]] = []
+    cls = str(observation.get("class") or "")
+    if "leg_h" not in known_extra and cls.startswith("casegood"):
+        asks.append(
+            {
+                "key": "leg",
+                "q": "How tall are the legs, from the floor to the underside of the case (mm)?",
+                "default": "prior: case underside at 35% of overall height",
+            }
+        )
+    if "drawer_front_h" not in known_extra and int(counts.get("drawer") or 0) > 0:
+        asks.append(
+            {
+                "key": "drawer_front",
+                "q": "How tall is one drawer front (mm)?",
+                "default": "prior: fixed fractions of the case",
+            }
+        )
+
     table = {
         "schema": "dimension.v1",
         "overall_mm": {
@@ -124,6 +151,8 @@ def apply_dims(
                 float(_obs_value(obs_dims, "leg_section") or 38.0)
             ),
         },
+        "known_extra_mm": known_extra,
+        "asks": asks,
         "conflicts": conflicts,
         "scale_factor": round(scale, 6) if scale is not None and known_count == 1 else None,
         "ready": all(v is not None for v in (W, D, H)),

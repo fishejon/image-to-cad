@@ -12,7 +12,7 @@ from furniture_cad.construct import compile_ir, construct_ir_from_observation
 from furniture_cad.dimension import apply_dims
 from furniture_cad.eval.case_gt import CASES_DIR, is_ready, score_case
 from furniture_cad.eval.scorer import score_parts
-from furniture_cad.perceive.vision import _norm_proportions, perceive_vision, proportions_from_landmarks
+from furniture_cad.perceive.vision import SYSTEM, perceive_vision
 
 KNOWN = {"w": 1193.8, "d": 304.8, "h": 762.0}
 CONSOLE = CASES_DIR / "console_01"
@@ -42,17 +42,8 @@ def _compile(props: dict | None):
     return ir, compile_ir(ir)
 
 
-def test_norm_proportions_keeps_only_sane_numbers():
-    assert _norm_proportions({"under_z_frac": 0.65, "drawer_bank_frac": 0.49}) == {
-        "under_z_frac": 0.65,
-        "drawer_bank_frac": 0.49,
-    }
-    assert _norm_proportions({"under_z_frac": 0.99, "drawer_bank_frac": 0.05}) == {}  # out of bounds
-    assert _norm_proportions({"under_z_frac": None, "drawer_bank_frac": "x"}) == {}
-    assert _norm_proportions(None) == {}
-
-
-def test_vision_returns_proportions(tmp_path: Path):
+def test_vision_no_longer_asks_for_geometry(tmp_path: Path):
+    assert "landmarks" not in SYSTEM and "proportions" not in SYSTEM and "_frac" not in SYSTEM
     photo = tmp_path / "p.jpg"
     photo.write_bytes(b"\xff\xd8\xff\xd9")
     counts = {"drawer": 2, "door": 0, "shelf": 1, "leg": 4, "open_cubby": 1, "pull": 0, "end_block_carved": 2}
@@ -64,9 +55,8 @@ def test_vision_returns_proportions(tmp_path: Path):
         "unknowns": [],
         "end_form": "swept_leaning",
         "leg_style": "two_profile_flared",
-        # direct ratios are no longer read: only landmark rows count
-        "proportions": {"under_z_frac": 0.10, "drawer_bank_frac": 0.20},
-        "landmarks": {"top": 100, "floor": 900, "case_bottom": 380, "drawer_top": 170, "drawer_bottom": 308},
+        "proportions": {"under_z_frac": 0.10},  # ignored even if a model volunteers it
+        "landmarks": {"top": 1, "floor": 2},
     }
 
     def _msg(**kw):
@@ -87,29 +77,9 @@ def test_vision_returns_proportions(tmp_path: Path):
         patch("furniture_cad.perceive.vision._photo_content_block", return_value=block),
     ):
         obs = perceive_vision(intake, known_mm=KNOWN, photo=photo, api_key="k", model="m")
-    assert obs["landmarks"]["floor"] == 900
-    assert obs["proportions"]["under_z_frac"] == pytest.approx(0.65, abs=1e-3)
-    assert obs["proportions"]["drawer_bank_frac"] == pytest.approx(0.4929, abs=1e-3)
-    assert client.messages.create.call_count == 2  # no extra model call for proportions
-
-
-def test_proportions_from_landmarks_console_like():
-    p = proportions_from_landmarks({"top": 100, "floor": 900, "case_bottom": 380, "drawer_top": 170, "drawer_bottom": 308})
-    assert p["under_z_frac"] == pytest.approx(0.65, abs=1e-3)
-    assert p["drawer_bank_frac"] == pytest.approx(138 / 280, abs=1e-3)
-
-
-def test_proportions_from_landmarks_drops_impossible_rows():
-    base = {"top": 100, "floor": 900, "case_bottom": 380}
-    assert proportions_from_landmarks({**base, "drawer_top": 300, "drawer_bottom": 200}) == {"under_z_frac": 0.65}
-    assert proportions_from_landmarks({**base, "drawer_top": 170, "drawer_bottom": 500}) == {"under_z_frac": 0.65}
-    assert proportions_from_landmarks({"top": 100, "floor": 900, "case_bottom": 950}) == {}
-    assert proportions_from_landmarks({"top": 100, "floor": 900}) == {}
-    assert proportions_from_landmarks({"top": "x", "floor": None}) == {}
-    assert proportions_from_landmarks(None) == {}
-    # drawer rows are ignored if the case rows are missing
-    assert proportions_from_landmarks({"top": 100, "floor": 900, "drawer_top": 170, "drawer_bottom": 308}) == {}
-
+    assert "proportions" not in obs and "landmarks" not in obs
+    assert obs["counts"]["drawer"] == 2
+    assert client.messages.create.call_count == 2
 
 def test_construct_uses_perceived_proportions_else_prior():
     ir, _ = _compile(None)
@@ -180,3 +150,57 @@ def test_console_oracle_proportions_improve_dimensions_not_just_labels():
     assert errs["DF1"]["max_pct"] < 0.04  # front height now ~exact; width still limits the pass
     # joinery is never invented, so its recall stays 0 on any photo-derived IR
     assert oracle["by_class"]["joinery"]["recall"] == 0.0
+
+
+def _compile_known(known: dict):
+    o = _obs(None)
+    dims = apply_dims(o, known_mm={**KNOWN, **known})
+    ir = construct_ir_from_observation(o, dims)
+    return dims, ir, compile_ir(ir)
+
+
+def test_dimension_records_known_extra_and_asks():
+    o = _obs(None)
+    d = apply_dims(o, known_mm=KNOWN)
+    assert d["known_extra_mm"] == {}
+    assert {a["key"] for a in d["asks"]} == {"leg", "drawer_front"}
+    d = apply_dims(o, known_mm={**KNOWN, "leg": 495.3, "drawer_front": 128.6})
+    assert d["known_extra_mm"] == {"leg_h": 495.3, "drawer_front_h": 128.6}
+    assert d["asks"] == []
+    # no drawers observed: no drawer question
+    o2 = _obs(None)
+    o2["counts"]["drawer"] = 0
+    assert {a["key"] for a in apply_dims(o2, known_mm=KNOWN)["asks"]} == {"leg"}
+
+
+def test_user_known_sizes_drive_construct_and_beat_perceived():
+    o = _obs({"under_z_frac": 0.2, "drawer_bank_frac": 0.9})  # wrong perceived values
+    dims = apply_dims(o, known_mm={**KNOWN, "leg": 495.3, "drawer_front": 128.6})
+    ir = construct_ir_from_observation(o, dims)
+    assert ir["params"]["under_z"] == pytest.approx(495.3, abs=0.01)
+    assert any("under_z from user" in n for n in ir["notes"]) and any("drawer bank height from user" in n for n in ir["notes"])
+    parts = {p.id: p for p in compile_ir(ir)["parts"]}
+    _, w, _L = parts["DF1"].finished_twl()
+    assert w == pytest.approx(128.6, abs=0.5)  # drawer front height is exactly what the user typed
+
+
+def test_user_known_sizes_match_the_oracle_gain():
+    if not is_ready(CONSOLE):
+        pytest.skip("console_01 GT not present")
+
+    def share(known):
+        _, _, res = _compile_known(known)
+        rows = [p.to_dict() for p in res["parts"]]
+        return score_case(CONSOLE, parts_rows=rows, overall_pred_mm=KNOWN)["parts"]["dim_match_share"]
+
+    assert share({"leg": 495.3, "drawer_front": 128.6}) > share({}) + 0.10
+
+
+def test_pipeline_surfaces_asks_only_when_missing(tmp_path: Path):
+    from furniture_cad.pipeline import run_pipeline
+
+    s1 = run_pipeline(work_dir=tmp_path / "a", photo=None, known_mm=KNOWN, use_vision=False)
+    assert {a["key"] for a in s1["asks"]} == {"leg"}  # offline: no drawers observed
+    s2 = run_pipeline(work_dir=tmp_path / "b", photo=None, known_mm={**KNOWN, "leg": 495.3}, use_vision=False)
+    assert s2["asks"] == [] and s2["known_extra_mm"] == {"leg_h": 495.3}
+    assert s2["ok"] is True

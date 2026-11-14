@@ -45,13 +45,24 @@ def construct_ir_from_observation(
     props = observation.get("proportions") or {}
     prior_under_z = max(80.0, min(H * 0.35, H - 120.0))
     uz_frac = props.get("under_z_frac")
-    if uz_frac is not None:
+    extra = dims.get("known_extra_mm") or {}
+    if extra.get("leg_h"):
+        under_z = max(80.0, min(float(extra["leg_h"]), H - 120.0))
+        under_src = "user"
+    elif uz_frac is not None:
         under_z = max(80.0, min(H * float(uz_frac), H - 120.0))
         under_src = "perceive"
     else:
         under_z = prior_under_z
         under_src = "prior"
     bank_frac = props.get("drawer_bank_frac")
+    bank_src = "perceive" if bank_frac is not None else "default fractions"
+    reveal = 1.5
+    if extra.get("drawer_front_h"):
+        # front height = opening - 2 reveals, so opening = front + 2 reveals
+        case_h = max(40.0, H - under_z)
+        bank_frac = max(0.05, min(0.95, (float(extra["drawer_front_h"]) + 2 * reveal) / case_h))
+        bank_src = "user"
 
     end_form = str(observation.get("end_form") or "").lower()
     leg_style = str(observation.get("leg_style") or "").lower()
@@ -79,7 +90,7 @@ def construct_ir_from_observation(
         bank: dict[str, Any] = {
             "kind": "drawer_bank",
             "cols": drawers,
-            "front": {"t": 19.0, "reveal": 1.5, "corner": "follow_outline" if swept else "square"},
+            "front": {"t": 19.0, "reveal": reveal, "corner": "follow_outline" if swept else "square"},
         }
         if bank_frac is not None:
             bank["bank_frac"] = float(bank_frac)
@@ -146,8 +157,8 @@ def construct_ir_from_observation(
             f"class={observation.get('class') or class_hint}",
             f"counts={counts}",
             f"under_z from {under_src}"
-            + (f" (frac={uz_frac})" if uz_frac is not None else " (prior 0.35 H)"),
-            f"drawer bank height from {'perceive' if bank_frac is not None else 'default fractions'}",
+            + (" (prior 0.35 H)" if under_src == "prior" else f" ({round(under_z, 1)} mm)"),
+            f"drawer bank height from {bank_src}",
         ],
     }
     if legs:

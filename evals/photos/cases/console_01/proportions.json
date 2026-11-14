@@ -10,5 +10,9 @@
     "drawer_bank_frac": "(drawer front height 128.6 mm + 2 x 1.6 mm reveals) / case height 266.7 mm (762 - 495.3)"
   },
   "tolerance": 0.05,
-  "notes": "Ground truth for Perceive proportion estimates. Tolerance is absolute on the fraction."
+  "notes": "Ground truth for Perceive proportion estimates. Tolerance is absolute on the fraction. known_mm_assist = the two numbers a user with a tape measure would type (leg height, one drawer-front height); used only by `p4-a0 --assist`.",
+  "known_mm_assist": {
+    "leg": 495.3,
+    "drawer_front": 128.6
+  }
 }
