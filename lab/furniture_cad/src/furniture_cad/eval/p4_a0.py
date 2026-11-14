@@ -158,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
             "mean_recall_visible": _mean_parts(("by_class", "visible", "recall")),
             "mean_recall_construction": _mean_parts(("by_class", "construction", "recall")),
             "mean_recall_joinery": _mean_parts(("by_class", "joinery", "recall")),
-            "mean_dim_match_share": _mean_parts(("dim_match_share")),
+            "mean_dim_match_share": _mean_parts(("dim_match_share",)),
             "mean_proportion_abs_err": _mean_prop_err(),
             "mean_spend_usd": _mean("spent_usd_approx"),
             "mean_wall_s": _mean("wall_s"),
