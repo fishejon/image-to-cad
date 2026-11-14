@@ -35,7 +35,7 @@ def _validate_v2(ir: dict[str, Any]) -> dict[str, Any]:
     if not layout.get("children"):
         warnings.append("layout.children empty")
     # Reject unknown top-level keys beyond schema
-    allowed = {"schema", "units", "params", "material", "carcass", "layout", "legs", "notes"}
+    allowed = {"schema", "units", "params", "material", "carcass", "layout", "legs", "joinery", "notes"}
     unknown = sorted(set(ir) - allowed)
     if unknown:
         errors.append(f"unknown fields: {unknown}")

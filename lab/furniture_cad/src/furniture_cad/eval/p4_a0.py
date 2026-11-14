@@ -145,7 +145,10 @@ def main(argv: list[str] | None = None) -> int:
                     "Construct is seeded from the console answer-key IR: parts / cut-list / "
                     "board-ft are NOT blind (Perceive supplies dims + feature counts only)."
                     if seeded
-                    else "Construct was not seeded from the answer key."
+                    else (
+                        "Construct builds IR from Perceive counts + dims (generic casegood "
+                        "template). Part / cut-list / board-ft scores are the honest baseline."
+                    )
                 )
             ),
         },

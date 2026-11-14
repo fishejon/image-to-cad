@@ -31,5 +31,7 @@ def test_pipeline_console_with_known_dims(tmp_path: Path) -> None:
     assert (tmp_path / "cut_list_v2.json").is_file()
     assert (tmp_path / "events.json").is_file()
     assert abs(summary["bbox_mm"]["h"] - 762.0) < 2.0
-    assert summary["features"].get("drawer") == 2
+    # Blind Construct: heuristic Perceive has no drawer counts → no drawer_bank.
+    assert summary["construct_answer_key_seeded"] is False
+    assert summary["features"].get("leg") == 4
     assert summary["spent_usd_approx"] == 0.0

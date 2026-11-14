@@ -1,8 +1,8 @@
 """P2/P3 staged pipeline: Intake → Perceive → Dimension → Construct → Compile → Verify → Derive.
 
 Perceive is heuristic by default ($0). Set use_vision=True or FURNITURE_CAD_PERCEIVE=vision
-for Anthropic two-pass counts (P3). Construct loads a seed IR (console) or builds
-params from known dims.
+for Anthropic two-pass counts (P3). Construct builds IR from Perceive + Dimension by default;
+pass seed_ir=CONSOLE_IR only for golden / answer-key runs.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from furniture_cad.construct import load_ir
+from furniture_cad.construct import construct_ir_from_observation, load_ir
 from furniture_cad.dimension import apply_dims
 from furniture_cad.export import export_solid
 from furniture_cad.geom_check import bbox_mm_from_solid
@@ -113,30 +113,41 @@ def run_pipeline(
     )
 
     # 4–6. Construct + Compile + Verify (+ IR patch repair)
-    ir_src = seed_ir or CONSOLE_IR
-    ir = load_ir(ir_src)
-    if ir.get("schema") == "furniture_ir.v2":
-        params = dict(ir.get("params") or {})
-        overall = dims.get("overall_mm") or {}
-        for key, letter in (("W", "W"), ("D", "D"), ("H", "H")):
-            entry = overall.get(letter) or {}
-            if entry.get("v") is not None:
-                params[letter] = float(entry["v"])
-        ir = {**ir, "params": params}
-    # Provenance: when no seed IR is passed we fall back to the hand-written console IR,
-    # which is built from the answer key. Part / cut-list scores against that key are
-    # therefore NOT blind: Perceive only supplies dims and feature counts.
-    answer_key_seeded = seed_ir is None
+    # Default: IR from Perceive counts + dims (blind). Explicit seed_ir = answer-key path.
+    answer_key_seeded = seed_ir is not None
+    if seed_ir is not None:
+        ir = load_ir(seed_ir)
+        if ir.get("schema") == "furniture_ir.v2":
+            params = dict(ir.get("params") or {})
+            overall = dims.get("overall_mm") or {}
+            for key, letter in (("W", "W"), ("D", "D"), ("H", "H")):
+                entry = overall.get(letter) or {}
+                if entry.get("v") is not None:
+                    params[letter] = float(entry["v"])
+            ir = {**ir, "params": params}
+        ir_note = str(seed_ir)
+    else:
+        ir = construct_ir_from_observation(obs, dims, class_hint=class_hint)
+        ir_note = "from_observation"
     _event(
         events,
         "construct",
         ok=True,
         schema=ir.get("schema"),
-        ir_path=str(ir_src),
+        ir_path=ir_note,
         answer_key_seeded=answer_key_seeded,
     )
 
-    expected_feats = {"drawer": 2, "leg": 4} if "console" in class_hint else None
+    # Verify feature targets from Perceive when available (not hard-coded console).
+    expected_feats = None
+    if feat_counts.get("drawer") or feat_counts.get("leg"):
+        expected_feats = {
+            k: int(feat_counts[k])
+            for k in ("drawer", "leg")
+            if int(feat_counts.get(k) or 0) > 0
+        }
+    elif "console" in class_hint and answer_key_seeded:
+        expected_feats = {"drawer": 2, "leg": 4}
     targets = {
         "w": float((dims.get("overall_mm") or {}).get("W", {}).get("v") or 0),
         "d": float((dims.get("overall_mm") or {}).get("D", {}).get("v") or 0),

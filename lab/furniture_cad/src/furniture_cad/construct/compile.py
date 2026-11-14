@@ -259,14 +259,22 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
             )
         parts.extend(legs["parts"])
 
-    # Joinery / secondary blanks from hand plan (sized; not fully posed)
-    parts.extend(
-        [
-            part("LT", Box(9.525, 25.4, 279.4), material="hard_maple", qty=2, name="Loose tongue"),
-            part("W1", Box(4.7625, 15.875, 63.5), material="hardwood", qty=8, name="Wedge (kusabi)"),
-            part("R1", Box(9.525, 19.05, 266.7), material="hard_maple", qty=4, name="Drawer runner"),
-        ]
-    )
+    # Optional joinery blanks (golden / hand IR only — not invented by generic Construct)
+    for blank in ((ir.get("joinery") or {}).get("blanks") or []):
+        bid = str(blank.get("id") or "blank")
+        t = float(blank["thickness_mm"])
+        w = float(blank["width_mm"])
+        L = float(blank["length_mm"])
+        qty = int(blank.get("qty") or 1)
+        parts.append(
+            part(
+                bid,
+                Box(t, w, L),
+                material=str(blank.get("material") or mat),
+                qty=qty,
+                name=str(blank.get("name") or bid),
+            )
+        )
 
     assembly = Compound(children=children)
     cut_v2 = lists_with_allowances(parts)
