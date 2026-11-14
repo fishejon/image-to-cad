@@ -132,5 +132,14 @@
       "end_block": 2,
       "open_cubby": 1
     }
+  },
+  "p4_human_rating": {
+    "rating": "Close",
+    "rated_by": "Jonny",
+    "date": "2026-11-14",
+    "against": "console_01_front_clean.jpg",
+    "pipeline": "P4 blind Construct from Perceive (PR #79 proportions)",
+    "reasons": "Right features, layout and overall size. Wrong case-to-leg massing; missing the pill/wishbone silhouette.",
+    "note": "Separate from blind_A (older tool-use loop, rated Wrong)."
   }
 }

@@ -12,7 +12,7 @@ from furniture_cad.construct import compile_ir, construct_ir_from_observation
 from furniture_cad.dimension import apply_dims
 from furniture_cad.eval.case_gt import CASES_DIR, is_ready, score_case
 from furniture_cad.eval.scorer import score_parts
-from furniture_cad.perceive.vision import _norm_proportions, perceive_vision
+from furniture_cad.perceive.vision import _norm_proportions, perceive_vision, proportions_from_landmarks
 
 KNOWN = {"w": 1193.8, "d": 304.8, "h": 762.0}
 CONSOLE = CASES_DIR / "console_01"
@@ -64,7 +64,9 @@ def test_vision_returns_proportions(tmp_path: Path):
         "unknowns": [],
         "end_form": "swept_leaning",
         "leg_style": "two_profile_flared",
-        "proportions": {"under_z_frac": 0.62, "drawer_bank_frac": 1.4},  # second one is junk
+        # direct ratios are no longer read: only landmark rows count
+        "proportions": {"under_z_frac": 0.10, "drawer_bank_frac": 0.20},
+        "landmarks": {"top": 100, "floor": 900, "case_bottom": 380, "drawer_top": 170, "drawer_bottom": 308},
     }
 
     def _msg(**kw):
@@ -85,8 +87,28 @@ def test_vision_returns_proportions(tmp_path: Path):
         patch("furniture_cad.perceive.vision._photo_content_block", return_value=block),
     ):
         obs = perceive_vision(intake, known_mm=KNOWN, photo=photo, api_key="k", model="m")
-    assert obs["proportions"] == {"under_z_frac": 0.62}
+    assert obs["landmarks"]["floor"] == 900
+    assert obs["proportions"]["under_z_frac"] == pytest.approx(0.65, abs=1e-3)
+    assert obs["proportions"]["drawer_bank_frac"] == pytest.approx(0.4929, abs=1e-3)
     assert client.messages.create.call_count == 2  # no extra model call for proportions
+
+
+def test_proportions_from_landmarks_console_like():
+    p = proportions_from_landmarks({"top": 100, "floor": 900, "case_bottom": 380, "drawer_top": 170, "drawer_bottom": 308})
+    assert p["under_z_frac"] == pytest.approx(0.65, abs=1e-3)
+    assert p["drawer_bank_frac"] == pytest.approx(138 / 280, abs=1e-3)
+
+
+def test_proportions_from_landmarks_drops_impossible_rows():
+    base = {"top": 100, "floor": 900, "case_bottom": 380}
+    assert proportions_from_landmarks({**base, "drawer_top": 300, "drawer_bottom": 200}) == {"under_z_frac": 0.65}
+    assert proportions_from_landmarks({**base, "drawer_top": 170, "drawer_bottom": 500}) == {"under_z_frac": 0.65}
+    assert proportions_from_landmarks({"top": 100, "floor": 900, "case_bottom": 950}) == {}
+    assert proportions_from_landmarks({"top": 100, "floor": 900}) == {}
+    assert proportions_from_landmarks({"top": "x", "floor": None}) == {}
+    assert proportions_from_landmarks(None) == {}
+    # drawer rows are ignored if the case rows are missing
+    assert proportions_from_landmarks({"top": 100, "floor": 900, "drawer_top": 170, "drawer_bottom": 308}) == {}
 
 
 def test_construct_uses_perceived_proportions_else_prior():
