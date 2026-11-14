@@ -59,6 +59,28 @@
         "inset": { "type": "array", "items": { "type": "number" } }
       }
     },
+    "joinery": {
+      "type": "object",
+      "description": "Optional secondary blanks (tongues, wedges, runners). Golden/hand IR only.",
+      "properties": {
+        "blanks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "thickness_mm", "width_mm", "length_mm", "qty"],
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "qty": { "type": "integer" },
+              "thickness_mm": { "type": "number" },
+              "width_mm": { "type": "number" },
+              "length_mm": { "type": "number" },
+              "material": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
     "notes": { "type": "array", "items": { "type": "string" } }
   },
   "additionalProperties": false

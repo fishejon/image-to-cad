@@ -44,6 +44,13 @@
     "splay_deg": 8.0,
     "inset": [45.0, 40.0]
   },
+  "joinery": {
+    "blanks": [
+      {"id": "LT", "name": "Loose tongue", "qty": 2, "thickness_mm": 9.525, "width_mm": 25.4, "length_mm": 279.4, "material": "hard_maple"},
+      {"id": "W1", "name": "Wedge (kusabi)", "qty": 8, "thickness_mm": 4.7625, "width_mm": 15.875, "length_mm": 63.5, "material": "hardwood"},
+      {"id": "R1", "name": "Drawer runner", "qty": 4, "thickness_mm": 9.525, "width_mm": 19.05, "length_mm": 266.7, "material": "hard_maple"}
+    ]
+  },
   "notes": [
     "Hand IR for console_01 from Fusion dims + cut/joinery plan.",
     "Geometry is an approximation of swept ends and two-profile legs for golden compile."

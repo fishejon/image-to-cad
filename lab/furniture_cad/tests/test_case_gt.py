@@ -73,27 +73,34 @@ def test_console_hand_board_feet_truth():
     assert truth["recomputed"] == pytest.approx(56.1, abs=0.1)
 
 
-def test_pipeline_flags_answer_key_seed(tmp_path):
+def test_pipeline_default_is_blind_construct(tmp_path):
     summary, _ = _run(tmp_path)
-    assert summary["construct_answer_key_seeded"] is True
+    assert summary["construct_answer_key_seeded"] is False
     ev = [e for e in summary["events"] if e["stage"] == "construct"][0]
-    assert ev["answer_key_seeded"] is True
+    assert ev["answer_key_seeded"] is False
+    assert ev["ir_path"] == "from_observation"
 
 
-def test_explicit_seed_ir_is_not_flagged(tmp_path):
+def test_explicit_seed_ir_is_answer_key(tmp_path):
     from furniture_cad.pipeline import CONSOLE_IR
 
     summary = run_pipeline(work_dir=tmp_path, photo=None, known_mm=KNOWN, use_vision=False, seed_ir=CONSOLE_IR)
-    assert summary["construct_answer_key_seeded"] is False
+    assert summary["construct_answer_key_seeded"] is True
 
 
-def test_console_cut_list_match_regression(tmp_path):
-    """Guard the block-fidelity gains: divider depth, back height, end envelope."""
-    _, rows = _run(tmp_path)
+def test_console_cut_list_match_regression_on_golden_seed(tmp_path):
+    """Guard block-fidelity gains against the golden answer-key IR (not blind Construct)."""
+    from furniture_cad.pipeline import CONSOLE_IR
+
+    summary = run_pipeline(
+        work_dir=tmp_path, photo=None, known_mm=KNOWN, use_vision=False, seed_ir=CONSOLE_IR
+    )
+    rows = json.loads((tmp_path / "parts.json").read_text(encoding="utf-8"))["parts"]
     case = CASES_DIR / "console_01"
     if not is_ready(case):
         pytest.skip("console_01 GT not present")
     rep = score_case(case, parts_rows=rows, overall_pred_mm=KNOWN)
+    assert summary["construct_answer_key_seeded"] is True
     assert rep["parts"]["recall"] == 1.0
     assert rep["parts"]["cut_list_match_share"] >= 0.45
     by = {e["truth"]: e for e in rep["parts"]["size_errors"]}
