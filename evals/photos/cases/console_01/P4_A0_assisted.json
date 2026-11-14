@@ -1,0 +1,1399 @@
+{
+  "schema": "p4_a0.v1",
+  "piece": "console_01",
+  "at": "2026-11-14T16:04:31.626989+00:00",
+  "photo": "/Users/jonnyfisher/Desktop/Projects/image-to-cad/evals/photos/cases/console_01/console_01_front_clean.jpg",
+  "use_vision": true,
+  "assisted": true,
+  "known_extra_mm": {
+    "leg": 495.3,
+    "drawer_front": 128.6
+  },
+  "runs": [
+    {
+      "ok": true,
+      "dim_within_3pct": true,
+      "bbox_mm": {
+        "w": 1193.8,
+        "d": 304.8,
+        "h": 762.0000001,
+        "sorted_desc": [
+          1193.8,
+          762.0000001,
+          304.8
+        ],
+        "min": [
+          -596.9,
+          -152.4,
+          -1e-07
+        ],
+        "max": [
+          596.9,
+          152.4,
+          762.0
+        ]
+      },
+      "feature_recall": {
+        "recall": 0.8,
+        "per_feature": {
+          "door": {
+            "pred": 0,
+            "truth": 0,
+            "ok": true
+          },
+          "drawer": {
+            "pred": 2,
+            "truth": 2,
+            "ok": true
+          },
+          "end_block_carved": {
+            "pred": 0,
+            "truth": 2,
+            "ok": false
+          },
+          "leg": {
+            "pred": 4,
+            "truth": 4,
+            "ok": true
+          },
+          "open_cubby": {
+            "pred": 1,
+            "truth": 1,
+            "ok": true
+          },
+          "pull": {
+            "pred": 0,
+            "truth": 0,
+            "ok": true
+          },
+          "shelf": {
+            "pred": 1,
+            "truth": 1,
+            "ok": true
+          }
+        }
+      },
+      "parts": {
+        "dim_match_share": 0.4872,
+        "by_class": {
+          "visible": {
+            "n": 7,
+            "recall": 1.0,
+            "cut_list_match_share": 0.2857
+          },
+          "joinery": {
+            "n": 3,
+            "recall": 0.0,
+            "cut_list_match_share": 0.0
+          },
+          "construction": {
+            "n": 3,
+            "recall": 1.0,
+            "cut_list_match_share": 0.0
+          }
+        },
+        "recall_excl_joinery": 1.0,
+        "matched": 10,
+        "precision": 1.0,
+        "recall": 0.7692,
+        "cut_list_match_share": 0.1538,
+        "pairs": [
+          {
+            "pred_i": 1,
+            "truth_j": 1,
+            "cost": 10.251299545355891
+          },
+          {
+            "pred_i": 0,
+            "truth_j": 0,
+            "cost": 14.510686164229478
+          },
+          {
+            "pred_i": 8,
+            "truth_j": 6,
+            "cost": 17.43646719160109
+          },
+          {
+            "pred_i": 5,
+            "truth_j": 9,
+            "cost": 20.608267716535416
+          },
+          {
+            "pred_i": 3,
+            "truth_j": 4,
+            "cost": 34.06068616422943
+          },
+          {
+            "pred_i": 4,
+            "truth_j": 5,
+            "cost": 53.455905511810954
+          },
+          {
+            "pred_i": 6,
+            "truth_j": 10,
+            "cost": 69.43695336159904
+          },
+          {
+            "pred_i": 7,
+            "truth_j": 11,
+            "cost": 77.29287401574805
+          },
+          {
+            "pred_i": 9,
+            "truth_j": 7,
+            "cost": 240.29518164061278
+          },
+          {
+            "pred_i": 2,
+            "truth_j": 2,
+            "cost": 252.73568616422938
+          }
+        ],
+        "size_errors": [
+          {
+            "pred": "E1",
+            "truth": "E1",
+            "max_abs_mm": 9.524999999999977,
+            "max_pct": 0.037037037037036945,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "T1",
+            "truth": "T1",
+            "max_abs_mm": 3.2250000000000014,
+            "max_pct": 0.14510686164229478,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "DF1",
+            "truth": "DF1",
+            "max_abs_mm": 17.161500000000046,
+            "max_pct": 0.030624344761437477,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DS1",
+            "truth": "DS1",
+            "max_abs_mm": 7.949999999999989,
+            "max_pct": 0.08346456692913373,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "D1",
+            "truth": "D1",
+            "max_abs_mm": 12.799999999999955,
+            "max_pct": 0.14510686164229478,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "BK1",
+            "truth": "BK1",
+            "max_abs_mm": 6.699999999999999,
+            "max_pct": 0.5275590551181102,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DB1",
+            "truth": "DB1",
+            "max_abs_mm": 38.910000000000025,
+            "max_pct": 0.25015142337976976,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DBT1",
+            "truth": "DBT1",
+            "max_abs_mm": 38.910000000000025,
+            "max_pct": 0.3700787401574803,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "L1",
+            "truth": "L1",
+            "max_abs_mm": 175.88678393523892,
+            "max_pct": 0.7486136792306403,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "B1",
+            "truth": "B1",
+            "max_abs_mm": 238.2249999999999,
+            "max_pct": 0.2596245538511837,
+            "within_5mm_or_3pct": false
+          }
+        ]
+      },
+      "cut_list_match_share": 0.1538,
+      "board_feet": {
+        "pred_bf": 27.18,
+        "truth_bf": {
+          "stated": 59.4,
+          "recomputed": 56.1
+        },
+        "err_vs_stated": 0.5424,
+        "err_vs_recomputed": 0.5155,
+        "limit": 0.15,
+        "within_limit": false
+      },
+      "observation_proportions": {},
+      "proportion_abs_err": {
+        "under_z_frac": null,
+        "drawer_bank_frac": null
+      },
+      "construct_answer_key_seeded": false,
+      "gt_score": {
+        "schema": "furniture_cad.score_run.v1",
+        "parts": {
+          "dim_match_share": 0.4872,
+          "by_class": {
+            "visible": {
+              "n": 7,
+              "recall": 1.0,
+              "cut_list_match_share": 0.2857
+            },
+            "joinery": {
+              "n": 3,
+              "recall": 0.0,
+              "cut_list_match_share": 0.0
+            },
+            "construction": {
+              "n": 3,
+              "recall": 1.0,
+              "cut_list_match_share": 0.0
+            }
+          },
+          "recall_excl_joinery": 1.0,
+          "matched": 10,
+          "precision": 1.0,
+          "recall": 0.7692,
+          "cut_list_match_share": 0.1538,
+          "pairs": [
+            {
+              "pred_i": 1,
+              "truth_j": 1,
+              "cost": 10.251299545355891
+            },
+            {
+              "pred_i": 0,
+              "truth_j": 0,
+              "cost": 14.510686164229478
+            },
+            {
+              "pred_i": 8,
+              "truth_j": 6,
+              "cost": 17.43646719160109
+            },
+            {
+              "pred_i": 5,
+              "truth_j": 9,
+              "cost": 20.608267716535416
+            },
+            {
+              "pred_i": 3,
+              "truth_j": 4,
+              "cost": 34.06068616422943
+            },
+            {
+              "pred_i": 4,
+              "truth_j": 5,
+              "cost": 53.455905511810954
+            },
+            {
+              "pred_i": 6,
+              "truth_j": 10,
+              "cost": 69.43695336159904
+            },
+            {
+              "pred_i": 7,
+              "truth_j": 11,
+              "cost": 77.29287401574805
+            },
+            {
+              "pred_i": 9,
+              "truth_j": 7,
+              "cost": 240.29518164061278
+            },
+            {
+              "pred_i": 2,
+              "truth_j": 2,
+              "cost": 252.73568616422938
+            }
+          ],
+          "size_errors": [
+            {
+              "pred": "E1",
+              "truth": "E1",
+              "max_abs_mm": 9.524999999999977,
+              "max_pct": 0.037037037037036945,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "T1",
+              "truth": "T1",
+              "max_abs_mm": 3.2250000000000014,
+              "max_pct": 0.14510686164229478,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "DF1",
+              "truth": "DF1",
+              "max_abs_mm": 17.161500000000046,
+              "max_pct": 0.030624344761437477,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DS1",
+              "truth": "DS1",
+              "max_abs_mm": 7.949999999999989,
+              "max_pct": 0.08346456692913373,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "D1",
+              "truth": "D1",
+              "max_abs_mm": 12.799999999999955,
+              "max_pct": 0.14510686164229478,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "BK1",
+              "truth": "BK1",
+              "max_abs_mm": 6.699999999999999,
+              "max_pct": 0.5275590551181102,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DB1",
+              "truth": "DB1",
+              "max_abs_mm": 38.910000000000025,
+              "max_pct": 0.25015142337976976,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DBT1",
+              "truth": "DBT1",
+              "max_abs_mm": 38.910000000000025,
+              "max_pct": 0.3700787401574803,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "L1",
+              "truth": "L1",
+              "max_abs_mm": 175.88678393523892,
+              "max_pct": 0.7486136792306403,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "B1",
+              "truth": "B1",
+              "max_abs_mm": 238.2249999999999,
+              "max_pct": 0.2596245538511837,
+              "within_5mm_or_3pct": false
+            }
+          ]
+        },
+        "features": {
+          "recall": 1.0,
+          "per_feature": {
+            "door": {
+              "pred": 0,
+              "truth": 0,
+              "ok": true
+            },
+            "drawer": {
+              "pred": 2,
+              "truth": 2,
+              "ok": true
+            },
+            "end_block": {
+              "pred": 2,
+              "truth": 2,
+              "ok": true
+            },
+            "leg": {
+              "pred": 4,
+              "truth": 4,
+              "ok": true
+            },
+            "open_cubby": {
+              "pred": 1,
+              "truth": 1,
+              "ok": true
+            },
+            "shelf": {
+              "pred": 1,
+              "truth": 0,
+              "ok": false
+            }
+          }
+        },
+        "overall_dims_within_3pct": true,
+        "overall_dims": {
+          "w": {
+            "got": 1193.8,
+            "want": 1193.8,
+            "err": 0.0
+          },
+          "d": {
+            "got": 304.8,
+            "want": 304.8,
+            "err": 0.0
+          },
+          "h": {
+            "got": 762.0000001,
+            "want": 762.0,
+            "err": 0.0
+          }
+        },
+        "iou": null,
+        "cost_usd": null,
+        "wall_s": null,
+        "piece": "console_01",
+        "iou_rating": null,
+        "truth_features": {
+          "drawer": 2,
+          "leg": 4,
+          "end_block": 2,
+          "open_cubby": 1
+        }
+      },
+      "spent_usd_approx": 0.0113,
+      "wall_s": 4.11,
+      "rounds": 1,
+      "perceive_mode": "vision_v1",
+      "valid_solid": true
+    },
+    {
+      "ok": true,
+      "dim_within_3pct": true,
+      "bbox_mm": {
+        "w": 1193.8,
+        "d": 304.8,
+        "h": 762.0000001,
+        "sorted_desc": [
+          1193.8,
+          762.0000001,
+          304.8
+        ],
+        "min": [
+          -596.9,
+          -152.4,
+          -1e-07
+        ],
+        "max": [
+          596.9,
+          152.4,
+          762.0
+        ]
+      },
+      "feature_recall": {
+        "recall": 1.0,
+        "per_feature": {
+          "door": {
+            "pred": 0,
+            "truth": 0,
+            "ok": true
+          },
+          "drawer": {
+            "pred": 2,
+            "truth": 2,
+            "ok": true
+          },
+          "end_block_carved": {
+            "pred": 2,
+            "truth": 2,
+            "ok": true
+          },
+          "leg": {
+            "pred": 4,
+            "truth": 4,
+            "ok": true
+          },
+          "open_cubby": {
+            "pred": 1,
+            "truth": 1,
+            "ok": true
+          },
+          "pull": {
+            "pred": 0,
+            "truth": 0,
+            "ok": true
+          },
+          "shelf": {
+            "pred": 1,
+            "truth": 1,
+            "ok": true
+          }
+        }
+      },
+      "parts": {
+        "dim_match_share": 0.4872,
+        "by_class": {
+          "visible": {
+            "n": 7,
+            "recall": 1.0,
+            "cut_list_match_share": 0.2857
+          },
+          "joinery": {
+            "n": 3,
+            "recall": 0.0,
+            "cut_list_match_share": 0.0
+          },
+          "construction": {
+            "n": 3,
+            "recall": 1.0,
+            "cut_list_match_share": 0.0
+          }
+        },
+        "recall_excl_joinery": 1.0,
+        "matched": 10,
+        "precision": 1.0,
+        "recall": 0.7692,
+        "cut_list_match_share": 0.1538,
+        "pairs": [
+          {
+            "pred_i": 1,
+            "truth_j": 1,
+            "cost": 10.251299545355891
+          },
+          {
+            "pred_i": 0,
+            "truth_j": 0,
+            "cost": 14.510686164229478
+          },
+          {
+            "pred_i": 8,
+            "truth_j": 6,
+            "cost": 17.43646719160109
+          },
+          {
+            "pred_i": 5,
+            "truth_j": 9,
+            "cost": 20.608267716535416
+          },
+          {
+            "pred_i": 3,
+            "truth_j": 4,
+            "cost": 34.06068616422943
+          },
+          {
+            "pred_i": 4,
+            "truth_j": 5,
+            "cost": 53.455905511810954
+          },
+          {
+            "pred_i": 6,
+            "truth_j": 10,
+            "cost": 69.43695336159904
+          },
+          {
+            "pred_i": 7,
+            "truth_j": 11,
+            "cost": 77.29287401574805
+          },
+          {
+            "pred_i": 9,
+            "truth_j": 7,
+            "cost": 240.29518164061278
+          },
+          {
+            "pred_i": 2,
+            "truth_j": 2,
+            "cost": 252.73568616422938
+          }
+        ],
+        "size_errors": [
+          {
+            "pred": "E1",
+            "truth": "E1",
+            "max_abs_mm": 9.524999999999977,
+            "max_pct": 0.037037037037036945,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "T1",
+            "truth": "T1",
+            "max_abs_mm": 3.2250000000000014,
+            "max_pct": 0.14510686164229478,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "DF1",
+            "truth": "DF1",
+            "max_abs_mm": 17.161500000000046,
+            "max_pct": 0.030624344761437477,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DS1",
+            "truth": "DS1",
+            "max_abs_mm": 7.949999999999989,
+            "max_pct": 0.08346456692913373,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "D1",
+            "truth": "D1",
+            "max_abs_mm": 12.799999999999955,
+            "max_pct": 0.14510686164229478,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "BK1",
+            "truth": "BK1",
+            "max_abs_mm": 6.699999999999999,
+            "max_pct": 0.5275590551181102,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DB1",
+            "truth": "DB1",
+            "max_abs_mm": 38.910000000000025,
+            "max_pct": 0.25015142337976976,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DBT1",
+            "truth": "DBT1",
+            "max_abs_mm": 38.910000000000025,
+            "max_pct": 0.3700787401574803,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "L1",
+            "truth": "L1",
+            "max_abs_mm": 175.88678393523892,
+            "max_pct": 0.7486136792306403,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "B1",
+            "truth": "B1",
+            "max_abs_mm": 238.2249999999999,
+            "max_pct": 0.2596245538511837,
+            "within_5mm_or_3pct": false
+          }
+        ]
+      },
+      "cut_list_match_share": 0.1538,
+      "board_feet": {
+        "pred_bf": 27.18,
+        "truth_bf": {
+          "stated": 59.4,
+          "recomputed": 56.1
+        },
+        "err_vs_stated": 0.5424,
+        "err_vs_recomputed": 0.5155,
+        "limit": 0.15,
+        "within_limit": false
+      },
+      "observation_proportions": {},
+      "proportion_abs_err": {
+        "under_z_frac": null,
+        "drawer_bank_frac": null
+      },
+      "construct_answer_key_seeded": false,
+      "gt_score": {
+        "schema": "furniture_cad.score_run.v1",
+        "parts": {
+          "dim_match_share": 0.4872,
+          "by_class": {
+            "visible": {
+              "n": 7,
+              "recall": 1.0,
+              "cut_list_match_share": 0.2857
+            },
+            "joinery": {
+              "n": 3,
+              "recall": 0.0,
+              "cut_list_match_share": 0.0
+            },
+            "construction": {
+              "n": 3,
+              "recall": 1.0,
+              "cut_list_match_share": 0.0
+            }
+          },
+          "recall_excl_joinery": 1.0,
+          "matched": 10,
+          "precision": 1.0,
+          "recall": 0.7692,
+          "cut_list_match_share": 0.1538,
+          "pairs": [
+            {
+              "pred_i": 1,
+              "truth_j": 1,
+              "cost": 10.251299545355891
+            },
+            {
+              "pred_i": 0,
+              "truth_j": 0,
+              "cost": 14.510686164229478
+            },
+            {
+              "pred_i": 8,
+              "truth_j": 6,
+              "cost": 17.43646719160109
+            },
+            {
+              "pred_i": 5,
+              "truth_j": 9,
+              "cost": 20.608267716535416
+            },
+            {
+              "pred_i": 3,
+              "truth_j": 4,
+              "cost": 34.06068616422943
+            },
+            {
+              "pred_i": 4,
+              "truth_j": 5,
+              "cost": 53.455905511810954
+            },
+            {
+              "pred_i": 6,
+              "truth_j": 10,
+              "cost": 69.43695336159904
+            },
+            {
+              "pred_i": 7,
+              "truth_j": 11,
+              "cost": 77.29287401574805
+            },
+            {
+              "pred_i": 9,
+              "truth_j": 7,
+              "cost": 240.29518164061278
+            },
+            {
+              "pred_i": 2,
+              "truth_j": 2,
+              "cost": 252.73568616422938
+            }
+          ],
+          "size_errors": [
+            {
+              "pred": "E1",
+              "truth": "E1",
+              "max_abs_mm": 9.524999999999977,
+              "max_pct": 0.037037037037036945,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "T1",
+              "truth": "T1",
+              "max_abs_mm": 3.2250000000000014,
+              "max_pct": 0.14510686164229478,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "DF1",
+              "truth": "DF1",
+              "max_abs_mm": 17.161500000000046,
+              "max_pct": 0.030624344761437477,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DS1",
+              "truth": "DS1",
+              "max_abs_mm": 7.949999999999989,
+              "max_pct": 0.08346456692913373,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "D1",
+              "truth": "D1",
+              "max_abs_mm": 12.799999999999955,
+              "max_pct": 0.14510686164229478,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "BK1",
+              "truth": "BK1",
+              "max_abs_mm": 6.699999999999999,
+              "max_pct": 0.5275590551181102,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DB1",
+              "truth": "DB1",
+              "max_abs_mm": 38.910000000000025,
+              "max_pct": 0.25015142337976976,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DBT1",
+              "truth": "DBT1",
+              "max_abs_mm": 38.910000000000025,
+              "max_pct": 0.3700787401574803,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "L1",
+              "truth": "L1",
+              "max_abs_mm": 175.88678393523892,
+              "max_pct": 0.7486136792306403,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "B1",
+              "truth": "B1",
+              "max_abs_mm": 238.2249999999999,
+              "max_pct": 0.2596245538511837,
+              "within_5mm_or_3pct": false
+            }
+          ]
+        },
+        "features": {
+          "recall": 1.0,
+          "per_feature": {
+            "door": {
+              "pred": 0,
+              "truth": 0,
+              "ok": true
+            },
+            "drawer": {
+              "pred": 2,
+              "truth": 2,
+              "ok": true
+            },
+            "end_block": {
+              "pred": 2,
+              "truth": 2,
+              "ok": true
+            },
+            "leg": {
+              "pred": 4,
+              "truth": 4,
+              "ok": true
+            },
+            "open_cubby": {
+              "pred": 1,
+              "truth": 1,
+              "ok": true
+            },
+            "shelf": {
+              "pred": 1,
+              "truth": 0,
+              "ok": false
+            }
+          }
+        },
+        "overall_dims_within_3pct": true,
+        "overall_dims": {
+          "w": {
+            "got": 1193.8,
+            "want": 1193.8,
+            "err": 0.0
+          },
+          "d": {
+            "got": 304.8,
+            "want": 304.8,
+            "err": 0.0
+          },
+          "h": {
+            "got": 762.0000001,
+            "want": 762.0,
+            "err": 0.0
+          }
+        },
+        "iou": null,
+        "cost_usd": null,
+        "wall_s": null,
+        "piece": "console_01",
+        "iou_rating": null,
+        "truth_features": {
+          "drawer": 2,
+          "leg": 4,
+          "end_block": 2,
+          "open_cubby": 1
+        }
+      },
+      "spent_usd_approx": 0.0152,
+      "wall_s": 4.97,
+      "rounds": 1,
+      "perceive_mode": "vision_v1",
+      "valid_solid": true
+    },
+    {
+      "ok": true,
+      "dim_within_3pct": true,
+      "bbox_mm": {
+        "w": 1193.8,
+        "d": 304.8,
+        "h": 762.0000001,
+        "sorted_desc": [
+          1193.8,
+          762.0000001,
+          304.8
+        ],
+        "min": [
+          -596.9,
+          -152.4,
+          -1e-07
+        ],
+        "max": [
+          596.9,
+          152.4,
+          762.0
+        ]
+      },
+      "feature_recall": {
+        "recall": 1.0,
+        "per_feature": {
+          "door": {
+            "pred": 0,
+            "truth": 0,
+            "ok": true
+          },
+          "drawer": {
+            "pred": 2,
+            "truth": 2,
+            "ok": true
+          },
+          "end_block_carved": {
+            "pred": 2,
+            "truth": 2,
+            "ok": true
+          },
+          "leg": {
+            "pred": 4,
+            "truth": 4,
+            "ok": true
+          },
+          "open_cubby": {
+            "pred": 1,
+            "truth": 1,
+            "ok": true
+          },
+          "pull": {
+            "pred": 0,
+            "truth": 0,
+            "ok": true
+          },
+          "shelf": {
+            "pred": 1,
+            "truth": 1,
+            "ok": true
+          }
+        }
+      },
+      "parts": {
+        "dim_match_share": 0.4872,
+        "by_class": {
+          "visible": {
+            "n": 7,
+            "recall": 1.0,
+            "cut_list_match_share": 0.2857
+          },
+          "joinery": {
+            "n": 3,
+            "recall": 0.0,
+            "cut_list_match_share": 0.0
+          },
+          "construction": {
+            "n": 3,
+            "recall": 1.0,
+            "cut_list_match_share": 0.0
+          }
+        },
+        "recall_excl_joinery": 1.0,
+        "matched": 10,
+        "precision": 1.0,
+        "recall": 0.7692,
+        "cut_list_match_share": 0.1538,
+        "pairs": [
+          {
+            "pred_i": 1,
+            "truth_j": 1,
+            "cost": 10.251299545355891
+          },
+          {
+            "pred_i": 0,
+            "truth_j": 0,
+            "cost": 14.510686164229478
+          },
+          {
+            "pred_i": 8,
+            "truth_j": 6,
+            "cost": 17.43646719160109
+          },
+          {
+            "pred_i": 5,
+            "truth_j": 9,
+            "cost": 20.608267716535416
+          },
+          {
+            "pred_i": 3,
+            "truth_j": 4,
+            "cost": 34.06068616422943
+          },
+          {
+            "pred_i": 4,
+            "truth_j": 5,
+            "cost": 53.455905511810954
+          },
+          {
+            "pred_i": 6,
+            "truth_j": 10,
+            "cost": 69.43695336159904
+          },
+          {
+            "pred_i": 7,
+            "truth_j": 11,
+            "cost": 77.29287401574805
+          },
+          {
+            "pred_i": 9,
+            "truth_j": 7,
+            "cost": 240.29518164061278
+          },
+          {
+            "pred_i": 2,
+            "truth_j": 2,
+            "cost": 252.73568616422938
+          }
+        ],
+        "size_errors": [
+          {
+            "pred": "E1",
+            "truth": "E1",
+            "max_abs_mm": 9.524999999999977,
+            "max_pct": 0.037037037037036945,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "T1",
+            "truth": "T1",
+            "max_abs_mm": 3.2250000000000014,
+            "max_pct": 0.14510686164229478,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "DF1",
+            "truth": "DF1",
+            "max_abs_mm": 17.161500000000046,
+            "max_pct": 0.030624344761437477,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DS1",
+            "truth": "DS1",
+            "max_abs_mm": 7.949999999999989,
+            "max_pct": 0.08346456692913373,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "D1",
+            "truth": "D1",
+            "max_abs_mm": 12.799999999999955,
+            "max_pct": 0.14510686164229478,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "BK1",
+            "truth": "BK1",
+            "max_abs_mm": 6.699999999999999,
+            "max_pct": 0.5275590551181102,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DB1",
+            "truth": "DB1",
+            "max_abs_mm": 38.910000000000025,
+            "max_pct": 0.25015142337976976,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DBT1",
+            "truth": "DBT1",
+            "max_abs_mm": 38.910000000000025,
+            "max_pct": 0.3700787401574803,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "L1",
+            "truth": "L1",
+            "max_abs_mm": 175.88678393523892,
+            "max_pct": 0.7486136792306403,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "B1",
+            "truth": "B1",
+            "max_abs_mm": 238.2249999999999,
+            "max_pct": 0.2596245538511837,
+            "within_5mm_or_3pct": false
+          }
+        ]
+      },
+      "cut_list_match_share": 0.1538,
+      "board_feet": {
+        "pred_bf": 27.18,
+        "truth_bf": {
+          "stated": 59.4,
+          "recomputed": 56.1
+        },
+        "err_vs_stated": 0.5424,
+        "err_vs_recomputed": 0.5155,
+        "limit": 0.15,
+        "within_limit": false
+      },
+      "observation_proportions": {},
+      "proportion_abs_err": {
+        "under_z_frac": null,
+        "drawer_bank_frac": null
+      },
+      "construct_answer_key_seeded": false,
+      "gt_score": {
+        "schema": "furniture_cad.score_run.v1",
+        "parts": {
+          "dim_match_share": 0.4872,
+          "by_class": {
+            "visible": {
+              "n": 7,
+              "recall": 1.0,
+              "cut_list_match_share": 0.2857
+            },
+            "joinery": {
+              "n": 3,
+              "recall": 0.0,
+              "cut_list_match_share": 0.0
+            },
+            "construction": {
+              "n": 3,
+              "recall": 1.0,
+              "cut_list_match_share": 0.0
+            }
+          },
+          "recall_excl_joinery": 1.0,
+          "matched": 10,
+          "precision": 1.0,
+          "recall": 0.7692,
+          "cut_list_match_share": 0.1538,
+          "pairs": [
+            {
+              "pred_i": 1,
+              "truth_j": 1,
+              "cost": 10.251299545355891
+            },
+            {
+              "pred_i": 0,
+              "truth_j": 0,
+              "cost": 14.510686164229478
+            },
+            {
+              "pred_i": 8,
+              "truth_j": 6,
+              "cost": 17.43646719160109
+            },
+            {
+              "pred_i": 5,
+              "truth_j": 9,
+              "cost": 20.608267716535416
+            },
+            {
+              "pred_i": 3,
+              "truth_j": 4,
+              "cost": 34.06068616422943
+            },
+            {
+              "pred_i": 4,
+              "truth_j": 5,
+              "cost": 53.455905511810954
+            },
+            {
+              "pred_i": 6,
+              "truth_j": 10,
+              "cost": 69.43695336159904
+            },
+            {
+              "pred_i": 7,
+              "truth_j": 11,
+              "cost": 77.29287401574805
+            },
+            {
+              "pred_i": 9,
+              "truth_j": 7,
+              "cost": 240.29518164061278
+            },
+            {
+              "pred_i": 2,
+              "truth_j": 2,
+              "cost": 252.73568616422938
+            }
+          ],
+          "size_errors": [
+            {
+              "pred": "E1",
+              "truth": "E1",
+              "max_abs_mm": 9.524999999999977,
+              "max_pct": 0.037037037037036945,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "T1",
+              "truth": "T1",
+              "max_abs_mm": 3.2250000000000014,
+              "max_pct": 0.14510686164229478,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "DF1",
+              "truth": "DF1",
+              "max_abs_mm": 17.161500000000046,
+              "max_pct": 0.030624344761437477,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DS1",
+              "truth": "DS1",
+              "max_abs_mm": 7.949999999999989,
+              "max_pct": 0.08346456692913373,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "D1",
+              "truth": "D1",
+              "max_abs_mm": 12.799999999999955,
+              "max_pct": 0.14510686164229478,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "BK1",
+              "truth": "BK1",
+              "max_abs_mm": 6.699999999999999,
+              "max_pct": 0.5275590551181102,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DB1",
+              "truth": "DB1",
+              "max_abs_mm": 38.910000000000025,
+              "max_pct": 0.25015142337976976,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DBT1",
+              "truth": "DBT1",
+              "max_abs_mm": 38.910000000000025,
+              "max_pct": 0.3700787401574803,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "L1",
+              "truth": "L1",
+              "max_abs_mm": 175.88678393523892,
+              "max_pct": 0.7486136792306403,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "B1",
+              "truth": "B1",
+              "max_abs_mm": 238.2249999999999,
+              "max_pct": 0.2596245538511837,
+              "within_5mm_or_3pct": false
+            }
+          ]
+        },
+        "features": {
+          "recall": 1.0,
+          "per_feature": {
+            "door": {
+              "pred": 0,
+              "truth": 0,
+              "ok": true
+            },
+            "drawer": {
+              "pred": 2,
+              "truth": 2,
+              "ok": true
+            },
+            "end_block": {
+              "pred": 2,
+              "truth": 2,
+              "ok": true
+            },
+            "leg": {
+              "pred": 4,
+              "truth": 4,
+              "ok": true
+            },
+            "open_cubby": {
+              "pred": 1,
+              "truth": 1,
+              "ok": true
+            },
+            "shelf": {
+              "pred": 1,
+              "truth": 0,
+              "ok": false
+            }
+          }
+        },
+        "overall_dims_within_3pct": true,
+        "overall_dims": {
+          "w": {
+            "got": 1193.8,
+            "want": 1193.8,
+            "err": 0.0
+          },
+          "d": {
+            "got": 304.8,
+            "want": 304.8,
+            "err": 0.0
+          },
+          "h": {
+            "got": 762.0000001,
+            "want": 762.0,
+            "err": 0.0
+          }
+        },
+        "iou": null,
+        "cost_usd": null,
+        "wall_s": null,
+        "piece": "console_01",
+        "iou_rating": null,
+        "truth_features": {
+          "drawer": 2,
+          "leg": 4,
+          "end_block": 2,
+          "open_cubby": 1
+        }
+      },
+      "spent_usd_approx": 0.0118,
+      "wall_s": 3.55,
+      "rounds": 1,
+      "perceive_mode": "vision_v1",
+      "valid_solid": true
+    }
+  ],
+  "aggregate": {
+    "n": 3,
+    "all_ok": true,
+    "mean_feature_recall": 0.9333,
+    "mean_part_recall": 0.7692,
+    "mean_part_recall_excl_joinery": 1.0,
+    "mean_recall_visible": 1.0,
+    "mean_recall_construction": 1.0,
+    "mean_recall_joinery": 0.0,
+    "mean_dim_match_share": 0.4872,
+    "mean_proportion_abs_err": null,
+    "mean_spend_usd": 0.0128,
+    "mean_wall_s": 4.21,
+    "mean_cut_list_match_share": 0.1538,
+    "mean_board_feet_err": 0.5424,
+    "construct_answer_key_seeded": false,
+    "dims_all_within_3pct": true
+  },
+  "p4_gate": {
+    "dims_within_3pct": true,
+    "part_recall_ge_0_70": true,
+    "feature_recall_ge_0_90": true,
+    "valid_solid": true,
+    "cut_list_match_ge_0_50": false,
+    "board_feet_err_le_15pct": false,
+    "blind_construct": true,
+    "notes": "IoU / blind human rating deferred \u2014 D8 IoU still <0.8 on studio. Construct builds IR from Perceive counts + dims (generic casegood template). Part / cut-list / board-ft scores are the honest baseline.",
+    "partial_pass": true
+  }
+}

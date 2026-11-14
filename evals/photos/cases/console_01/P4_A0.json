@@ -1,9 +1,11 @@
 {
   "schema": "p4_a0.v1",
   "piece": "console_01",
-  "at": "2026-11-14T15:57:10.666737+00:00",
+  "at": "2026-11-14T16:04:16.099256+00:00",
   "photo": "/Users/jonnyfisher/Desktop/Projects/image-to-cad/evals/photos/cases/console_01/console_01_front_clean.jpg",
   "use_vision": true,
+  "assisted": false,
+  "known_extra_mm": {},
   "runs": [
     {
       "ok": true,
@@ -29,7 +31,7 @@
         ]
       },
       "feature_recall": {
-        "recall": 0.8,
+        "recall": 1.0,
         "per_feature": {
           "door": {
             "pred": 0,
@@ -42,9 +44,9 @@
             "ok": true
           },
           "end_block_carved": {
-            "pred": 0,
+            "pred": 2,
             "truth": 2,
-            "ok": false
+            "ok": true
           },
           "leg": {
             "pred": 4,
@@ -106,12 +108,12 @@
           {
             "pred_i": 8,
             "truth_j": 6,
-            "cost": 36.85343719160111
+            "cost": 70.75040719160108
           },
           {
             "pred_i": 5,
             "truth_j": 9,
-            "cost": 40.99353805774279
+            "cost": 71.41661417322833
           },
           {
             "pred_i": 7,
@@ -121,7 +123,7 @@
           {
             "pred_i": 6,
             "truth_j": 10,
-            "cost": 92.95841913991524
+            "cost": 128.061968503937
           },
           {
             "pred_i": 2,
@@ -162,15 +164,15 @@
           {
             "pred": "DF1",
             "truth": "DF1",
-            "max_abs_mm": 19.42947000000001,
-            "max_pct": 0.15109921259842526,
+            "max_abs_mm": 53.32643999999999,
+            "max_pct": 0.41470936132983366,
             "within_5mm_or_3pct": false
           },
           {
             "pred": "DS1",
             "truth": "DS1",
-            "max_abs_mm": 27.36697000000001,
-            "max_pct": 0.28731727034120746,
+            "max_abs_mm": 56.34494999999998,
+            "max_pct": 0.5915480314960628,
             "within_5mm_or_3pct": false
           },
           {
@@ -183,8 +185,8 @@
           {
             "pred": "DB1",
             "truth": "DB1",
-            "max_abs_mm": 40.06697000000001,
-            "max_pct": 0.48536608116293173,
+            "max_abs_mm": 69.04494999999999,
+            "max_pct": 0.8364015748031495,
             "within_5mm_or_3pct": false
           },
           {
@@ -219,22 +221,20 @@
       },
       "cut_list_match_share": 0.1538,
       "board_feet": {
-        "pred_bf": 40.02,
+        "pred_bf": 40.62,
         "truth_bf": {
           "stated": 59.4,
           "recomputed": 56.1
         },
-        "err_vs_stated": 0.3263,
-        "err_vs_recomputed": 0.2866,
+        "err_vs_stated": 0.3162,
+        "err_vs_recomputed": 0.2759,
         "limit": 0.15,
         "within_limit": false
       },
-      "observation_proportions": {
-        "drawer_bank_frac": 0.3049
-      },
+      "observation_proportions": {},
       "proportion_abs_err": {
         "under_z_frac": null,
-        "drawer_bank_frac": 0.1893
+        "drawer_bank_frac": null
       },
       "construct_answer_key_seeded": false,
       "gt_score": {
@@ -277,12 +277,12 @@
             {
               "pred_i": 8,
               "truth_j": 6,
-              "cost": 36.85343719160111
+              "cost": 70.75040719160108
             },
             {
               "pred_i": 5,
               "truth_j": 9,
-              "cost": 40.99353805774279
+              "cost": 71.41661417322833
             },
             {
               "pred_i": 7,
@@ -292,7 +292,7 @@
             {
               "pred_i": 6,
               "truth_j": 10,
-              "cost": 92.95841913991524
+              "cost": 128.061968503937
             },
             {
               "pred_i": 2,
@@ -333,15 +333,15 @@
             {
               "pred": "DF1",
               "truth": "DF1",
-              "max_abs_mm": 19.42947000000001,
-              "max_pct": 0.15109921259842526,
+              "max_abs_mm": 53.32643999999999,
+              "max_pct": 0.41470936132983366,
               "within_5mm_or_3pct": false
             },
             {
               "pred": "DS1",
               "truth": "DS1",
-              "max_abs_mm": 27.36697000000001,
-              "max_pct": 0.28731727034120746,
+              "max_abs_mm": 56.34494999999998,
+              "max_pct": 0.5915480314960628,
               "within_5mm_or_3pct": false
             },
             {
@@ -354,8 +354,8 @@
             {
               "pred": "DB1",
               "truth": "DB1",
-              "max_abs_mm": 40.06697000000001,
-              "max_pct": 0.48536608116293173,
+              "max_abs_mm": 69.04494999999999,
+              "max_pct": 0.8364015748031495,
               "within_5mm_or_3pct": false
             },
             {
@@ -453,8 +453,8 @@
           "open_cubby": 1
         }
       },
-      "spent_usd_approx": 0.0137,
-      "wall_s": 5.49,
+      "spent_usd_approx": 0.0122,
+      "wall_s": 4.7,
       "rounds": 1,
       "perceive_mode": "vision_v1",
       "valid_solid": true
@@ -558,24 +558,24 @@
             "cost": 34.06068616422943
           },
           {
+            "pred_i": 8,
+            "truth_j": 6,
+            "cost": 70.75040719160108
+          },
+          {
+            "pred_i": 5,
+            "truth_j": 9,
+            "cost": 71.41661417322833
+          },
+          {
             "pred_i": 7,
             "truth_j": 11,
             "cost": 77.29287401574805
           },
           {
-            "pred_i": 8,
-            "truth_j": 6,
-            "cost": 151.86209719160112
-          },
-          {
-            "pred_i": 5,
-            "truth_j": 9,
-            "cost": 161.73753805774282
-          },
-          {
             "pred_i": 6,
             "truth_j": 10,
-            "cost": 232.2784191399153
+            "cost": 128.061968503937
           },
           {
             "pred_i": 2,
@@ -614,6 +614,20 @@
             "within_5mm_or_3pct": true
           },
           {
+            "pred": "DF1",
+            "truth": "DF1",
+            "max_abs_mm": 53.32643999999999,
+            "max_pct": 0.41470936132983366,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DS1",
+            "truth": "DS1",
+            "max_abs_mm": 56.34494999999998,
+            "max_pct": 0.5915480314960628,
+            "within_5mm_or_3pct": false
+          },
+          {
             "pred": "DBT1",
             "truth": "DBT1",
             "max_abs_mm": 38.910000000000025,
@@ -621,24 +635,10 @@
             "within_5mm_or_3pct": false
           },
           {
-            "pred": "DF1",
-            "truth": "DF1",
-            "max_abs_mm": 134.43813000000003,
-            "max_pct": 1.0454992125984255,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "DS1",
-            "truth": "DS1",
-            "max_abs_mm": 142.37563000000003,
-            "max_pct": 1.4947572703412078,
-            "within_5mm_or_3pct": false
-          },
-          {
             "pred": "DB1",
             "truth": "DB1",
-            "max_abs_mm": 155.07563000000005,
-            "max_pct": 1.878566081162932,
+            "max_abs_mm": 69.04494999999999,
+            "max_pct": 0.8364015748031495,
             "within_5mm_or_3pct": false
           },
           {
@@ -673,22 +673,20 @@
       },
       "cut_list_match_share": 0.1538,
       "board_feet": {
-        "pred_bf": 42.25,
+        "pred_bf": 40.62,
         "truth_bf": {
           "stated": 59.4,
           "recomputed": 56.1
         },
-        "err_vs_stated": 0.2887,
-        "err_vs_recomputed": 0.2469,
+        "err_vs_stated": 0.3162,
+        "err_vs_recomputed": 0.2759,
         "limit": 0.15,
         "within_limit": false
       },
-      "observation_proportions": {
-        "drawer_bank_frac": 0.5371
-      },
+      "observation_proportions": {},
       "proportion_abs_err": {
         "under_z_frac": null,
-        "drawer_bank_frac": 0.0429
+        "drawer_bank_frac": null
       },
       "construct_answer_key_seeded": false,
       "gt_score": {
@@ -729,24 +727,24 @@
               "cost": 34.06068616422943
             },
             {
+              "pred_i": 8,
+              "truth_j": 6,
+              "cost": 70.75040719160108
+            },
+            {
+              "pred_i": 5,
+              "truth_j": 9,
+              "cost": 71.41661417322833
+            },
+            {
               "pred_i": 7,
               "truth_j": 11,
               "cost": 77.29287401574805
             },
             {
-              "pred_i": 8,
-              "truth_j": 6,
-              "cost": 151.86209719160112
-            },
-            {
-              "pred_i": 5,
-              "truth_j": 9,
-              "cost": 161.73753805774282
-            },
-            {
               "pred_i": 6,
               "truth_j": 10,
-              "cost": 232.2784191399153
+              "cost": 128.061968503937
             },
             {
               "pred_i": 2,
@@ -785,6 +783,20 @@
               "within_5mm_or_3pct": true
             },
             {
+              "pred": "DF1",
+              "truth": "DF1",
+              "max_abs_mm": 53.32643999999999,
+              "max_pct": 0.41470936132983366,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DS1",
+              "truth": "DS1",
+              "max_abs_mm": 56.34494999999998,
+              "max_pct": 0.5915480314960628,
+              "within_5mm_or_3pct": false
+            },
+            {
               "pred": "DBT1",
               "truth": "DBT1",
               "max_abs_mm": 38.910000000000025,
@@ -792,24 +804,10 @@
               "within_5mm_or_3pct": false
             },
             {
-              "pred": "DF1",
-              "truth": "DF1",
-              "max_abs_mm": 134.43813000000003,
-              "max_pct": 1.0454992125984255,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "DS1",
-              "truth": "DS1",
-              "max_abs_mm": 142.37563000000003,
-              "max_pct": 1.4947572703412078,
-              "within_5mm_or_3pct": false
-            },
-            {
               "pred": "DB1",
               "truth": "DB1",
-              "max_abs_mm": 155.07563000000005,
-              "max_pct": 1.878566081162932,
+              "max_abs_mm": 69.04494999999999,
+              "max_pct": 0.8364015748031495,
               "within_5mm_or_3pct": false
             },
             {
@@ -907,8 +905,8 @@
           "open_cubby": 1
         }
       },
-      "spent_usd_approx": 0.0137,
-      "wall_s": 4.44,
+      "spent_usd_approx": 0.0122,
+      "wall_s": 3.77,
       "rounds": 1,
       "perceive_mode": "vision_v1",
       "valid_solid": true
@@ -977,7 +975,7 @@
         }
       },
       "parts": {
-        "dim_match_share": 0.359,
+        "dim_match_share": 0.3846,
         "by_class": {
           "visible": {
             "n": 7,
@@ -1012,9 +1010,24 @@
             "cost": 34.06068616422943
           },
           {
+            "pred_i": 8,
+            "truth_j": 6,
+            "cost": 70.75040719160108
+          },
+          {
+            "pred_i": 5,
+            "truth_j": 9,
+            "cost": 71.41661417322833
+          },
+          {
             "pred_i": 7,
             "truth_j": 11,
             "cost": 77.29287401574805
+          },
+          {
+            "pred_i": 6,
+            "truth_j": 10,
+            "cost": 128.061968503937
           },
           {
             "pred_i": 2,
@@ -1022,34 +1035,19 @@
             "cost": 252.73568616422938
           },
           {
-            "pred_i": 8,
-            "truth_j": 6,
-            "cost": 266.85551719160105
-          },
-          {
-            "pred_i": 5,
-            "truth_j": 9,
-            "cost": 278.67580853018376
-          },
-          {
             "pred_i": 1,
             "truth_j": 1,
-            "cost": 347.08707045433414
+            "cost": 262.8781277270896
           },
           {
             "pred_i": 4,
             "truth_j": 5,
-            "cost": 357.0559055118109
-          },
-          {
-            "pred_i": 6,
-            "truth_j": 10,
-            "cost": 371.5799576014537
+            "cost": 280.85590551181093
           },
           {
             "pred_i": 9,
             "truth_j": 7,
-            "cost": 545.48543196037
+            "cost": 469.0642579931102
           }
         ],
         "size_errors": [
@@ -1068,10 +1066,31 @@
             "within_5mm_or_3pct": true
           },
           {
+            "pred": "DF1",
+            "truth": "DF1",
+            "max_abs_mm": 53.32643999999999,
+            "max_pct": 0.41470936132983366,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DS1",
+            "truth": "DS1",
+            "max_abs_mm": 56.34494999999998,
+            "max_pct": 0.5915480314960628,
+            "within_5mm_or_3pct": false
+          },
+          {
             "pred": "DBT1",
             "truth": "DBT1",
             "max_abs_mm": 38.910000000000025,
             "max_pct": 0.3700787401574803,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DB1",
+            "truth": "DB1",
+            "max_abs_mm": 69.04494999999999,
+            "max_pct": 0.8364015748031495,
             "within_5mm_or_3pct": false
           },
           {
@@ -1082,74 +1101,50 @@
             "within_5mm_or_3pct": false
           },
           {
-            "pred": "DF1",
-            "truth": "DF1",
-            "max_abs_mm": 249.43155,
-            "max_pct": 1.9397806940799065,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "DS1",
-            "truth": "DS1",
-            "max_abs_mm": 181.375,
-            "max_pct": 1.9041994750656168,
-            "within_5mm_or_3pct": false
-          },
-          {
             "pred": "E1",
             "truth": "E1",
-            "max_abs_mm": 266.7,
-            "max_pct": 0.8749999999999999,
+            "max_abs_mm": 190.5,
+            "max_pct": 0.625,
             "within_5mm_or_3pct": false
           },
           {
             "pred": "BK1",
             "truth": "BK1",
-            "max_abs_mm": 304.2,
-            "max_pct": 1.26067136344799,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "DB1",
-            "truth": "DB1",
-            "max_abs_mm": 270.06905,
-            "max_pct": 3.271581465778316,
+            "max_abs_mm": 228.0,
+            "max_pct": 0.9448818897637795,
             "within_5mm_or_3pct": false
           },
           {
             "pred": "L1",
             "truth": "L1",
-            "max_abs_mm": 330.19999980000006,
-            "max_pct": 0.7494829849385497,
+            "max_abs_mm": 253.9999998,
+            "max_pct": 0.7489903046263046,
             "within_5mm_or_3pct": false
           }
         ]
       },
       "cut_list_match_share": 0.1538,
       "board_feet": {
-        "pred_bf": 49.3,
+        "pred_bf": 40.62,
         "truth_bf": {
           "stated": 59.4,
           "recomputed": 56.1
         },
-        "err_vs_stated": 0.17,
-        "err_vs_recomputed": 0.1212,
+        "err_vs_stated": 0.3162,
+        "err_vs_recomputed": 0.2759,
         "limit": 0.15,
         "within_limit": false
       },
-      "observation_proportions": {
-        "under_z_frac": 0.25,
-        "drawer_bank_frac": 0.6667
-      },
+      "observation_proportions": {},
       "proportion_abs_err": {
-        "under_z_frac": 0.4,
-        "drawer_bank_frac": 0.1725
+        "under_z_frac": null,
+        "drawer_bank_frac": null
       },
       "construct_answer_key_seeded": false,
       "gt_score": {
         "schema": "furniture_cad.score_run.v1",
         "parts": {
-          "dim_match_share": 0.359,
+          "dim_match_share": 0.3846,
           "by_class": {
             "visible": {
               "n": 7,
@@ -1184,9 +1179,24 @@
               "cost": 34.06068616422943
             },
             {
+              "pred_i": 8,
+              "truth_j": 6,
+              "cost": 70.75040719160108
+            },
+            {
+              "pred_i": 5,
+              "truth_j": 9,
+              "cost": 71.41661417322833
+            },
+            {
               "pred_i": 7,
               "truth_j": 11,
               "cost": 77.29287401574805
+            },
+            {
+              "pred_i": 6,
+              "truth_j": 10,
+              "cost": 128.061968503937
             },
             {
               "pred_i": 2,
@@ -1194,34 +1204,19 @@
               "cost": 252.73568616422938
             },
             {
-              "pred_i": 8,
-              "truth_j": 6,
-              "cost": 266.85551719160105
-            },
-            {
-              "pred_i": 5,
-              "truth_j": 9,
-              "cost": 278.67580853018376
-            },
-            {
               "pred_i": 1,
               "truth_j": 1,
-              "cost": 347.08707045433414
+              "cost": 262.8781277270896
             },
             {
               "pred_i": 4,
               "truth_j": 5,
-              "cost": 357.0559055118109
-            },
-            {
-              "pred_i": 6,
-              "truth_j": 10,
-              "cost": 371.5799576014537
+              "cost": 280.85590551181093
             },
             {
               "pred_i": 9,
               "truth_j": 7,
-              "cost": 545.48543196037
+              "cost": 469.0642579931102
             }
           ],
           "size_errors": [
@@ -1240,10 +1235,31 @@
               "within_5mm_or_3pct": true
             },
             {
+              "pred": "DF1",
+              "truth": "DF1",
+              "max_abs_mm": 53.32643999999999,
+              "max_pct": 0.41470936132983366,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DS1",
+              "truth": "DS1",
+              "max_abs_mm": 56.34494999999998,
+              "max_pct": 0.5915480314960628,
+              "within_5mm_or_3pct": false
+            },
+            {
               "pred": "DBT1",
               "truth": "DBT1",
               "max_abs_mm": 38.910000000000025,
               "max_pct": 0.3700787401574803,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DB1",
+              "truth": "DB1",
+              "max_abs_mm": 69.04494999999999,
+              "max_pct": 0.8364015748031495,
               "within_5mm_or_3pct": false
             },
             {
@@ -1254,45 +1270,24 @@
               "within_5mm_or_3pct": false
             },
             {
-              "pred": "DF1",
-              "truth": "DF1",
-              "max_abs_mm": 249.43155,
-              "max_pct": 1.9397806940799065,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "DS1",
-              "truth": "DS1",
-              "max_abs_mm": 181.375,
-              "max_pct": 1.9041994750656168,
-              "within_5mm_or_3pct": false
-            },
-            {
               "pred": "E1",
               "truth": "E1",
-              "max_abs_mm": 266.7,
-              "max_pct": 0.8749999999999999,
+              "max_abs_mm": 190.5,
+              "max_pct": 0.625,
               "within_5mm_or_3pct": false
             },
             {
               "pred": "BK1",
               "truth": "BK1",
-              "max_abs_mm": 304.2,
-              "max_pct": 1.26067136344799,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "DB1",
-              "truth": "DB1",
-              "max_abs_mm": 270.06905,
-              "max_pct": 3.271581465778316,
+              "max_abs_mm": 228.0,
+              "max_pct": 0.9448818897637795,
               "within_5mm_or_3pct": false
             },
             {
               "pred": "L1",
               "truth": "L1",
-              "max_abs_mm": 330.19999980000006,
-              "max_pct": 0.7494829849385497,
+              "max_abs_mm": 253.9999998,
+              "max_pct": 0.7489903046263046,
               "within_5mm_or_3pct": false
             }
           ]
@@ -1362,8 +1357,8 @@
           "open_cubby": 1
         }
       },
-      "spent_usd_approx": 0.0137,
-      "wall_s": 4.48,
+      "spent_usd_approx": 0.0118,
+      "wall_s": 3.64,
       "rounds": 1,
       "perceive_mode": "vision_v1",
       "valid_solid": true
@@ -1372,18 +1367,18 @@
   "aggregate": {
     "n": 3,
     "all_ok": true,
-    "mean_feature_recall": 0.9333,
+    "mean_feature_recall": 1.0,
     "mean_part_recall": 0.7692,
     "mean_part_recall_excl_joinery": 1.0,
     "mean_recall_visible": 1.0,
     "mean_recall_construction": 1.0,
     "mean_recall_joinery": 0.0,
-    "mean_dim_match_share": 0.3761,
-    "mean_proportion_abs_err": 0.2012,
-    "mean_spend_usd": 0.0137,
-    "mean_wall_s": 4.8033,
+    "mean_dim_match_share": 0.3846,
+    "mean_proportion_abs_err": null,
+    "mean_spend_usd": 0.0121,
+    "mean_wall_s": 4.0367,
     "mean_cut_list_match_share": 0.1538,
-    "mean_board_feet_err": 0.2617,
+    "mean_board_feet_err": 0.3162,
     "construct_answer_key_seeded": false,
     "dims_all_within_3pct": true
   },
