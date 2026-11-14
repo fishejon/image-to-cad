@@ -39,22 +39,34 @@ def drawer_box(
     t: float = 12.0,
     bottom_t: float = 6.0,
     material: str = "maple",
+    front_applied: bool = False,
 ) -> dict[str, Any]:
-    """Open-top drawer box (four sides + bottom), centered at origin."""
+    """Open-top drawer box (four sides + bottom), centered at origin.
+
+    ``front_applied=True``: a separate drawer front (DF1) closes the box, so the
+    box itself has sides + back only (one back board, no inner front).
+    """
     side = Box(t, D, H)
     front_back = Box(W - 2 * t, t, H)
     bottom = Box(W - 2 * t, D - 2 * t, bottom_t)
     children = [
         Pos(-W / 2 + t / 2, 0, 0) * side,
         Pos(W / 2 - t / 2, 0, 0) * side,
-        Pos(0, D / 2 - t / 2, 0) * front_back,
         Pos(0, -D / 2 + t / 2, 0) * front_back,
         Pos(0, 0, -H / 2 + bottom_t / 2) * bottom,
     ]
+    if not front_applied:
+        children.append(Pos(0, D / 2 - t / 2, 0) * front_back)
     assembly = Compound(children=children)
     parts = [
         part("drawer_side", side, material=material, qty=2, name="Drawer side"),
-        part("drawer_fb", front_back, material=material, qty=2, name="Drawer front/back"),
+        part(
+            "drawer_fb",
+            front_back,
+            material=material,
+            qty=1 if front_applied else 2,
+            name="Drawer back" if front_applied else "Drawer front/back",
+        ),
         part("drawer_bottom", bottom, material="ply", qty=1, make="sheet", name="Drawer bottom"),
     ]
     return {"assembly": assembly, "parts": parts, "meta": {"block": "drawer_box", "W": W, "D": D, "H": H}}

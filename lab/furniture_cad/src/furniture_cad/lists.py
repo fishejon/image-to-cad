@@ -47,9 +47,9 @@ def mm_to_in(mm: float) -> float:
 
 
 def board_feet(t_mm: float, w_mm: float, L_mm: float, qty: int = 1) -> float:
-    """Nominal board feet from blank size (inches formula)."""
+    """Board feet from blank size: thickness x width x length in inches / 144."""
     t, w, L = mm_to_in(t_mm), mm_to_in(w_mm), mm_to_in(L_mm)
-    return (t * w * L / 12.0) * qty
+    return (t * w * L / 144.0) * qty
 
 
 def cut_rows(parts: list[PartRecord]) -> list[dict[str, Any]]:

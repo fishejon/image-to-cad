@@ -1,0 +1,20 @@
+{
+  "schema": "hand_cut_list.v1",
+  "id": "nightstand_01",
+  "title": "nightstand_01",
+  "date": "2026-11-14",
+  "author": "",
+  "dims_in": {},
+  "dims_mm": {
+    "w": null,
+    "d": null,
+    "h": null
+  },
+  "dims_from": "Fusion",
+  "status": "template",
+  "units_source": "inches",
+  "notes": [],
+  "parts": [],
+  "stock_buy": [],
+  "joinery": []
+}

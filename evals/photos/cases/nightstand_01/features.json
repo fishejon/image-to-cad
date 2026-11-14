@@ -1,0 +1,14 @@
+{
+  "schema": "features.v1",
+  "id": "nightstand_01",
+  "counts": {
+    "drawer": null,
+    "door": null,
+    "shelf": null,
+    "leg": null,
+    "open_cubby": null,
+    "pull": null
+  },
+  "attrs": {},
+  "notes": "Counts a person can read off the photo. Replace null with integers."
+}

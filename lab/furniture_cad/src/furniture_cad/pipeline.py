@@ -123,7 +123,18 @@ def run_pipeline(
             if entry.get("v") is not None:
                 params[letter] = float(entry["v"])
         ir = {**ir, "params": params}
-    _event(events, "construct", ok=True, schema=ir.get("schema"), ir_path=str(ir_src))
+    # Provenance: when no seed IR is passed we fall back to the hand-written console IR,
+    # which is built from the answer key. Part / cut-list scores against that key are
+    # therefore NOT blind: Perceive only supplies dims and feature counts.
+    answer_key_seeded = seed_ir is None
+    _event(
+        events,
+        "construct",
+        ok=True,
+        schema=ir.get("schema"),
+        ir_path=str(ir_src),
+        answer_key_seeded=answer_key_seeded,
+    )
 
     expected_feats = {"drawer": 2, "leg": 4} if "console" in class_hint else None
     targets = {
@@ -195,6 +206,7 @@ def run_pipeline(
             "conflicts": dims.get("conflicts"),
         },
         "ir_hash": (compiled.get("report") or {}).get("ir_hash"),
+        "construct_answer_key_seeded": answer_key_seeded,
         "spent_usd_approx": round(spend, 4),
         "rounds": int(repair.get("rounds") or 1),
         "perceive_mode": (obs.get("meta") or {}).get("perceive"),

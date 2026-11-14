@@ -9,7 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from furniture_cad.eval.console_gt import score_prediction
+from furniture_cad.eval.board_feet import score_board_feet
+from furniture_cad.eval.console_gt import load_hand_cut_list, score_prediction
 from furniture_cad.eval.scorer import feature_recall
 from furniture_cad.pipeline import run_pipeline
 
@@ -43,6 +44,7 @@ def _run_one(work: Path, *, use_vision: bool) -> dict[str, Any]:
         predicted_features=summary.get("features") or {},
         overall_pred_mm={"w": bb.get("w"), "d": bb.get("d"), "h": bb.get("h")},
     )
+    bf = score_board_feet(load_hand_cut_list(), parts)
     dim_ok = True
     for k, want in KNOWN.items():
         got = float(bb.get(k) or 0)
@@ -55,6 +57,8 @@ def _run_one(work: Path, *, use_vision: bool) -> dict[str, Any]:
         "feature_recall": fr,
         "parts": gt_score.get("parts"),
         "cut_list_match_share": (gt_score.get("parts") or {}).get("cut_list_match_share"),
+        "board_feet": bf,
+        "construct_answer_key_seeded": bool(summary.get("construct_answer_key_seeded")),
         "gt_score": gt_score,
         "spent_usd_approx": summary.get("spent_usd_approx"),
         "wall_s": round(wall, 2),
@@ -99,6 +103,15 @@ def main(argv: list[str] | None = None) -> int:
                 vals.append(float(r[key]))
         return round(sum(vals) / len(vals), 4) if vals else None
 
+    def _mean_bf_err() -> float | None:
+        vals = [
+            float(r["board_feet"]["err_vs_stated"])
+            for r in runs
+            if (r.get("board_feet") or {}).get("err_vs_stated") is not None
+        ]
+        return round(sum(vals) / len(vals), 4) if vals else None
+
+    seeded = any(r.get("construct_answer_key_seeded") for r in runs)
     report = {
         "schema": "p4_a0.v1",
         "piece": "console_01",
@@ -113,6 +126,9 @@ def main(argv: list[str] | None = None) -> int:
             "mean_part_recall": _mean("part_recall"),
             "mean_spend_usd": _mean("spent_usd_approx"),
             "mean_wall_s": _mean("wall_s"),
+            "mean_cut_list_match_share": _mean("cut_list_match_share"),
+            "mean_board_feet_err": _mean_bf_err(),
+            "construct_answer_key_seeded": any(r.get("construct_answer_key_seeded") for r in runs),
             "dims_all_within_3pct": all(r.get("dim_within_3pct") for r in runs),
         },
         "p4_gate": {
@@ -120,7 +136,18 @@ def main(argv: list[str] | None = None) -> int:
             "part_recall_ge_0_70": (_mean("part_recall") or 0) >= 0.70,
             "feature_recall_ge_0_90": (_mean("feature_recall") or 0) >= 0.90,
             "valid_solid": all(r.get("valid_solid") for r in runs),
-            "notes": "IoU / blind human rating / board-ft deferred — D8 IoU still <0.8 on studio",
+            "cut_list_match_ge_0_50": (_mean("cut_list_match_share") or 0) >= 0.50,
+            "board_feet_err_le_15pct": (_mean_bf_err() is not None and _mean_bf_err() <= 0.15),
+            "blind_construct": not seeded,
+            "notes": (
+                "IoU / blind human rating deferred — D8 IoU still <0.8 on studio. "
+                + (
+                    "Construct is seeded from the console answer-key IR: parts / cut-list / "
+                    "board-ft are NOT blind (Perceive supplies dims + feature counts only)."
+                    if seeded
+                    else "Construct was not seeded from the answer key."
+                )
+            ),
         },
     }
     gate = report["p4_gate"]

@@ -21,12 +21,23 @@ def swept_shell(
     under_z: float = 495.3,
     back_t: float = 12.7,
     open_front: bool = True,
+    front_setback: float | None = None,
+    back_groove: float = 0.0,
     material: str = "walnut",
 ) -> dict[str, Any]:
     """Open-front casegood shell approximating the Fusion walnut console.
 
     Geometry is a practical build123d approximation of leaning ends + case mass.
     Part IDs match the hand cut list (T1/E1/B1/D1/BK1).
+
+    Sizing rules (all driven by IR fields, no per-piece constants):
+    * ``front_setback``: divider is set back from the front edge by this much
+      (drawer fronts overlap it); depth = D - back_t - front_setback.
+      ``None`` keeps the legacy 10 mm.
+    * ``back_groove``: the floating back panel's tongues enter grooves in the top
+      and bottom, so the back blank is taller than the void by 2 x groove depth.
+    * Carved end envelope thickness = lean inset + sweep radius (the block the
+      lean and the underside sweep are carved from).
     """
     case_h = max(40.0, H - under_z)
     inset = case_h * math.tan(math.radians(lean_deg))
@@ -49,7 +60,11 @@ def swept_shell(
     back = Pos(0, -D / 2 + back_t / 2, under_z + case_h / 2) * Box(max(10.0, W - 2 * wall), back_t, max(10.0, case_h - 2 * wall))
 
     div_z = under_z + wall + (case_h - 2 * wall) * 0.52
-    div = Pos(0, back_t * 0.25, div_z) * Box(max(10.0, W - 2 * wall), max(10.0, D - back_t - 10), wall)
+    div_setback = 10.0 if front_setback is None else float(front_setback)
+    div_d = max(10.0, D - back_t - div_setback)
+    div = Pos(0, back_t * 0.25, div_z) * Box(max(10.0, W - 2 * wall), div_d, wall)
+    end_env_t = inset + sweep_r
+    back_h = max(10.0, case_h - 2 * wall + 2 * float(back_groove))
 
     # Sweep cue kept inside envelope
     sweep_box = Box(min(sweep_r * 0.25, 45), D * 0.85, min(sweep_r * 0.2, 35))
@@ -62,7 +77,7 @@ def swept_shell(
         part("T1", Box(W, D, wall), material=material, qty=1, name="Top plank"),
         part(
             "E1",
-            Box(end_w, D, case_h),
+            Box(end_env_t, D, case_h),
             material=material,
             qty=2,
             name="End block, carved",
@@ -72,14 +87,14 @@ def swept_shell(
         part("B1", Box(max(10.0, W - 2 * wall), D, wall), material=material, qty=1, name="Bottom panel"),
         part(
             "D1",
-            Box(max(10.0, W - 2 * wall), max(10.0, D - back_t - 10), wall),
+            Box(max(10.0, W - 2 * wall), div_d, wall),
             material=material,
             qty=1,
             name="Divider shelf",
         ),
         part(
             "BK1",
-            Box(max(10.0, W - 2 * wall), back_t, max(10.0, case_h - 2 * wall)),
+            Box(max(10.0, W - 2 * wall), back_t, back_h),
             material=material,
             qty=1,
             make="sheet",

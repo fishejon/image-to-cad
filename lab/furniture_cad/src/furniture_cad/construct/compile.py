@@ -160,6 +160,12 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
     back_t = float(params.get("back_t") or (carcass.get("back") or {}).get("t") or 12.7)
 
     form = carcass.get("form") or "box"
+    # Layout-driven shell sizing: divider setback from the open child, groove depth from back.
+    setback = None
+    for _c in (ir.get("layout") or {}).get("children") or []:
+        if (_c or {}).get("kind") == "open" and (_c or {}).get("setback") is not None:
+            setback = float(_c["setback"])
+    back_groove = float((carcass.get("back") or {}).get("groove") or 0.0)
     children: list[Any] = []
     parts: list[Any] = []
     features: dict[str, int] = {"drawer": 0, "door": 0, "leg": 0, "shelf": 0, "end_block": 0, "open_cubby": 0}
@@ -175,6 +181,8 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
             under_z=under_z,
             back_t=back_t,
             open_front=bool(carcass.get("open_front", True)),
+            front_setback=setback,
+            back_groove=back_groove,
             material=mat,
         )
         children.append(shell["assembly"])
@@ -202,7 +210,7 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
             for i in range(cols):
                 cx = -W / 2 + wall + bay_w * (i + 0.5)
                 z = under_z + wall + drawer_h / 2 + 8
-                box = drawer_box(W=bay_w * 0.9, D=D * 0.82, H=drawer_h * 0.75, material=hidden)
+                box = drawer_box(W=bay_w * 0.9, D=D * 0.82, H=drawer_h * 0.75, material=hidden, front_applied=True)
                 children.append(Pos(cx, 0, z) * box["assembly"])
                 if i == 0:
                     for p in box["parts"]:

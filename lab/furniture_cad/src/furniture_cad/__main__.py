@@ -26,6 +26,7 @@ def main(argv: list[str] | None = None) -> int:
             "  pipeline --photo PATH --known-mm W D H [--vision]  # staged IR pipeline\n"
             "  perceive --photo PATH [--features FILE] [--known-mm W D H]  # P3 vision score\n"
             "  p4-a0 [--vision|--no-vision] [--runs 3]  # P4 console A0 ×N\n"
+            "  new-case ID [--dims-in W D H]      # scaffold evals/photos/cases/ID (GT templates)\n"
             "  rebuild --project DIR --set KEY VAL  # no-model rebuild\n"
             "This lab is offline and NOT deployed to prod."
         )
@@ -72,6 +73,18 @@ def main(argv: list[str] | None = None) -> int:
         from furniture_cad.eval.calibrate_cli import main as calibrate_main
 
         return calibrate_main(rest)
+    if cmd == "new-case":
+        import argparse
+
+        from furniture_cad.eval.case_gt import scaffold_case
+
+        p = argparse.ArgumentParser(description="Scaffold a ground-truth case folder")
+        p.add_argument("case_id")
+        p.add_argument("--dims-in", nargs=3, type=float, metavar=("W", "D", "H"), default=None)
+        args = p.parse_args(rest)
+        out = scaffold_case(args.case_id, dims_in=tuple(args.dims_in) if args.dims_in else None)
+        print(f"scaffolded {out}")
+        return 0
     if cmd == "pipeline":
         import argparse
         import json

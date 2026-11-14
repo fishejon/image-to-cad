@@ -1,0 +1,24 @@
+{
+  "schema": "known_sizes.v1",
+  "id": "bookcase_01",
+  "units": "mm",
+  "overall": {
+    "w": {
+      "v": null,
+      "src": "user",
+      "in": null
+    },
+    "d": {
+      "v": null,
+      "src": "user",
+      "in": null
+    },
+    "h": {
+      "v": null,
+      "src": "user",
+      "in": null
+    }
+  },
+  "anchor": "w",
+  "notes": "Fill from the Fusion model (one overall size is enough; all three if known)."
+}
