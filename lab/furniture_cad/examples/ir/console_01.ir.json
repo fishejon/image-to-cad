@@ -22,7 +22,7 @@
     },
     "open_front": true,
     "top": { "kind": "plank", "edge_r": 6.35, "end_cut_deg": 6 },
-    "back": { "t": 12.7, "kind": "floating" }
+    "back": { "t": 12.7, "kind": "floating", "groove": 9.525 }
   },
   "layout": {
     "split": "z",

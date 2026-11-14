@@ -104,7 +104,9 @@ def test_bookshelf_sizes_within_5pct() -> None:
     assert plan["totals"]["piece_count"] == 20
     assert plan["totals"]["blank_board_feet"] > 0
     assert any(s["kind"] == "sheet" for s in plan["summary"])
-    assert board_feet(18, 300, 1800, 1) == pytest.approx((18 / 25.4) * (300 / 25.4) * (1800 / 25.4) / 12, rel=1e-6)
+    assert board_feet(18, 300, 1800, 1) == pytest.approx((18 / 25.4) * (300 / 25.4) * (1800 / 25.4) / 144, rel=1e-6)
+    # 1-1/4 x 13 x 48 in blank is 5.42 bf (not 65)
+    assert board_feet(1.25 * 25.4, 13 * 25.4, 48 * 25.4) == pytest.approx(5.4167, rel=1e-3)
 
 
 def test_lists_cli(tmp_path: Path) -> None:

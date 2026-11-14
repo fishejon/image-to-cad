@@ -1,0 +1,8 @@
+{
+  "schema": "views.v1",
+  "id": "bookcase_01",
+  "photos": [],
+  "needed": [
+    "front_clean"
+  ]
+}
