@@ -1,7 +1,7 @@
 {
   "schema": "p4_a0.v1",
   "piece": "console_01",
-  "at": "2026-11-11T02:05:28.002366+00:00",
+  "at": "2026-11-14T01:45:30.096960+00:00",
   "photo": "/Users/jonnyfisher/Desktop/Projects/image-to-cad/evals/photos/cases/console_01/console_01_front_clean.jpg",
   "use_vision": true,
   "runs": [
@@ -72,7 +72,7 @@
         "matched": 13,
         "precision": 1.0,
         "recall": 1.0,
-        "cut_list_match_share": 0.3077,
+        "cut_list_match_share": 0.4615,
         "pairs": [
           {
             "pred_i": 0,
@@ -97,17 +97,27 @@
           {
             "pred_i": 3,
             "truth_j": 4,
-            "cost": 15.39999999999992
+            "cost": 6.349999999999909
           },
           {
             "pred_i": 4,
             "truth_j": 5,
-            "cost": 25.400000000000148
+            "cost": 6.350000000000136
+          },
+          {
+            "pred_i": 1,
+            "truth_j": 1,
+            "cost": 10.251299545355891
           },
           {
             "pred_i": 5,
             "truth_j": 9,
             "cost": 48.10081102362203
+          },
+          {
+            "pred_i": 6,
+            "truth_j": 10,
+            "cost": 52.26931102362202
           },
           {
             "pred_i": 8,
@@ -118,16 +128,6 @@
             "pred_i": 7,
             "truth_j": 11,
             "cost": 101.07937401574802
-          },
-          {
-            "pred_i": 1,
-            "truth_j": 1,
-            "cost": 108.49370045464406
-          },
-          {
-            "pred_i": 6,
-            "truth_j": 10,
-            "cost": 152.26931102362204
           },
           {
             "pred_i": 9,
@@ -172,15 +172,22 @@
           {
             "pred": "D1",
             "truth": "D1",
-            "max_abs_mm": 9.050000000000011,
-            "max_pct": 0.03314411279985355,
-            "within_5mm_or_3pct": false
+            "max_abs_mm": 6.349999999999909,
+            "max_pct": 0.005555555555555476,
+            "within_5mm_or_3pct": true
           },
           {
             "pred": "BK1",
             "truth": "BK1",
-            "max_abs_mm": 19.05000000000001,
-            "max_pct": 0.07894736842105267,
+            "max_abs_mm": 6.350000000000136,
+            "max_pct": 0.005494505494505612,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "E1",
+            "truth": "E1",
+            "max_abs_mm": 9.524999999999977,
+            "max_pct": 0.037037037037036945,
             "within_5mm_or_3pct": false
           },
           {
@@ -188,6 +195,13 @@
             "truth": "DS1",
             "max_abs_mm": 21.574124999999995,
             "max_pct": 0.22649999999999995,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DB1",
+            "truth": "DB1",
+            "max_abs_mm": 36.00749999999999,
+            "max_pct": 0.10749999999999992,
             "within_5mm_or_3pct": false
           },
           {
@@ -202,20 +216,6 @@
             "truth": "DBT1",
             "max_abs_mm": 36.00749999999999,
             "max_pct": 0.3700787401574803,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "E1",
-            "truth": "E1",
-            "max_abs_mm": 98.96870045464408,
-            "max_pct": 0.6632179625038973,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "DB1",
-            "truth": "DB1",
-            "max_abs_mm": 36.00749999999999,
-            "max_pct": 0.10749999999999992,
             "within_5mm_or_3pct": false
           },
           {
@@ -234,14 +234,26 @@
           }
         ]
       },
-      "cut_list_match_share": 0.3077,
+      "cut_list_match_share": 0.4615,
+      "board_feet": {
+        "pred_bf": 31.53,
+        "truth_bf": {
+          "stated": 59.4,
+          "recomputed": 56.1
+        },
+        "err_vs_stated": 0.4692,
+        "err_vs_recomputed": 0.438,
+        "limit": 0.15,
+        "within_limit": false
+      },
+      "construct_answer_key_seeded": true,
       "gt_score": {
         "schema": "furniture_cad.score_run.v1",
         "parts": {
           "matched": 13,
           "precision": 1.0,
           "recall": 1.0,
-          "cut_list_match_share": 0.3077,
+          "cut_list_match_share": 0.4615,
           "pairs": [
             {
               "pred_i": 0,
@@ -266,17 +278,27 @@
             {
               "pred_i": 3,
               "truth_j": 4,
-              "cost": 15.39999999999992
+              "cost": 6.349999999999909
             },
             {
               "pred_i": 4,
               "truth_j": 5,
-              "cost": 25.400000000000148
+              "cost": 6.350000000000136
+            },
+            {
+              "pred_i": 1,
+              "truth_j": 1,
+              "cost": 10.251299545355891
             },
             {
               "pred_i": 5,
               "truth_j": 9,
               "cost": 48.10081102362203
+            },
+            {
+              "pred_i": 6,
+              "truth_j": 10,
+              "cost": 52.26931102362202
             },
             {
               "pred_i": 8,
@@ -287,16 +309,6 @@
               "pred_i": 7,
               "truth_j": 11,
               "cost": 101.07937401574802
-            },
-            {
-              "pred_i": 1,
-              "truth_j": 1,
-              "cost": 108.49370045464406
-            },
-            {
-              "pred_i": 6,
-              "truth_j": 10,
-              "cost": 152.26931102362204
             },
             {
               "pred_i": 9,
@@ -341,15 +353,22 @@
             {
               "pred": "D1",
               "truth": "D1",
-              "max_abs_mm": 9.050000000000011,
-              "max_pct": 0.03314411279985355,
-              "within_5mm_or_3pct": false
+              "max_abs_mm": 6.349999999999909,
+              "max_pct": 0.005555555555555476,
+              "within_5mm_or_3pct": true
             },
             {
               "pred": "BK1",
               "truth": "BK1",
-              "max_abs_mm": 19.05000000000001,
-              "max_pct": 0.07894736842105267,
+              "max_abs_mm": 6.350000000000136,
+              "max_pct": 0.005494505494505612,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "E1",
+              "truth": "E1",
+              "max_abs_mm": 9.524999999999977,
+              "max_pct": 0.037037037037036945,
               "within_5mm_or_3pct": false
             },
             {
@@ -357,6 +376,13 @@
               "truth": "DS1",
               "max_abs_mm": 21.574124999999995,
               "max_pct": 0.22649999999999995,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DB1",
+              "truth": "DB1",
+              "max_abs_mm": 36.00749999999999,
+              "max_pct": 0.10749999999999992,
               "within_5mm_or_3pct": false
             },
             {
@@ -371,489 +397,6 @@
               "truth": "DBT1",
               "max_abs_mm": 36.00749999999999,
               "max_pct": 0.3700787401574803,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "E1",
-              "truth": "E1",
-              "max_abs_mm": 98.96870045464408,
-              "max_pct": 0.6632179625038973,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "DB1",
-              "truth": "DB1",
-              "max_abs_mm": 36.00749999999999,
-              "max_pct": 0.10749999999999992,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "L1",
-              "truth": "L1",
-              "max_abs_mm": 140.7762124207672,
-              "max_pct": 0.5991751965131611,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "B1",
-              "truth": "B1",
-              "max_abs_mm": 231.77499999999986,
-              "max_pct": 0.2525951557093424,
-              "within_5mm_or_3pct": false
-            }
-          ]
-        },
-        "features": {
-          "recall": 1.0,
-          "per_feature": {
-            "door": {
-              "pred": 0,
-              "truth": 0,
-              "ok": true
-            },
-            "drawer": {
-              "pred": 2,
-              "truth": 2,
-              "ok": true
-            },
-            "end_block": {
-              "pred": 2,
-              "truth": 2,
-              "ok": true
-            },
-            "leg": {
-              "pred": 4,
-              "truth": 4,
-              "ok": true
-            },
-            "open_cubby": {
-              "pred": 1,
-              "truth": 1,
-              "ok": true
-            },
-            "shelf": {
-              "pred": 1,
-              "truth": 0,
-              "ok": false
-            }
-          }
-        },
-        "overall_dims_within_3pct": true,
-        "overall_dims": {
-          "w": {
-            "got": 1193.8,
-            "want": 1193.8,
-            "err": 0.0
-          },
-          "d": {
-            "got": 304.8,
-            "want": 304.8,
-            "err": 0.0
-          },
-          "h": {
-            "got": 762.0000001000001,
-            "want": 762.0,
-            "err": 0.0
-          }
-        },
-        "iou": null,
-        "cost_usd": null,
-        "wall_s": null,
-        "piece": "console_01",
-        "iou_rating": null,
-        "truth_features": {
-          "drawer": 2,
-          "leg": 4,
-          "end_block": 2,
-          "open_cubby": 1
-        }
-      },
-      "spent_usd_approx": 0.0119,
-      "wall_s": 5.75,
-      "rounds": 1,
-      "perceive_mode": "vision_v1",
-      "valid_solid": true
-    },
-    {
-      "ok": true,
-      "dim_within_3pct": true,
-      "bbox_mm": {
-        "w": 1193.8,
-        "d": 304.8,
-        "h": 762.0000001000001,
-        "sorted_desc": [
-          1193.8,
-          762.0000001000001,
-          304.8
-        ],
-        "min": [
-          -596.9,
-          -152.4,
-          -1e-07
-        ],
-        "max": [
-          596.9,
-          152.4,
-          762.0000000000001
-        ]
-      },
-      "feature_recall": {
-        "recall": 1.0,
-        "per_feature": {
-          "door": {
-            "pred": 0,
-            "truth": 0,
-            "ok": true
-          },
-          "drawer": {
-            "pred": 2,
-            "truth": 2,
-            "ok": true
-          },
-          "end_block_carved": {
-            "pred": 2,
-            "truth": 2,
-            "ok": true
-          },
-          "leg": {
-            "pred": 4,
-            "truth": 4,
-            "ok": true
-          },
-          "open_cubby": {
-            "pred": 1,
-            "truth": 1,
-            "ok": true
-          },
-          "pull": {
-            "pred": 0,
-            "truth": 0,
-            "ok": true
-          },
-          "shelf": {
-            "pred": 1,
-            "truth": 1,
-            "ok": true
-          }
-        }
-      },
-      "parts": {
-        "matched": 13,
-        "precision": 1.0,
-        "recall": 1.0,
-        "cut_list_match_share": 0.3077,
-        "pairs": [
-          {
-            "pred_i": 0,
-            "truth_j": 0,
-            "cost": 0.0
-          },
-          {
-            "pred_i": 10,
-            "truth_j": 3,
-            "cost": 0.0
-          },
-          {
-            "pred_i": 11,
-            "truth_j": 8,
-            "cost": 0.0
-          },
-          {
-            "pred_i": 12,
-            "truth_j": 12,
-            "cost": 0.0
-          },
-          {
-            "pred_i": 3,
-            "truth_j": 4,
-            "cost": 15.39999999999992
-          },
-          {
-            "pred_i": 4,
-            "truth_j": 5,
-            "cost": 25.400000000000148
-          },
-          {
-            "pred_i": 5,
-            "truth_j": 9,
-            "cost": 48.10081102362203
-          },
-          {
-            "pred_i": 8,
-            "truth_j": 6,
-            "cost": 60.369450000000086
-          },
-          {
-            "pred_i": 7,
-            "truth_j": 11,
-            "cost": 101.07937401574802
-          },
-          {
-            "pred_i": 1,
-            "truth_j": 1,
-            "cost": 108.49370045464406
-          },
-          {
-            "pred_i": 6,
-            "truth_j": 10,
-            "cost": 152.26931102362204
-          },
-          {
-            "pred_i": 9,
-            "truth_j": 7,
-            "cost": 186.3888323981138
-          },
-          {
-            "pred_i": 2,
-            "truth_j": 2,
-            "cost": 231.77499999999986
-          }
-        ],
-        "size_errors": [
-          {
-            "pred": "T1",
-            "truth": "T1",
-            "max_abs_mm": 0.0,
-            "max_pct": 0.0,
-            "within_5mm_or_3pct": true
-          },
-          {
-            "pred": "LT",
-            "truth": "LT",
-            "max_abs_mm": 0.0,
-            "max_pct": 0.0,
-            "within_5mm_or_3pct": true
-          },
-          {
-            "pred": "W1",
-            "truth": "W1",
-            "max_abs_mm": 0.0,
-            "max_pct": 0.0,
-            "within_5mm_or_3pct": true
-          },
-          {
-            "pred": "R1",
-            "truth": "R1",
-            "max_abs_mm": 0.0,
-            "max_pct": 0.0,
-            "within_5mm_or_3pct": true
-          },
-          {
-            "pred": "D1",
-            "truth": "D1",
-            "max_abs_mm": 9.050000000000011,
-            "max_pct": 0.03314411279985355,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "BK1",
-            "truth": "BK1",
-            "max_abs_mm": 19.05000000000001,
-            "max_pct": 0.07894736842105267,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "DS1",
-            "truth": "DS1",
-            "max_abs_mm": 21.574124999999995,
-            "max_pct": 0.22649999999999995,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "DF1",
-            "truth": "DF1",
-            "max_abs_mm": 40.17644999999999,
-            "max_pct": 0.31244444444444436,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "DBT1",
-            "truth": "DBT1",
-            "max_abs_mm": 36.00749999999999,
-            "max_pct": 0.3700787401574803,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "E1",
-            "truth": "E1",
-            "max_abs_mm": 98.96870045464408,
-            "max_pct": 0.6632179625038973,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "DB1",
-            "truth": "DB1",
-            "max_abs_mm": 36.00749999999999,
-            "max_pct": 0.10749999999999992,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "L1",
-            "truth": "L1",
-            "max_abs_mm": 140.7762124207672,
-            "max_pct": 0.5991751965131611,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "B1",
-            "truth": "B1",
-            "max_abs_mm": 231.77499999999986,
-            "max_pct": 0.2525951557093424,
-            "within_5mm_or_3pct": false
-          }
-        ]
-      },
-      "cut_list_match_share": 0.3077,
-      "gt_score": {
-        "schema": "furniture_cad.score_run.v1",
-        "parts": {
-          "matched": 13,
-          "precision": 1.0,
-          "recall": 1.0,
-          "cut_list_match_share": 0.3077,
-          "pairs": [
-            {
-              "pred_i": 0,
-              "truth_j": 0,
-              "cost": 0.0
-            },
-            {
-              "pred_i": 10,
-              "truth_j": 3,
-              "cost": 0.0
-            },
-            {
-              "pred_i": 11,
-              "truth_j": 8,
-              "cost": 0.0
-            },
-            {
-              "pred_i": 12,
-              "truth_j": 12,
-              "cost": 0.0
-            },
-            {
-              "pred_i": 3,
-              "truth_j": 4,
-              "cost": 15.39999999999992
-            },
-            {
-              "pred_i": 4,
-              "truth_j": 5,
-              "cost": 25.400000000000148
-            },
-            {
-              "pred_i": 5,
-              "truth_j": 9,
-              "cost": 48.10081102362203
-            },
-            {
-              "pred_i": 8,
-              "truth_j": 6,
-              "cost": 60.369450000000086
-            },
-            {
-              "pred_i": 7,
-              "truth_j": 11,
-              "cost": 101.07937401574802
-            },
-            {
-              "pred_i": 1,
-              "truth_j": 1,
-              "cost": 108.49370045464406
-            },
-            {
-              "pred_i": 6,
-              "truth_j": 10,
-              "cost": 152.26931102362204
-            },
-            {
-              "pred_i": 9,
-              "truth_j": 7,
-              "cost": 186.3888323981138
-            },
-            {
-              "pred_i": 2,
-              "truth_j": 2,
-              "cost": 231.77499999999986
-            }
-          ],
-          "size_errors": [
-            {
-              "pred": "T1",
-              "truth": "T1",
-              "max_abs_mm": 0.0,
-              "max_pct": 0.0,
-              "within_5mm_or_3pct": true
-            },
-            {
-              "pred": "LT",
-              "truth": "LT",
-              "max_abs_mm": 0.0,
-              "max_pct": 0.0,
-              "within_5mm_or_3pct": true
-            },
-            {
-              "pred": "W1",
-              "truth": "W1",
-              "max_abs_mm": 0.0,
-              "max_pct": 0.0,
-              "within_5mm_or_3pct": true
-            },
-            {
-              "pred": "R1",
-              "truth": "R1",
-              "max_abs_mm": 0.0,
-              "max_pct": 0.0,
-              "within_5mm_or_3pct": true
-            },
-            {
-              "pred": "D1",
-              "truth": "D1",
-              "max_abs_mm": 9.050000000000011,
-              "max_pct": 0.03314411279985355,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "BK1",
-              "truth": "BK1",
-              "max_abs_mm": 19.05000000000001,
-              "max_pct": 0.07894736842105267,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "DS1",
-              "truth": "DS1",
-              "max_abs_mm": 21.574124999999995,
-              "max_pct": 0.22649999999999995,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "DF1",
-              "truth": "DF1",
-              "max_abs_mm": 40.17644999999999,
-              "max_pct": 0.31244444444444436,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "DBT1",
-              "truth": "DBT1",
-              "max_abs_mm": 36.00749999999999,
-              "max_pct": 0.3700787401574803,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "E1",
-              "truth": "E1",
-              "max_abs_mm": 98.96870045464408,
-              "max_pct": 0.6632179625038973,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "DB1",
-              "truth": "DB1",
-              "max_abs_mm": 36.00749999999999,
-              "max_pct": 0.10749999999999992,
               "within_5mm_or_3pct": false
             },
             {
@@ -938,7 +481,7 @@
         }
       },
       "spent_usd_approx": 0.0124,
-      "wall_s": 4.56,
+      "wall_s": 5.57,
       "rounds": 1,
       "perceive_mode": "vision_v1",
       "valid_solid": true
@@ -1010,7 +553,7 @@
         "matched": 13,
         "precision": 1.0,
         "recall": 1.0,
-        "cut_list_match_share": 0.3077,
+        "cut_list_match_share": 0.4615,
         "pairs": [
           {
             "pred_i": 0,
@@ -1035,17 +578,27 @@
           {
             "pred_i": 3,
             "truth_j": 4,
-            "cost": 15.39999999999992
+            "cost": 6.349999999999909
           },
           {
             "pred_i": 4,
             "truth_j": 5,
-            "cost": 25.400000000000148
+            "cost": 6.350000000000136
+          },
+          {
+            "pred_i": 1,
+            "truth_j": 1,
+            "cost": 10.251299545355891
           },
           {
             "pred_i": 5,
             "truth_j": 9,
             "cost": 48.10081102362203
+          },
+          {
+            "pred_i": 6,
+            "truth_j": 10,
+            "cost": 52.26931102362202
           },
           {
             "pred_i": 8,
@@ -1056,16 +609,6 @@
             "pred_i": 7,
             "truth_j": 11,
             "cost": 101.07937401574802
-          },
-          {
-            "pred_i": 1,
-            "truth_j": 1,
-            "cost": 108.49370045464406
-          },
-          {
-            "pred_i": 6,
-            "truth_j": 10,
-            "cost": 152.26931102362204
           },
           {
             "pred_i": 9,
@@ -1110,15 +653,22 @@
           {
             "pred": "D1",
             "truth": "D1",
-            "max_abs_mm": 9.050000000000011,
-            "max_pct": 0.03314411279985355,
-            "within_5mm_or_3pct": false
+            "max_abs_mm": 6.349999999999909,
+            "max_pct": 0.005555555555555476,
+            "within_5mm_or_3pct": true
           },
           {
             "pred": "BK1",
             "truth": "BK1",
-            "max_abs_mm": 19.05000000000001,
-            "max_pct": 0.07894736842105267,
+            "max_abs_mm": 6.350000000000136,
+            "max_pct": 0.005494505494505612,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "E1",
+            "truth": "E1",
+            "max_abs_mm": 9.524999999999977,
+            "max_pct": 0.037037037037036945,
             "within_5mm_or_3pct": false
           },
           {
@@ -1126,6 +676,13 @@
             "truth": "DS1",
             "max_abs_mm": 21.574124999999995,
             "max_pct": 0.22649999999999995,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DB1",
+            "truth": "DB1",
+            "max_abs_mm": 36.00749999999999,
+            "max_pct": 0.10749999999999992,
             "within_5mm_or_3pct": false
           },
           {
@@ -1140,20 +697,6 @@
             "truth": "DBT1",
             "max_abs_mm": 36.00749999999999,
             "max_pct": 0.3700787401574803,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "E1",
-            "truth": "E1",
-            "max_abs_mm": 98.96870045464408,
-            "max_pct": 0.6632179625038973,
-            "within_5mm_or_3pct": false
-          },
-          {
-            "pred": "DB1",
-            "truth": "DB1",
-            "max_abs_mm": 36.00749999999999,
-            "max_pct": 0.10749999999999992,
             "within_5mm_or_3pct": false
           },
           {
@@ -1172,14 +715,26 @@
           }
         ]
       },
-      "cut_list_match_share": 0.3077,
+      "cut_list_match_share": 0.4615,
+      "board_feet": {
+        "pred_bf": 31.53,
+        "truth_bf": {
+          "stated": 59.4,
+          "recomputed": 56.1
+        },
+        "err_vs_stated": 0.4692,
+        "err_vs_recomputed": 0.438,
+        "limit": 0.15,
+        "within_limit": false
+      },
+      "construct_answer_key_seeded": true,
       "gt_score": {
         "schema": "furniture_cad.score_run.v1",
         "parts": {
           "matched": 13,
           "precision": 1.0,
           "recall": 1.0,
-          "cut_list_match_share": 0.3077,
+          "cut_list_match_share": 0.4615,
           "pairs": [
             {
               "pred_i": 0,
@@ -1204,17 +759,27 @@
             {
               "pred_i": 3,
               "truth_j": 4,
-              "cost": 15.39999999999992
+              "cost": 6.349999999999909
             },
             {
               "pred_i": 4,
               "truth_j": 5,
-              "cost": 25.400000000000148
+              "cost": 6.350000000000136
+            },
+            {
+              "pred_i": 1,
+              "truth_j": 1,
+              "cost": 10.251299545355891
             },
             {
               "pred_i": 5,
               "truth_j": 9,
               "cost": 48.10081102362203
+            },
+            {
+              "pred_i": 6,
+              "truth_j": 10,
+              "cost": 52.26931102362202
             },
             {
               "pred_i": 8,
@@ -1225,16 +790,6 @@
               "pred_i": 7,
               "truth_j": 11,
               "cost": 101.07937401574802
-            },
-            {
-              "pred_i": 1,
-              "truth_j": 1,
-              "cost": 108.49370045464406
-            },
-            {
-              "pred_i": 6,
-              "truth_j": 10,
-              "cost": 152.26931102362204
             },
             {
               "pred_i": 9,
@@ -1279,15 +834,22 @@
             {
               "pred": "D1",
               "truth": "D1",
-              "max_abs_mm": 9.050000000000011,
-              "max_pct": 0.03314411279985355,
-              "within_5mm_or_3pct": false
+              "max_abs_mm": 6.349999999999909,
+              "max_pct": 0.005555555555555476,
+              "within_5mm_or_3pct": true
             },
             {
               "pred": "BK1",
               "truth": "BK1",
-              "max_abs_mm": 19.05000000000001,
-              "max_pct": 0.07894736842105267,
+              "max_abs_mm": 6.350000000000136,
+              "max_pct": 0.005494505494505612,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "E1",
+              "truth": "E1",
+              "max_abs_mm": 9.524999999999977,
+              "max_pct": 0.037037037037036945,
               "within_5mm_or_3pct": false
             },
             {
@@ -1295,6 +857,13 @@
               "truth": "DS1",
               "max_abs_mm": 21.574124999999995,
               "max_pct": 0.22649999999999995,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DB1",
+              "truth": "DB1",
+              "max_abs_mm": 36.00749999999999,
+              "max_pct": 0.10749999999999992,
               "within_5mm_or_3pct": false
             },
             {
@@ -1309,20 +878,6 @@
               "truth": "DBT1",
               "max_abs_mm": 36.00749999999999,
               "max_pct": 0.3700787401574803,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "E1",
-              "truth": "E1",
-              "max_abs_mm": 98.96870045464408,
-              "max_pct": 0.6632179625038973,
-              "within_5mm_or_3pct": false
-            },
-            {
-              "pred": "DB1",
-              "truth": "DB1",
-              "max_abs_mm": 36.00749999999999,
-              "max_pct": 0.10749999999999992,
               "within_5mm_or_3pct": false
             },
             {
@@ -1406,8 +961,489 @@
           "open_cubby": 1
         }
       },
-      "spent_usd_approx": 0.0122,
-      "wall_s": 4.34,
+      "spent_usd_approx": 0.0119,
+      "wall_s": 4.43,
+      "rounds": 1,
+      "perceive_mode": "vision_v1",
+      "valid_solid": true
+    },
+    {
+      "ok": true,
+      "dim_within_3pct": true,
+      "bbox_mm": {
+        "w": 1193.8,
+        "d": 304.8,
+        "h": 762.0000001000001,
+        "sorted_desc": [
+          1193.8,
+          762.0000001000001,
+          304.8
+        ],
+        "min": [
+          -596.9,
+          -152.4,
+          -1e-07
+        ],
+        "max": [
+          596.9,
+          152.4,
+          762.0000000000001
+        ]
+      },
+      "feature_recall": {
+        "recall": 1.0,
+        "per_feature": {
+          "door": {
+            "pred": 0,
+            "truth": 0,
+            "ok": true
+          },
+          "drawer": {
+            "pred": 2,
+            "truth": 2,
+            "ok": true
+          },
+          "end_block_carved": {
+            "pred": 2,
+            "truth": 2,
+            "ok": true
+          },
+          "leg": {
+            "pred": 4,
+            "truth": 4,
+            "ok": true
+          },
+          "open_cubby": {
+            "pred": 1,
+            "truth": 1,
+            "ok": true
+          },
+          "pull": {
+            "pred": 0,
+            "truth": 0,
+            "ok": true
+          },
+          "shelf": {
+            "pred": 1,
+            "truth": 1,
+            "ok": true
+          }
+        }
+      },
+      "parts": {
+        "matched": 13,
+        "precision": 1.0,
+        "recall": 1.0,
+        "cut_list_match_share": 0.4615,
+        "pairs": [
+          {
+            "pred_i": 0,
+            "truth_j": 0,
+            "cost": 0.0
+          },
+          {
+            "pred_i": 10,
+            "truth_j": 3,
+            "cost": 0.0
+          },
+          {
+            "pred_i": 11,
+            "truth_j": 8,
+            "cost": 0.0
+          },
+          {
+            "pred_i": 12,
+            "truth_j": 12,
+            "cost": 0.0
+          },
+          {
+            "pred_i": 3,
+            "truth_j": 4,
+            "cost": 6.349999999999909
+          },
+          {
+            "pred_i": 4,
+            "truth_j": 5,
+            "cost": 6.350000000000136
+          },
+          {
+            "pred_i": 1,
+            "truth_j": 1,
+            "cost": 10.251299545355891
+          },
+          {
+            "pred_i": 5,
+            "truth_j": 9,
+            "cost": 48.10081102362203
+          },
+          {
+            "pred_i": 6,
+            "truth_j": 10,
+            "cost": 52.26931102362202
+          },
+          {
+            "pred_i": 8,
+            "truth_j": 6,
+            "cost": 60.369450000000086
+          },
+          {
+            "pred_i": 7,
+            "truth_j": 11,
+            "cost": 101.07937401574802
+          },
+          {
+            "pred_i": 9,
+            "truth_j": 7,
+            "cost": 186.3888323981138
+          },
+          {
+            "pred_i": 2,
+            "truth_j": 2,
+            "cost": 231.77499999999986
+          }
+        ],
+        "size_errors": [
+          {
+            "pred": "T1",
+            "truth": "T1",
+            "max_abs_mm": 0.0,
+            "max_pct": 0.0,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "LT",
+            "truth": "LT",
+            "max_abs_mm": 0.0,
+            "max_pct": 0.0,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "W1",
+            "truth": "W1",
+            "max_abs_mm": 0.0,
+            "max_pct": 0.0,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "R1",
+            "truth": "R1",
+            "max_abs_mm": 0.0,
+            "max_pct": 0.0,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "D1",
+            "truth": "D1",
+            "max_abs_mm": 6.349999999999909,
+            "max_pct": 0.005555555555555476,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "BK1",
+            "truth": "BK1",
+            "max_abs_mm": 6.350000000000136,
+            "max_pct": 0.005494505494505612,
+            "within_5mm_or_3pct": true
+          },
+          {
+            "pred": "E1",
+            "truth": "E1",
+            "max_abs_mm": 9.524999999999977,
+            "max_pct": 0.037037037037036945,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DS1",
+            "truth": "DS1",
+            "max_abs_mm": 21.574124999999995,
+            "max_pct": 0.22649999999999995,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DB1",
+            "truth": "DB1",
+            "max_abs_mm": 36.00749999999999,
+            "max_pct": 0.10749999999999992,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DF1",
+            "truth": "DF1",
+            "max_abs_mm": 40.17644999999999,
+            "max_pct": 0.31244444444444436,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "DBT1",
+            "truth": "DBT1",
+            "max_abs_mm": 36.00749999999999,
+            "max_pct": 0.3700787401574803,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "L1",
+            "truth": "L1",
+            "max_abs_mm": 140.7762124207672,
+            "max_pct": 0.5991751965131611,
+            "within_5mm_or_3pct": false
+          },
+          {
+            "pred": "B1",
+            "truth": "B1",
+            "max_abs_mm": 231.77499999999986,
+            "max_pct": 0.2525951557093424,
+            "within_5mm_or_3pct": false
+          }
+        ]
+      },
+      "cut_list_match_share": 0.4615,
+      "board_feet": {
+        "pred_bf": 31.53,
+        "truth_bf": {
+          "stated": 59.4,
+          "recomputed": 56.1
+        },
+        "err_vs_stated": 0.4692,
+        "err_vs_recomputed": 0.438,
+        "limit": 0.15,
+        "within_limit": false
+      },
+      "construct_answer_key_seeded": true,
+      "gt_score": {
+        "schema": "furniture_cad.score_run.v1",
+        "parts": {
+          "matched": 13,
+          "precision": 1.0,
+          "recall": 1.0,
+          "cut_list_match_share": 0.4615,
+          "pairs": [
+            {
+              "pred_i": 0,
+              "truth_j": 0,
+              "cost": 0.0
+            },
+            {
+              "pred_i": 10,
+              "truth_j": 3,
+              "cost": 0.0
+            },
+            {
+              "pred_i": 11,
+              "truth_j": 8,
+              "cost": 0.0
+            },
+            {
+              "pred_i": 12,
+              "truth_j": 12,
+              "cost": 0.0
+            },
+            {
+              "pred_i": 3,
+              "truth_j": 4,
+              "cost": 6.349999999999909
+            },
+            {
+              "pred_i": 4,
+              "truth_j": 5,
+              "cost": 6.350000000000136
+            },
+            {
+              "pred_i": 1,
+              "truth_j": 1,
+              "cost": 10.251299545355891
+            },
+            {
+              "pred_i": 5,
+              "truth_j": 9,
+              "cost": 48.10081102362203
+            },
+            {
+              "pred_i": 6,
+              "truth_j": 10,
+              "cost": 52.26931102362202
+            },
+            {
+              "pred_i": 8,
+              "truth_j": 6,
+              "cost": 60.369450000000086
+            },
+            {
+              "pred_i": 7,
+              "truth_j": 11,
+              "cost": 101.07937401574802
+            },
+            {
+              "pred_i": 9,
+              "truth_j": 7,
+              "cost": 186.3888323981138
+            },
+            {
+              "pred_i": 2,
+              "truth_j": 2,
+              "cost": 231.77499999999986
+            }
+          ],
+          "size_errors": [
+            {
+              "pred": "T1",
+              "truth": "T1",
+              "max_abs_mm": 0.0,
+              "max_pct": 0.0,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "LT",
+              "truth": "LT",
+              "max_abs_mm": 0.0,
+              "max_pct": 0.0,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "W1",
+              "truth": "W1",
+              "max_abs_mm": 0.0,
+              "max_pct": 0.0,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "R1",
+              "truth": "R1",
+              "max_abs_mm": 0.0,
+              "max_pct": 0.0,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "D1",
+              "truth": "D1",
+              "max_abs_mm": 6.349999999999909,
+              "max_pct": 0.005555555555555476,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "BK1",
+              "truth": "BK1",
+              "max_abs_mm": 6.350000000000136,
+              "max_pct": 0.005494505494505612,
+              "within_5mm_or_3pct": true
+            },
+            {
+              "pred": "E1",
+              "truth": "E1",
+              "max_abs_mm": 9.524999999999977,
+              "max_pct": 0.037037037037036945,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DS1",
+              "truth": "DS1",
+              "max_abs_mm": 21.574124999999995,
+              "max_pct": 0.22649999999999995,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DB1",
+              "truth": "DB1",
+              "max_abs_mm": 36.00749999999999,
+              "max_pct": 0.10749999999999992,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DF1",
+              "truth": "DF1",
+              "max_abs_mm": 40.17644999999999,
+              "max_pct": 0.31244444444444436,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "DBT1",
+              "truth": "DBT1",
+              "max_abs_mm": 36.00749999999999,
+              "max_pct": 0.3700787401574803,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "L1",
+              "truth": "L1",
+              "max_abs_mm": 140.7762124207672,
+              "max_pct": 0.5991751965131611,
+              "within_5mm_or_3pct": false
+            },
+            {
+              "pred": "B1",
+              "truth": "B1",
+              "max_abs_mm": 231.77499999999986,
+              "max_pct": 0.2525951557093424,
+              "within_5mm_or_3pct": false
+            }
+          ]
+        },
+        "features": {
+          "recall": 1.0,
+          "per_feature": {
+            "door": {
+              "pred": 0,
+              "truth": 0,
+              "ok": true
+            },
+            "drawer": {
+              "pred": 2,
+              "truth": 2,
+              "ok": true
+            },
+            "end_block": {
+              "pred": 2,
+              "truth": 2,
+              "ok": true
+            },
+            "leg": {
+              "pred": 4,
+              "truth": 4,
+              "ok": true
+            },
+            "open_cubby": {
+              "pred": 1,
+              "truth": 1,
+              "ok": true
+            },
+            "shelf": {
+              "pred": 1,
+              "truth": 0,
+              "ok": false
+            }
+          }
+        },
+        "overall_dims_within_3pct": true,
+        "overall_dims": {
+          "w": {
+            "got": 1193.8,
+            "want": 1193.8,
+            "err": 0.0
+          },
+          "d": {
+            "got": 304.8,
+            "want": 304.8,
+            "err": 0.0
+          },
+          "h": {
+            "got": 762.0000001000001,
+            "want": 762.0,
+            "err": 0.0
+          }
+        },
+        "iou": null,
+        "cost_usd": null,
+        "wall_s": null,
+        "piece": "console_01",
+        "iou_rating": null,
+        "truth_features": {
+          "drawer": 2,
+          "leg": 4,
+          "end_block": 2,
+          "open_cubby": 1
+        }
+      },
+      "spent_usd_approx": 0.0118,
+      "wall_s": 4.15,
       "rounds": 1,
       "perceive_mode": "vision_v1",
       "valid_solid": true
@@ -1418,8 +1454,11 @@
     "all_ok": true,
     "mean_feature_recall": 1.0,
     "mean_part_recall": 1.0,
-    "mean_spend_usd": 0.0122,
-    "mean_wall_s": 4.8833,
+    "mean_spend_usd": 0.012,
+    "mean_wall_s": 4.7167,
+    "mean_cut_list_match_share": 0.4615,
+    "mean_board_feet_err": 0.4692,
+    "construct_answer_key_seeded": true,
     "dims_all_within_3pct": true
   },
   "p4_gate": {
@@ -1427,7 +1466,10 @@
     "part_recall_ge_0_70": true,
     "feature_recall_ge_0_90": true,
     "valid_solid": true,
-    "notes": "IoU / blind human rating / board-ft deferred \u2014 D8 IoU still <0.8 on studio",
+    "cut_list_match_ge_0_50": false,
+    "board_feet_err_le_15pct": false,
+    "blind_construct": false,
+    "notes": "IoU / blind human rating deferred \u2014 D8 IoU still <0.8 on studio. Construct is seeded from the console answer-key IR: parts / cut-list / board-ft are NOT blind (Perceive supplies dims + feature counts only).",
     "partial_pass": true
   }
 }
