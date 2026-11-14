@@ -27,7 +27,8 @@ Schema:
   "components": [{"id": str, "type": str, "count": int, "style": str, "conf": 0-1}],
   "unknowns": [{"q": str, "default": any, "ask": bool}],
   "end_form": "flat|leaning|swept|swept_leaning|unknown",
-  "leg_style": "square|tapered|flared|two_profile_flared|none|unknown"
+  "leg_style": "square|tapered|flared|two_profile_flared|none|unknown",
+  "proportions": {"under_z_frac": 0-1 or null, "drawer_bank_frac": 0-1 or null}
 }
 Rules:
 - Do not invent pulls if none are visible.
@@ -35,6 +36,13 @@ Rules:
   if only two front legs are visible, still count leg=4 (rear legs inferred).
 - end_block_carved = carved/sculpted solid wood end panels (not plain box ends).
 - Open recessed shelf bay above drawers = open_cubby=1 AND shelf=1 (the bay floor/ceiling is the shelf).
+- proportions (estimate from the straight-on view; use null when the edge is not clearly visible,
+  never guess):
+  under_z_frac = height of the underside of the main case body (where the legs end and the case
+  begins) measured from the floor, as a fraction of overall height.
+  drawer_bank_frac = vertical span of the drawer fronts (top edge of the top drawer front to bottom
+  edge of the bottom drawer front) as a fraction of the case height (overall height minus the
+  under_z height). null if there are no drawers.
 - Temperature 0."""
 
 
@@ -44,6 +52,23 @@ def _extract_json(text: str) -> dict[str, Any]:
         text = re.sub(r"^```(?:json)?\n?", "", text)
         text = re.sub(r"\n?```$", "", text)
     return json.loads(text)
+
+
+# Sane bounds for freestanding casegoods; values outside are treated as not measured.
+PROPORTION_BOUNDS = {"under_z_frac": (0.08, 0.80), "drawer_bank_frac": (0.15, 0.90)}
+
+
+def _norm_proportions(raw: dict[str, Any] | None) -> dict[str, float]:
+    """Keep only numeric proportions inside PROPORTION_BOUNDS (others are dropped)."""
+    out: dict[str, float] = {}
+    for k, (lo, hi) in PROPORTION_BOUNDS.items():
+        try:
+            v = float((raw or {}).get(k))
+        except (TypeError, ValueError):
+            continue
+        if lo <= v <= hi:
+            out[k] = round(v, 4)
+    return out
 
 
 def _norm_counts(raw: dict[str, Any] | None) -> dict[str, int]:
@@ -224,6 +249,7 @@ def perceive_vision(
         "counts_pass1": counts1,
         "end_form": data.get("end_form"),
         "leg_style": data.get("leg_style"),
+        "proportions": _norm_proportions(data.get("proportions")),
         "unknowns": unknowns,
         "meta": {
             "perceive": "vision_v1",

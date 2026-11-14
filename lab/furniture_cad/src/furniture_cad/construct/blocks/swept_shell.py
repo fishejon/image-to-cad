@@ -23,6 +23,7 @@ def swept_shell(
     open_front: bool = True,
     front_setback: float | None = None,
     back_groove: float = 0.0,
+    bank_open_h: float | None = None,
     material: str = "walnut",
 ) -> dict[str, Any]:
     """Open-front casegood shell approximating the Fusion walnut console.
@@ -36,6 +37,8 @@ def swept_shell(
       ``None`` keeps the legacy 10 mm.
     * ``back_groove``: the floating back panel's tongues enter grooves in the top
       and bottom, so the back blank is taller than the void by 2 x groove depth.
+    * ``bank_open_h``: drawer opening height (measured); the divider sits on top of it.
+      ``None`` keeps the legacy fixed fraction of the void.
     * Carved end envelope thickness = lean inset + sweep radius (the block the
       lean and the underside sweep are carved from).
     """
@@ -59,7 +62,12 @@ def swept_shell(
     bottom = Pos(0, 0, under_z + wall / 2) * Box(max(10.0, W - 2 * wall), D, wall)
     back = Pos(0, -D / 2 + back_t / 2, under_z + case_h / 2) * Box(max(10.0, W - 2 * wall), back_t, max(10.0, case_h - 2 * wall))
 
-    div_z = under_z + wall + (case_h - 2 * wall) * 0.52
+    if bank_open_h is not None:
+        # divider underside = top of the opening; keep it inside the void
+        open_h = max(20.0, min(float(bank_open_h), case_h - 3 * wall))
+        div_z = under_z + wall + open_h + wall / 2
+    else:
+        div_z = under_z + wall + (case_h - 2 * wall) * 0.52
     div_setback = 10.0 if front_setback is None else float(front_setback)
     div_d = max(10.0, D - back_t - div_setback)
     div = Pos(0, back_t * 0.25, div_z) * Box(max(10.0, W - 2 * wall), div_d, wall)

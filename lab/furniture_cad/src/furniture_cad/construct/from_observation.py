@@ -40,8 +40,18 @@ def construct_ir_from_observation(
     wall = float(stock.get("t_panel") or 19.0)
     back_t = float(stock.get("t_back") or 6.0)
 
-    # Legs take ~30–40% of height for freestanding casegoods; clamp to sane range.
-    under_z = max(80.0, min(H * 0.35, H - 120.0))
+    # Proportions measured by Perceive win; otherwise fall back to a generic prior
+    # (case underside ~35% of height for a freestanding casegood), clamped to a sane range.
+    props = observation.get("proportions") or {}
+    prior_under_z = max(80.0, min(H * 0.35, H - 120.0))
+    uz_frac = props.get("under_z_frac")
+    if uz_frac is not None:
+        under_z = max(80.0, min(H * float(uz_frac), H - 120.0))
+        under_src = "perceive"
+    else:
+        under_z = prior_under_z
+        under_src = "prior"
+    bank_frac = props.get("drawer_bank_frac")
 
     end_form = str(observation.get("end_form") or "").lower()
     leg_style = str(observation.get("leg_style") or "").lower()
@@ -66,13 +76,14 @@ def construct_ir_from_observation(
 
     children: list[dict[str, Any]] = []
     if drawers > 0:
-        children.append(
-            {
-                "kind": "drawer_bank",
-                "cols": drawers,
-                "front": {"t": 19.0, "reveal": 1.5, "corner": "follow_outline" if swept else "square"},
-            }
-        )
+        bank: dict[str, Any] = {
+            "kind": "drawer_bank",
+            "cols": drawers,
+            "front": {"t": 19.0, "reveal": 1.5, "corner": "follow_outline" if swept else "square"},
+        }
+        if bank_frac is not None:
+            bank["bank_frac"] = float(bank_frac)
+        children.append(bank)
     if open_cubby > 0 or shelf > 0:
         children.append({"kind": "open", "setback": wall})
     if not children:
@@ -134,6 +145,9 @@ def construct_ir_from_observation(
             "Constructed from Perceive observation + Dimension (generic casegood template).",
             f"class={observation.get('class') or class_hint}",
             f"counts={counts}",
+            f"under_z from {under_src}"
+            + (f" (frac={uz_frac})" if uz_frac is not None else " (prior 0.35 H)"),
+            f"drawer bank height from {'perceive' if bank_frac is not None else 'default fractions'}",
         ],
     }
     if legs:

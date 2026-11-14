@@ -1,0 +1,14 @@
+{
+  "schema": "proportions.v1",
+  "id": "console_01",
+  "proportions": {
+    "under_z_frac": 0.65,
+    "drawer_bank_frac": 0.4942
+  },
+  "derivation": {
+    "under_z_frac": "case underside 495.3 mm / overall height 762 mm (Fusion model, hand plan)",
+    "drawer_bank_frac": "(drawer front height 128.6 mm + 2 x 1.6 mm reveals) / case height 266.7 mm (762 - 495.3)"
+  },
+  "tolerance": 0.05,
+  "notes": "Ground truth for Perceive proportion estimates. Tolerance is absolute on the fraction."
+}
