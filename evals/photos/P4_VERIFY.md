@@ -10,7 +10,7 @@ Plan: [`docs/plans/product-plan-2026-11-10.md`](../../docs/plans/product-plan-20
 - [x] Three blind pipeline+vision runs on `console_01` (`python -m furniture_cad p4-a0`)
 - [x] Construct derives IR from Perceive (generic casegood template) — `construct/from_observation.py`
 - [ ] Camera-matched IoU ≥ 0.55 (studio) — **blocked**: D8 calibration still ~0.50 / untrusted
-- [ ] Blind human Match/Close rating — needs Jonny
+- [x] Blind human rating: **Close** (2026-11-14) — right features/layout/size; wrong case-to-leg massing; missing pill/wishbone silhouette
 - [x] Board-feet scored in A0 harness (`eval/board_feet.py`)
 - [ ] More Fusion GT (sideboard / bookcase / nightstand) — **blocked on Jonny**; empty case folders scaffolded
 
@@ -51,6 +51,19 @@ Reading it:
 - Proportions fix heights (DF1 front height within 0.2 mm) but part pass/fail needs all three dimensions. What still blocks parts: stock thickness defaults (19 / 6 / 12 mm vs the plan's 22.2 / 12.7 / 12.7), drawer box width, E1 height (3.7%), leg flare envelope, and B1.
 - **Board-ft got worse with correct proportions.** The 0.32 was partly luck (a wrongly tall case inflated end blocks). With the right shape, the real gap shows: carved ends and legs are cut from much thicker blanks than their envelopes. Needs blank allowances for carved parts, not more tuning.
 - Not measured yet: how well a vision model estimates the two proportions. Run `p4-a0 --runs 3` and read `mean_proportion_abs_err` (tolerance 0.05).
+
+## Live proportions result and the change (2026-11-14)
+
+Live A0 ×3 (PR #80): `mean_proportion_abs_err` 0.0804 vs 0.05 tolerance. Split by metric:
+
+| Metric | Model returned (3 runs) | Truth | Mean abs error |
+| --- | --- | --- | --- |
+| `under_z_frac` | 0.65, 0.62, 0.58 | 0.65 | 0.033 (inside tolerance, but varies run to run) |
+| `drawer_bank_frac` | 0.40, 0.35, 0.35 | 0.494 | 0.128 (always low) |
+
+Asking for ratios makes the model estimate the denominator too (case height = overall height minus under_z). **Change:** Perceive now returns landmark rows (0–1000 down the image: top, floor, case bottom, top and bottom of the drawer fronts) and code computes the ratios (`proportions_from_landmarks`). Rows in an impossible order are dropped, which falls back to the prior instead of a wrong value. Same call count; direct ratios are no longer read.
+
+Decision rule: re-run `python -m furniture_cad p4-a0 --runs 3`. If `mean_proportion_abs_err` is still over 0.05 on `drawer_bank_frac`, stop asking the model for geometry and ask the user for one drawer-front height (a known size), or derive under_z from the silhouette mask's width profile.
 
 ## Commands
 

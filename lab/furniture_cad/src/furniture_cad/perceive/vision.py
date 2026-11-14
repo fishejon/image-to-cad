@@ -28,7 +28,8 @@ Schema:
   "unknowns": [{"q": str, "default": any, "ask": bool}],
   "end_form": "flat|leaning|swept|swept_leaning|unknown",
   "leg_style": "square|tapered|flared|two_profile_flared|none|unknown",
-  "proportions": {"under_z_frac": 0-1 or null, "drawer_bank_frac": 0-1 or null}
+  "landmarks": {"top": 0-1000|null, "floor": 0-1000|null, "case_bottom": 0-1000|null,
+                "drawer_top": 0-1000|null, "drawer_bottom": 0-1000|null}
 }
 Rules:
 - Do not invent pulls if none are visible.
@@ -36,13 +37,11 @@ Rules:
   if only two front legs are visible, still count leg=4 (rear legs inferred).
 - end_block_carved = carved/sculpted solid wood end panels (not plain box ends).
 - Open recessed shelf bay above drawers = open_cubby=1 AND shelf=1 (the bay floor/ceiling is the shelf).
-- proportions (estimate from the straight-on view; use null when the edge is not clearly visible,
-  never guess):
-  under_z_frac = height of the underside of the main case body (where the legs end and the case
-  begins) measured from the floor, as a fraction of overall height.
-  drawer_bank_frac = vertical span of the drawer fronts (top edge of the top drawer front to bottom
-  edge of the bottom drawer front) as a fraction of the case height (overall height minus the
-  under_z height). null if there are no drawers.
+- landmarks are vertical positions in the image as you see it: 0 = top edge of the image, 1000 =
+  bottom edge. Report where things are; do NOT compute ratios. Use null when an edge is not clearly
+  visible. top = highest point of the piece. floor = where the feet meet the floor. case_bottom =
+  underside of the main case body (between the legs). drawer_top / drawer_bottom = top edge of the
+  highest drawer front and bottom edge of the lowest drawer front (null if no drawers).
 - Temperature 0."""
 
 
@@ -56,6 +55,20 @@ def _extract_json(text: str) -> dict[str, Any]:
 
 # Sane bounds for freestanding casegoods; values outside are treated as not measured.
 PROPORTION_BOUNDS = {"under_z_frac": (0.08, 0.80), "drawer_bank_frac": (0.15, 0.90)}
+LANDMARK_KEYS = ("top", "floor", "case_bottom", "drawer_top", "drawer_bottom")
+
+
+def _norm_landmarks(raw: dict[str, Any] | None) -> dict[str, float]:
+    """Keep numeric landmark rows in [0, 1000]."""
+    out: dict[str, float] = {}
+    for k in LANDMARK_KEYS:
+        try:
+            v = float((raw or {}).get(k))
+        except (TypeError, ValueError):
+            continue
+        if 0.0 <= v <= 1000.0:
+            out[k] = v
+    return out
 
 
 def _norm_proportions(raw: dict[str, Any] | None) -> dict[str, float]:
@@ -69,6 +82,26 @@ def _norm_proportions(raw: dict[str, Any] | None) -> dict[str, float]:
         if lo <= v <= hi:
             out[k] = round(v, 4)
     return out
+
+
+def proportions_from_landmarks(lm: dict[str, Any] | None) -> dict[str, float]:
+    """Compute proportions from landmark rows (y grows downward). Straight-on photo assumed.
+
+    under_z_frac = (floor - case_bottom) / (floor - top)
+    drawer_bank_frac = (drawer_bottom - drawer_top) / (case_bottom - top)
+
+    Rows in an impossible order are dropped, so a bad landmark yields no proportion rather
+    than a wrong one.
+    """
+    m = _norm_landmarks(lm)
+    raw: dict[str, float] = {}
+    top, floor, cb = m.get("top"), m.get("floor"), m.get("case_bottom")
+    if top is not None and floor is not None and cb is not None and top < cb < floor:
+        raw["under_z_frac"] = (floor - cb) / (floor - top)
+        dt, db = m.get("drawer_top"), m.get("drawer_bottom")
+        if dt is not None and db is not None and top <= dt < db <= cb:
+            raw["drawer_bank_frac"] = (db - dt) / (cb - top)
+    return _norm_proportions(raw)
 
 
 def _norm_counts(raw: dict[str, Any] | None) -> dict[str, int]:
@@ -249,7 +282,8 @@ def perceive_vision(
         "counts_pass1": counts1,
         "end_form": data.get("end_form"),
         "leg_style": data.get("leg_style"),
-        "proportions": _norm_proportions(data.get("proportions")),
+        "landmarks": _norm_landmarks(data.get("landmarks")),
+        "proportions": proportions_from_landmarks(data.get("landmarks")),
         "unknowns": unknowns,
         "meta": {
             "perceive": "vision_v1",
