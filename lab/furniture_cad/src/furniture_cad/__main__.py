@@ -95,14 +95,21 @@ def main(argv: list[str] | None = None) -> int:
         p = argparse.ArgumentParser(description="Run staged IR pipeline")
         p.add_argument("--photo", type=Path, default=None)
         p.add_argument("--known-mm", nargs=3, type=float, metavar=("W", "D", "H"), required=True)
+        p.add_argument("--leg-mm", type=float, default=None, help="leg height: floor to case underside")
+        p.add_argument("--drawer-front-mm", type=float, default=None, help="height of one drawer front")
         p.add_argument("--work", type=Path, default=Path("out/pipeline"))
         p.add_argument("--ir", type=Path, default=None)
         p.add_argument("--vision", action="store_true", help="P3 Anthropic Perceive")
         args = p.parse_args(rest)
+        known = {"w": args.known_mm[0], "d": args.known_mm[1], "h": args.known_mm[2]}
+        if args.leg_mm:
+            known["leg"] = args.leg_mm
+        if args.drawer_front_mm:
+            known["drawer_front"] = args.drawer_front_mm
         summary = run_pipeline(
             work_dir=args.work,
             photo=args.photo,
-            known_mm={"w": args.known_mm[0], "d": args.known_mm[1], "h": args.known_mm[2]},
+            known_mm=known,
             seed_ir=args.ir,
             use_vision=True if args.vision else None,
         )

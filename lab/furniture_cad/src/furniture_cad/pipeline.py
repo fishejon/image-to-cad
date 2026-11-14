@@ -206,6 +206,8 @@ def run_pipeline(
         "features": compiled.get("features"),
         "observation_counts": feat_counts,
         "observation_proportions": obs.get("proportions") or {},
+        "known_extra_mm": dims.get("known_extra_mm") or {},
+        "asks": dims.get("asks") or [],
         "parts_count": len(compiled["parts"]),
         "piece_count": sum(int(p.qty) for p in compiled["parts"]),
         "exported": {k: str(v) for k, v in paths.items()},

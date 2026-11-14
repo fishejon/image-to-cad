@@ -65,6 +65,23 @@ Asking for ratios makes the model estimate the denominator too (case height = ov
 
 Decision rule: re-run `python -m furniture_cad p4-a0 --runs 3`. If `mean_proportion_abs_err` is still over 0.05 on `drawer_bank_frac`, stop asking the model for geometry and ask the user for one drawer-front height (a known size), or derive under_z from the silhouette mask's width profile.
 
+## Landmarks result and the switch to user-known sizes (2026-11-14)
+
+Live A0 ×3 with landmark rows (PR #82): `mean_proportion_abs_err` **0.2012**, worse than direct ratios (0.0804). `under_z_frac` was dropped in 2 of 3 runs (0.25 when returned, truth 0.65); `drawer_bank_frac` came back 0.30 / 0.54 / 0.67 (truth 0.494), noisy rather than biased. Mean dimension match share 0.376, no better than the prior (0.385). The 0.26 board-ft error is not an improvement (wrong shapes cancel).
+
+| Approach (live ×3) | proportion err | dimension match share |
+| --- | --- | --- |
+| Generic prior | n/a | 0.385 |
+| Direct ratios (PR #79) | 0.080 | 0.444 |
+| Landmark rows (PR #81) | 0.201 | 0.376 |
+
+**Decision:** stop asking the model for geometry. Perceive returns counts and styles only. Leg height and one drawer-front height are optional **known sizes** (`known_mm["leg"]`, `known_mm["drawer_front"]`; CLI `--leg-mm`, `--drawer-front-mm`). Dimension records them (`known_extra_mm`, source `user`) and Construct uses them over any perceived value. When they are missing, Dimension raises `asks` ("How tall are the legs…", "How tall is one drawer front…") and the pipeline summary carries them, and Construct falls back to the prior.
+
+- **Blind vs assisted.** `p4-a0` stays blind (counts + overall sizes only). `p4-a0 --assist` also passes `known_mm_assist` from `console_01/proportions.json` (leg 495.3, drawer front 128.6) and writes `P4_A0_assisted.json`: "if the user types two numbers", not a blind score.
+- **Protocol note.** `BLIND_PROTOCOL.md` allows one known dimension, but A0 passes all three overall sizes, so `dims_within_3pct` is true by construction. Treat it as a smoke check, not evidence.
+- Not tried: `under_z` from the silhouette width profile (needs a trustworthy mask; intake is brightness-based, SAM pending).
+- **Open shape work (from the Close rating):** the pill is the swept case ends and the wishbone is the carved transition where the ends meet the leg tops, so both are front-view end-block / carcass outline. Compiled ends are still boxes plus a small sweep cue.
+
 ## Commands
 
 ```bash
