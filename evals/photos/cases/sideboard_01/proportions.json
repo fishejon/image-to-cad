@@ -1,0 +1,17 @@
+{
+  "schema": "proportions.v1",
+  "id": "sideboard_01",
+  "proportions": {
+    "under_z_frac": 0.2188,
+    "drawer_bank_frac": 0.92
+  },
+  "derivation": {
+    "under_z_frac": "leg height 177.8 mm / overall height 812.8 mm",
+    "drawer_bank_frac": "(3 stacked fronts + 2 reveals) / (overall height - leg height)"
+  },
+  "known_mm_assist": {
+    "leg": 177.8,
+    "drawer_front": 192.62
+  },
+  "tolerance": 0.05
+}

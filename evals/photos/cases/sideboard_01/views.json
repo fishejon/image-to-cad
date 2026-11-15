@@ -1,8 +1,10 @@
 {
   "schema": "views.v1",
   "id": "sideboard_01",
-  "photos": [],
-  "needed": [
-    "front_clean"
-  ]
+  "photos": [
+    "sideboard_01_front_render.png"
+  ],
+  "synthetic": true,
+  "needed": [],
+  "notes": "Orthographic shaded render of the design (gitignored). Not a photograph."
 }
