@@ -71,19 +71,27 @@ def swept_shell(
     div_setback = 10.0 if front_setback is None else float(front_setback)
     div_d = max(10.0, D - back_t - div_setback)
     div = Pos(0, back_t * 0.25, div_z) * Box(max(10.0, W - 2 * wall), div_d, wall)
-    end_env_t = inset + sweep_r
+    # Straight ends (no lean, no sweep) are plain panels, not carved end blocks.
+    straight = lean_deg == 0 and sweep_r <= 2.0
+    end_env_t = wall if straight else inset + sweep_r
     back_h = max(10.0, case_h - 2 * wall + 2 * float(back_groove))
+    # Sweep radius clamps to 1 mm so square corners stay numerically stable.
+    r_eff = 1.0 if straight else max(1.0, float(sweep_r))
+    bottom_len = max(10.0, W - 2 * wall)
 
-    # Sweep cue kept inside envelope
-    sweep_box = Box(min(sweep_r * 0.25, 45), D * 0.85, min(sweep_r * 0.2, 35))
-    sw_l = Pos(-W / 2 + wall + 25, 0, under_z + 12) * sweep_box
-    sw_r = Pos(W / 2 - wall - 25, 0, under_z + 12) * sweep_box
+    children = [shell, top, bottom, back, div]
+    if not straight:
+        # Sweep cue kept inside envelope
+        sweep_box = Box(min(sweep_r * 0.25, 45), D * 0.85, min(sweep_r * 0.2, 35))
+        children.append(Pos(-W / 2 + wall + 25, 0, under_z + 12) * sweep_box)
+        children.append(Pos(W / 2 - wall - 25, 0, under_z + 12) * sweep_box)
 
-    assembly = Compound(children=[shell, top, bottom, back, div, sw_l, sw_r])
+    assembly = Compound(children=children)
 
-    parts = [
-        part("T1", Box(W, D, wall), material=material, qty=1, name="Top plank"),
-        part(
+    if straight:
+        e1 = part("E1", Box(end_env_t, D, case_h), material=material, qty=2, name="End panel")
+    else:
+        e1 = part(
             "E1",
             Box(end_env_t, D, case_h),
             material=material,
@@ -91,7 +99,10 @@ def swept_shell(
             name="End block, carved",
             make="shaped",
             blank_pad_mm=12.0,
-        ),
+        )
+    parts = [
+        part("T1", Box(W, D, wall), material=material, qty=1, name="Top plank"),
+        e1,
         part("B1", Box(max(10.0, W - 2 * wall), D, wall), material=material, qty=1, name="Bottom panel"),
         part(
             "D1",
@@ -112,7 +123,7 @@ def swept_shell(
     return {
         "assembly": assembly,
         "parts": parts,
-        "features": {"end_block": 2, "open_cubby": 1, "shelf": 1},
+        "features": {"end_block": 0 if straight else 2, "open_cubby": 1, "shelf": 1},
         "meta": {
             "block": "swept_shell",
             "W": W,
@@ -125,5 +136,8 @@ def swept_shell(
             "sweep_r": sweep_r,
             "div_z": div_z,
             "void_h": void_h,
+            "x_tangent": -W / 2 + r_eff,
+            "bottom_len": bottom_len,
+            "straight": straight,
         },
     }

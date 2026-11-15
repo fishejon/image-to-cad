@@ -76,7 +76,7 @@ def construct_ir_from_observation(
     form = "swept_shell"
     if not swept:
         lean_deg = 0.0
-        sweep_r = max(25.0, min(D * 0.15, 60.0))  # mild ease so shell still compiles
+        sweep_r = 0.0  # straight ends: plain panels with square corners
 
     drawers = max(0, int(counts.get("drawer") or 0))
     open_cubby = max(0, int(counts.get("open_cubby") or 0))

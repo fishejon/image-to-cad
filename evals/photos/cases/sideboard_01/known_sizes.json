@@ -4,21 +4,21 @@
   "units": "mm",
   "overall": {
     "w": {
-      "v": null,
-      "src": "user",
-      "in": null
+      "v": 1524.0,
+      "src": "design",
+      "in": 60.0
     },
     "d": {
-      "v": null,
-      "src": "user",
-      "in": null
+      "v": 457.2,
+      "src": "design",
+      "in": 18.0
     },
     "h": {
-      "v": null,
-      "src": "user",
-      "in": null
+      "v": 812.8,
+      "src": "design",
+      "in": 32.0
     }
   },
   "anchor": "w",
-  "notes": "Fill from the Fusion model (one overall size is enough; all three if known)."
+  "notes": "Synthetic design sizes."
 }

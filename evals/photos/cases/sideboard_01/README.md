@@ -1,13 +1,7 @@
-# sideboard_01 — ground truth (template)
+# sideboard_01 — SYNTHETIC ground truth
 
-Drop in the Fusion export and fill the templates, then set `cut_list.hand.json` `status` to `"authoritative_hand_plan"`.
+Designed by `make_synthetic_gt.py`, not built or measured, and there is no real photo. Treat it as a generalisation stress test (straight ends, short tapered legs, three stacked drawers between two doors), not as real-world evidence like `console_01`.
 
-| File | What to add |
-| --- | --- |
-| `sideboard_01.step` | Fusion STEP export (answer key geometry) |
-| `cut_list.hand.json` | one row per part type: `id`, `name`, `qty`, `finished_in` {t,w,l}, `thickness_mm`/`width_mm`/`length_mm` (finished), `blank_in` {t,w,l}, `stock`, `material`; plus `stock_buy` (per-stock `net_bf`) and `joinery` |
-| `known_sizes.json` | overall W/D/H |
-| `features.json` | feature counts |
-| `views.json` + photo | a clean straight-on front photo (jpg files are gitignored) |
+Regenerate: `python evals/photos/cases/sideboard_01/make_synthetic_gt.py`.
 
-Part ids in the predicted cut list must match the hand ids for part matching to work.
+To replace it with a real piece, put a Fusion export at `sideboard_01.step`, rewrite `cut_list.hand.json` from your plan, and set its `status` to `authoritative_hand_plan`.

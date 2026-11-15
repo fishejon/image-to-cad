@@ -27,6 +27,7 @@ def main(argv: list[str] | None = None) -> int:
             "  perceive --photo PATH [--features FILE] [--known-mm W D H]  # P3 vision score\n"
             "  p4-a0 [--vision|--no-vision] [--runs 3]  # P4 console A0 ×N\n"
             "  new-case ID [--dims-in W D H]      # scaffold evals/photos/cases/ID (GT templates)\n"
+            "  case-run ID [--assist]             # generic Construct on a ready case, oracle counts\n"
             "  rebuild --project DIR --set KEY VAL  # no-model rebuild\n"
             "This lab is offline and NOT deployed to prod."
         )
@@ -73,6 +74,20 @@ def main(argv: list[str] | None = None) -> int:
         from furniture_cad.eval.calibrate_cli import main as calibrate_main
 
         return calibrate_main(rest)
+    if cmd == "case-run":
+        import argparse
+        import json as _json
+
+        from furniture_cad.eval.case_run import run_case, summarize
+
+        p = argparse.ArgumentParser(description="Run Construct on a ground-truth case with oracle counts")
+        p.add_argument("case_id")
+        p.add_argument("--assist", action="store_true", help="also pass leg + drawer-front heights as known sizes")
+        p.add_argument("--full", action="store_true", help="print the full report, not the summary")
+        args = p.parse_args(rest)
+        rep = run_case(args.case_id, assist=args.assist)
+        print(_json.dumps(rep if args.full else summarize(rep), indent=2, default=str))
+        return 0
     if cmd == "new-case":
         import argparse
 

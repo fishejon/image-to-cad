@@ -155,8 +155,13 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
     outline = carcass.get("outline") or {}
     wall = float(outline.get("wall") or params.get("wall") or 22.225)
     under_z = float(outline.get("under_z") or params.get("under_z") or 495.3)
-    lean_deg = float(outline.get("lean_deg") or params.get("lean_deg") or 6.0)
-    sweep_r = float(outline.get("sweep_r") or params.get("sweep_r") or 121.92)
+
+    def _first(*vals: Any, default: float) -> float:
+        # 0 is a real value (straight ends, square corners), not "missing"
+        return float(next((v for v in vals if v is not None), default))
+
+    lean_deg = _first(outline.get("lean_deg"), params.get("lean_deg"), default=6.0)
+    sweep_r = _first(outline.get("sweep_r"), params.get("sweep_r"), default=121.92)
     back_t = float(params.get("back_t") or (carcass.get("back") or {}).get("t") or 12.7)
 
     form = carcass.get("form") or "box"
