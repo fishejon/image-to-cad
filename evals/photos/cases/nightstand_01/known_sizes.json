@@ -4,21 +4,21 @@
   "units": "mm",
   "overall": {
     "w": {
-      "v": null,
+      "v": 584.2,
       "src": "user",
-      "in": null
+      "in": 23.0
     },
     "d": {
-      "v": null,
+      "v": 457.2,
       "src": "user",
-      "in": null
+      "in": 18.0
     },
     "h": {
-      "v": null,
+      "v": 584.2,
       "src": "user",
-      "in": null
+      "in": 23.0
     }
   },
   "anchor": "w",
-  "notes": "Fill from the Fusion model (one overall size is enough; all three if known)."
+  "notes": "User overall: 23\u00d718\u00d723 in (W\u00d7D\u00d7H). STEP bbox still pending for cross-check."
 }

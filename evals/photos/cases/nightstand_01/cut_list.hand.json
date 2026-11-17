@@ -1,19 +1,26 @@
 {
   "schema": "hand_cut_list.v1",
   "id": "nightstand_01",
-  "title": "nightstand_01",
-  "date": "2026-11-14",
+  "title": "Nightstand (rounded-leg frame)",
+  "date": "2026-11-17",
   "author": "",
-  "dims_in": {},
-  "dims_mm": {
-    "w": null,
-    "d": null,
-    "h": null
+  "dims_in": {
+    "w": 23.0,
+    "d": 18.0,
+    "h": 23.0
   },
-  "dims_from": "Fusion",
+  "dims_mm": {
+    "w": 584.2,
+    "d": 457.2,
+    "h": 584.2
+  },
+  "dims_from": "user: 23\u00d718\u00d723 in",
   "status": "template",
   "units_source": "inches",
-  "notes": [],
+  "notes": [
+    "Overall sizes from user. Drop nightstand_01.step and fill finished/blank sizes from Fusion + shop plan.",
+    "Form: 4 rounded legs, arched inner fillets, inset drawer with pill tenon tabs, low open shelf."
+  ],
   "parts": [],
   "stock_buy": [],
   "joinery": []

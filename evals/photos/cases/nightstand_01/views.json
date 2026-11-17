@@ -1,8 +1,20 @@
 {
   "schema": "views.v1",
   "id": "nightstand_01",
-  "photos": [],
+  "photos": [
+    {
+      "file": "nightstand_01_front.jpg",
+      "pose_hint": "front",
+      "rectified": false,
+      "clutter": false,
+      "props": [],
+      "backdrop": "white_studio",
+      "d8_calibration_eligible": true,
+      "notes": "Clean studio front \u2014 good D8 candidate once STEP is in."
+    }
+  ],
   "needed": [
-    "front_clean"
-  ]
+    "step_export"
+  ],
+  "notes": "Photo gitignored under evals/photos/**/*.jpg."
 }
