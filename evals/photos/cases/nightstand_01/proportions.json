@@ -1,9 +1,17 @@
 {
   "schema": "proportions.v1",
   "id": "nightstand_01",
-  "proportions": {},
-  "derivation": {},
-  "known_mm_assist": {},
-  "tolerance": 0.05,
-  "notes": "Shelf height / drawer front height unknown until STEP or user known sizes."
+  "proportions": {
+    "under_z_frac": 0.2602,
+    "drawer_bank_frac": 0.2076
+  },
+  "derivation": {
+    "under_z_frac": "lower shelf center ~152 mm / overall H",
+    "drawer_bank_frac": "drawer front height 116 mm / (H - top)"
+  },
+  "known_mm_assist": {
+    "drawer_front": 116.0,
+    "leg": 558.8
+  },
+  "tolerance": 0.05
 }

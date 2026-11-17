@@ -14,10 +14,12 @@
     "leg_style": "square_rounded_outer",
     "drawer_layout": "single_inset_top",
     "frame_style": "arched_inner_fillets",
-    "joinery_cue": "pill_tenon_tabs_through_front_legs",
+    "joinery_cue": "oval_walnut_slide_rails",
     "top_kind": "plank_flush_with_legs",
+    "material_primary": "cherry",
+    "material_accent": "black_walnut",
     "drawer_pulls": false,
     "class": "casegood.nightstand"
   },
-  "notes": "From studio front photo: dark oak/ash nightstand, 4 legs with rounded outer corners and arched inner fillets at the upper rail. One inset drawer (no knob; pill-shaped wood tabs through the front legs), one low open shelf, open cubby between drawer and shelf. Pull count 0 (tabs are joinery, not pulls)."
+  "notes": "STEP: 4 cherry legs, top, 3 aprons, lower shelf, drawer box (DF/DS/DB/DBT), 2 oval black-walnut slide rails. Pull count 0."
 }

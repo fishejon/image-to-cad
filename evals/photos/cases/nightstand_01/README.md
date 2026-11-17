@@ -1,16 +1,13 @@
-# nightstand_01 — ground truth (photo + overall sizes; STEP pending)
+# nightstand_01 — design-script ground truth
 
-**Dims:** 584.2 × 457.2 × 584.2 mm → **23.0 × 18.0 × 23.0 in** (W × D × H).
+**Dims:** 584.2 × 457.2 × 584.2 mm → **23 × 18 × 23 in** (W × D × H).
 
-Dark oak/ash nightstand: **4 rounded legs**, arched inner fillets, one **inset drawer** (pill tenon tabs through the front legs, no knob), and a **low open shelf**.
+Cherry nightstand with **oval black-walnut slide rails**, inset drawer, low open shelf, four rounded legs. STEP + cut list from `make_nightstand_gt.py`.
 
 | File | Status |
 | --- | --- |
-| `nightstand_01_front.jpg` | clean studio front (gitignored) |
-| `features.json` | filled from photo |
-| `known_sizes.json` | user overall |
-| `views.json` | recorded (D8-eligible once STEP exists) |
-| `cut_list.hand.json` | template (dims filled) |
-| `nightstand_01.step` | **needed** |
-
-Next: drop the Fusion STEP, then promote the cut list.
+| `nightstand_01.step` | 16 solids; bbox exact match |
+| `cut_list.hand.json` | `design_script` |
+| `make_nightstand_gt.py` | regenerator |
+| `features.json` / `known_sizes.json` | filled |
+| `nightstand_01_front.jpg` | studio front (gitignored) |
