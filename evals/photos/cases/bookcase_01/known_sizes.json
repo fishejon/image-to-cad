@@ -20,5 +20,5 @@
     }
   },
   "anchor": "w",
-  "notes": "Fill from the Fusion model (one overall size is enough; all three if known)."
+  "notes": "Fill from Fusion STEP bbox (or measured overall). Tall bookcase \u2014 expect H \u226b W."
 }

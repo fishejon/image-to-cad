@@ -1,8 +1,8 @@
 {
   "schema": "hand_cut_list.v1",
   "id": "bookcase_01",
-  "title": "bookcase_01",
-  "date": "2026-11-14",
+  "title": "Walnut bookcase (organic frame)",
+  "date": "2026-11-17",
   "author": "",
   "dims_in": {},
   "dims_mm": {
@@ -13,7 +13,10 @@
   "dims_from": "Fusion",
   "status": "template",
   "units_source": "inches",
-  "notes": [],
+  "notes": [
+    "Photo only so far. Drop bookcase_01.step and fill finished/blank sizes from Fusion + shop plan.",
+    "Form: rounded post/rail frame, 4 open shelves with gallery lips, mid hinged 2-door cabinet, short post legs."
+  ],
   "parts": [],
   "stock_buy": [],
   "joinery": []
