@@ -4,21 +4,21 @@
   "units": "mm",
   "overall": {
     "w": {
-      "v": null,
+      "v": 1199.9,
       "src": "user",
-      "in": null
+      "in": 47.24
     },
     "d": {
-      "v": null,
+      "v": 380.0,
       "src": "user",
-      "in": null
+      "in": 14.96
     },
     "h": {
-      "v": null,
+      "v": 2000.0,
       "src": "user",
-      "in": null
+      "in": 78.74
     }
   },
   "anchor": "w",
-  "notes": "Fill from Fusion STEP bbox (or measured overall). Tall bookcase \u2014 expect H \u226b W."
+  "notes": "User overall: 47.24 \u00d7 14.96 \u00d7 78.74 in (W\u00d7D\u00d7H). STEP bbox still pending for cross-check."
 }
