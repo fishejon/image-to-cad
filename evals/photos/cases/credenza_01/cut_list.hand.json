@@ -19,8 +19,8 @@
   "units_source": "mm",
   "notes": [
     "Authoritative hand plan (2026-11-16): finished sizes + blanks from Jonny; STEP AABB cross-check.",
-    "Facing the piece: LEFT bay = sliding doors, no drawers; RIGHT bay = two stacked drawers over open cubby (behind / beside the bypass doors).",
-    "DR1 qty 2 (bypass pair). Fusion STEP export still has one door solid \u2014 re-export to match.",
+    "Facing the piece: LEFT bay = sliding door, no drawers; RIGHT bay = two stacked drawers over open cubby.",
+    "DR1 qty 1 \u2014 one sliding door leaf, matching the Fusion STEP export.",
     "Leg design envelope vs turned profile: blank from 8/4; finished envelope 47\u00d747\u00d7200."
   ],
   "parts": [
@@ -172,7 +172,7 @@
     {
       "id": "DR1",
       "name": "Sliding door",
-      "qty": 2,
+      "qty": 1,
       "finished_in": {
         "t": 0.748,
         "w": 22.4016,
@@ -185,7 +185,7 @@
       "stock": "walnut_4/4",
       "material": "walnut",
       "grain": "vertical",
-      "notes": "Bypass pair (qty 2), identical leaves. 20\u00d7280 mm stadium finger slot, 50 mm from the free edge, top of slot 77 mm below the door top. Fusion STEP currently exports one leaf \u2014 re-export when the second solid is in the model.",
+      "notes": "20\u00d7280 mm stadium finger slot, 50 mm from the free edge, top of slot 77 mm below the door top. GT uses one sliding door leaf (matches Fusion STEP).",
       "blank_in": {
         "t": 1.0,
         "w": 22.6516,
@@ -197,7 +197,7 @@
         "l": 477.4
       },
       "glue_up_boards": 4,
-      "rough_bf": 5.92
+      "rough_bf": 2.96
     },
     {
       "id": "DF1",
@@ -364,8 +364,8 @@
         "DR1",
         "DF1"
       ],
-      "net_bf": 20.97,
-      "with_25pct_bf": 26.21
+      "net_bf": 18.01,
+      "with_25pct_bf": 22.51
     },
     {
       "stock": "walnut_5/4",

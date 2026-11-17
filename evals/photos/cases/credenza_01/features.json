@@ -3,7 +3,7 @@
   "id": "credenza_01",
   "counts": {
     "drawer": 2,
-    "door": 2,
+    "door": 1,
     "shelf": 0,
     "leg": 4,
     "open_cubby": 1,
@@ -12,7 +12,7 @@
   "attrs": {
     "end_form": "flat_rounded",
     "leg_style": "tapered_splayed",
-    "door_style": "sliding_bypass",
+    "door_style": "sliding",
     "drawer_layout": "stacked_right",
     "layout_facing": "left_door_bay_no_drawers_right_drawers_over_cubby",
     "top_kind": "plank",
@@ -20,5 +20,5 @@
     "drawer_pulls": false,
     "class": "casegood.credenza"
   },
-  "notes": "Facing: left bay has no drawers (sliding-door side); right bay has two stacked drawers over open cubby. Two bypass sliding doors with stadium finger slots near the outer edges. Pulls are carved/integrated so pull count stays 0."
+  "notes": "Facing: left bay has no drawers (sliding-door side); right bay has two stacked drawers over open cubby. One sliding door leaf (matches STEP/hand list). Pulls are carved/integrated so pull count stays 0."
 }
