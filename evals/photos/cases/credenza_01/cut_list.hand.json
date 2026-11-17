@@ -19,8 +19,8 @@
   "units_source": "mm",
   "notes": [
     "Authoritative hand plan (2026-11-16): finished sizes + blanks from Jonny; STEP AABB cross-check.",
-    "Facing the piece: LEFT bay = sliding door(s), no drawers; RIGHT bay = two stacked drawers over open cubby (behind / beside the bypass doors).",
-    "Closed front photo shows two bypass sliding doors; this list currently has DR1 qty 1 (matches the Fusion STEP solid count). Confirm whether the second leaf should be added.",
+    "Facing the piece: LEFT bay = sliding doors, no drawers; RIGHT bay = two stacked drawers over open cubby (behind / beside the bypass doors).",
+    "DR1 qty 2 (bypass pair). Fusion STEP export still has one door solid \u2014 re-export to match.",
     "Leg design envelope vs turned profile: blank from 8/4; finished envelope 47\u00d747\u00d7200."
   ],
   "parts": [
@@ -172,7 +172,7 @@
     {
       "id": "DR1",
       "name": "Sliding door",
-      "qty": 1,
+      "qty": 2,
       "finished_in": {
         "t": 0.748,
         "w": 22.4016,
@@ -185,7 +185,7 @@
       "stock": "walnut_4/4",
       "material": "walnut",
       "grain": "vertical",
-      "notes": "20\u00d7280 mm stadium finger slot, 50 mm from the free edge, top of slot 77 mm below the door top. Closed front photo shows a bypass pair \u2014 STEP/hand list currently one leaf; confirm second door.",
+      "notes": "Bypass pair (qty 2), identical leaves. 20\u00d7280 mm stadium finger slot, 50 mm from the free edge, top of slot 77 mm below the door top. Fusion STEP currently exports one leaf \u2014 re-export when the second solid is in the model.",
       "blank_in": {
         "t": 1.0,
         "w": 22.6516,
@@ -197,7 +197,7 @@
         "l": 477.4
       },
       "glue_up_boards": 4,
-      "rough_bf": 2.96
+      "rough_bf": 5.92
     },
     {
       "id": "DF1",
@@ -364,8 +364,8 @@
         "DR1",
         "DF1"
       ],
-      "net_bf": 18.01,
-      "with_25pct_bf": 22.51
+      "net_bf": 20.97,
+      "with_25pct_bf": 26.21
     },
     {
       "stock": "walnut_5/4",
