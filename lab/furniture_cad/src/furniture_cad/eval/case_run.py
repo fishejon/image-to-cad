@@ -30,6 +30,7 @@ def oracle_observation(case_dir: Path) -> dict[str, Any]:
     counts = {k: int(v) for k, v in (feats.get("counts") or {}).items() if v is not None}
     counts.setdefault("end_block_carved", 0)
     cls = attrs.get("class") or f"casegood.{case_dir.name.rsplit('_', 1)[0]}"
+    props = _j(case_dir / "proportions.json").get("proportions") or {}
     return {
         "schema": "observation.v1",
         "class": cls,
@@ -38,6 +39,10 @@ def oracle_observation(case_dir: Path) -> dict[str, Any]:
         "counts": counts,
         "end_form": attrs.get("end_form") or "flat",
         "leg_style": attrs.get("leg_style") or "square",
+        "drawer_layout": attrs.get("drawer_layout") or "",
+        "door_style": attrs.get("door_style") or "",
+        "layout_facing": attrs.get("layout_facing") or "",
+        "proportions": props,
         "unknowns": [],
         "meta": {"perceive": "oracle_counts"},
     }

@@ -17,13 +17,40 @@ from furniture_cad.silhouette import _photo_mask, _shift, rating_for_iou
 D8_THRESHOLD = 0.8
 
 
+def _letterbox_gray(img: Any, size: tuple[int, int]) -> Any:
+    """Resize preserving aspect ratio; pad with near-white so studio thresholds still work."""
+    from PIL import Image
+
+    tw, th = size
+    w, h = img.size
+    scale = min(tw / max(w, 1), th / max(h, 1))
+    nw, nh = max(1, int(round(w * scale))), max(1, int(round(h * scale)))
+    resized = img.resize((nw, nh), Image.Resampling.BILINEAR)
+    canvas = Image.new("L", size, 245)
+    canvas.paste(resized, ((tw - nw) // 2, (th - nh) // 2))
+    return canvas
+
+
+def _largest_component(mask: np.ndarray) -> np.ndarray:
+    """Keep the largest connected True blob (4-connected)."""
+    from scipy import ndimage
+
+    labeled, n = ndimage.label(mask)
+    if n <= 1:
+        return mask
+    counts = np.bincount(labeled.ravel())
+    counts[0] = 0
+    keep = int(counts.argmax())
+    return labeled == keep
+
+
 def _calibration_photo_mask(path: Path, size: tuple[int, int] = (384, 384)) -> np.ndarray:
-    """Studio-aware mask: try both polarities and keep the mid-fill connected blob."""
+    """Studio-aware mask: letterboxed, polarity search, largest connected blob."""
     from PIL import Image, ImageFilter, ImageOps
 
     img = Image.open(path).convert("L")
     img = ImageOps.exif_transpose(img)
-    img = img.resize(size, Image.Resampling.BILINEAR)
+    img = _letterbox_gray(img, size)
     arr = np.asarray(img, dtype=np.float32)
     candidates: list[np.ndarray] = []
     # Pure white / near-white studio backdrop (best for D8)
@@ -52,6 +79,7 @@ def _calibration_photo_mask(path: Path, size: tuple[int, int] = (384, 384)) -> n
         pil = pil.filter(ImageFilter.MaxFilter(3))
         pil = pil.filter(ImageFilter.MinFilter(3))
         m = np.asarray(pil) > 127
+        m = _largest_component(m)
         fill = float(m.mean())
         if fill < 0.02 or fill > 0.45:
             continue
@@ -73,6 +101,7 @@ def _calibration_photo_mask(path: Path, size: tuple[int, int] = (384, 384)) -> n
             inv = ~best
             if 0.02 < float(inv.mean()) < 0.45:
                 best = inv
+        best = _largest_component(best)
     return best
 
 
@@ -116,11 +145,14 @@ def _project_mask(
     perspective: bool = True,
     fov_deg: float = 35.0,
     cam_dist_factor: float = 2.8,
+    use_hull: bool = False,
 ) -> np.ndarray:
-    """Rasterize a filled outer silhouette (convex hull of projected verts).
+    """Rasterize a filled silhouette from projected triangles (true outline).
 
-    Face fill alone is too hollow on thin-shell STEP exports; hull matches D8's
-    outer-contour intent and is stable for calibration.
+    ``use_hull=True`` falls back to the old convex-hull behaviour (fills leg gaps).
+    Perspective foreshortening is preserved: we fit scale from the orthographic
+    AABB of the mesh, then apply the same mm→px scale to the perspective projection
+    so FOV / cam distance actually change the mask.
     """
     from PIL import Image, ImageDraw
 
@@ -132,40 +164,44 @@ def _project_mask(
     x = v[:, 0]
     depth = v[:, 1]
     z = v[:, 2]
+    # Orthographic extents set a stable mm→px scale (FOV-independent)
+    ox_min, ox_max = float(x.min()), float(x.max())
+    oz_min, oz_max = float(z.min()), float(z.max())
+    ospan = max(ox_max - ox_min, oz_max - oz_min, 1e-6)
+    ocx, ocz = (ox_min + ox_max) * 0.5, (oz_min + oz_max) * 0.5
+    half = ospan * (0.5 + pad)
+
     if perspective:
-        # Push camera back along +depth so object is in front
         span = float(max(x.max() - x.min(), z.max() - z.min(), 1e-6))
         cam_y = float(depth.min()) - cam_dist_factor * span
-        # Simple pinhole: x' = x / (depth - cam_y) * f
         f = 1.0 / max(1e-6, math.tan(math.radians(fov_deg) * 0.5))
+        # Normalize so the central depth projects at scale ~1 relative to ortho
+        depth_c = float(np.median(depth))
+        f_ref = max(depth_c - cam_y, 1e-3)
         denom = np.maximum(depth - cam_y, 1e-3)
-        xp = (x / denom) * f
-        zp = (z / denom) * f
+        xp = (x / denom) * f * f_ref
+        zp = (z / denom) * f * f_ref
     else:
         xp, zp = x, z
 
     w, h = size
-    xmin, xmax = float(xp.min()), float(xp.max())
-    zmin, zmax = float(zp.min()), float(zp.max())
-    span = max(xmax - xmin, zmax - zmin, 1e-6)
-    cx, cz = (xmin + xmax) * 0.5, (zmin + zmax) * 0.5
-    half = span * (0.5 + pad)
-
-    xs = (xp - (cx - half)) / (2 * half) * (w - 1)
-    zs = (1.0 - (zp - (cz - half)) / (2 * half)) * (h - 1)
-    pts = np.column_stack([xs, zs])
+    xs = (xp - (ocx - half)) / (2 * half) * (w - 1)
+    zs = (1.0 - (zp - (ocz - half)) / (2 * half)) * (h - 1)
 
     img = Image.new("1", size, 0)
     draw = ImageDraw.Draw(img)
-    # Convex hull of projected points → solid silhouette
-    try:
-        from scipy.spatial import ConvexHull
+    if use_hull:
+        pts = np.column_stack([xs, zs])
+        try:
+            from scipy.spatial import ConvexHull
 
-        hull = ConvexHull(pts)
-        poly = [(int(pts[i, 0]), int(pts[i, 1])) for i in hull.vertices]
-        draw.polygon(poly, fill=1)
-    except Exception:
-        # Fallback: fill face triangles
+            hull = ConvexHull(pts)
+            poly = [(int(pts[i, 0]), int(pts[i, 1])) for i in hull.vertices]
+            draw.polygon(poly, fill=1)
+        except Exception:
+            use_hull = False
+    if not use_hull:
+        # All triangles — thin-shell STEP faces are often backfacing from one side.
         for a, b, c_i in faces:
             draw.polygon(
                 [
@@ -175,13 +211,22 @@ def _project_mask(
                 ],
                 fill=1,
             )
-    return np.asarray(img, dtype=bool)
+    mask = np.asarray(img, dtype=bool)
+    if not use_hull:
+        # Close hairline gaps in the shell, then fill enclosed voids (carcass interior)
+        # without filling the open space between legs (those touch the image border).
+        from scipy.ndimage import binary_closing, binary_fill_holes
 
-def _iou(ref: np.ndarray, model: np.ndarray, *, max_shift_frac: float = 0.05) -> tuple[float, dict[str, Any]]:
+        mask = binary_closing(mask, iterations=2)
+        mask = binary_fill_holes(mask)
+    return mask
+
+
+def _iou(ref: np.ndarray, model: np.ndarray, *, max_shift_frac: float = 0.12) -> tuple[float, dict[str, Any]]:
     h, w = ref.shape
     max_dx = max(1, int(round(w * max_shift_frac)))
     max_dy = max(1, int(round(h * max_shift_frac)))
-    step = max(1, max_dx // 3)
+    step = max(1, max_dx // 4)
     best = 0.0
     meta: dict[str, Any] = {"dx": 0, "dy": 0}
     for dy in range(-max_dy, max_dy + 1, step):
@@ -195,6 +240,20 @@ def _iou(ref: np.ndarray, model: np.ndarray, *, max_shift_frac: float = 0.05) ->
             if iou > best:
                 best = iou
                 meta = {"dx": dx, "dy": dy, "inter": int(inter), "union": int(union)}
+    # Fine refine around best
+    if best > 0:
+        bdx, bdy = int(meta["dx"]), int(meta["dy"])
+        for dy in range(bdy - step, bdy + step + 1):
+            for dx in range(bdx - step, bdx + step + 1):
+                m = _shift(model, dx, dy)
+                inter = np.logical_and(ref, m).sum()
+                union = np.logical_or(ref, m).sum()
+                if union == 0:
+                    continue
+                iou = float(inter / union)
+                if iou > best:
+                    best = iou
+                    meta = {"dx": dx, "dy": dy, "inter": int(inter), "union": int(union)}
     return best, meta
 
 
@@ -229,32 +288,39 @@ def fit_camera_iou(
     else:
         yaw_grid = [yaw0 - 20, yaw0, yaw0 + 20] if coarse else [yaw0 - 8, yaw0, yaw0 + 8]
         pitch_grid = [0.0, 12.0, 24.0] if coarse else [0.0, 8.0, 16.0]
-    fov_grid = [28.0, 35.0, 45.0] if perspective else [35.0]
+    use_persp = perspective or (pose_hint is not None and pose_hint != "front")
+    fov_grid = [28.0, 35.0, 45.0, 60.0] if use_persp else [35.0]
+    dist_grid = [2.2, 2.8, 3.6] if use_persp else [2.8]
 
     best: dict[str, Any] = {"iou": 0.0}
     for yaw in yaw_grid:
         for pitch in pitch_grid:
             for fov in fov_grid:
-                mask = _project_mask(
-                    verts,
-                    faces,
-                    yaw_deg=yaw,
-                    pitch_deg=pitch,
-                    size=size,
-                    perspective=perspective or abs(yaw) > 5,
-                    fov_deg=fov,
-                )
-                iou, align = _iou(ref, mask)
-                if iou > best["iou"]:
-                    best = {
-                        "iou": round(iou, 4),
-                        "yaw_deg": yaw,
-                        "pitch_deg": pitch,
-                        "fov_deg": fov,
-                        "perspective": perspective or abs(yaw) > 5,
-                        "align": align,
-                        "rating": rating_for_iou(iou),
-                    }
+                for dist in dist_grid:
+                    mask = _project_mask(
+                        verts,
+                        faces,
+                        yaw_deg=yaw,
+                        pitch_deg=pitch,
+                        size=size,
+                        perspective=use_persp or abs(yaw) > 5,
+                        fov_deg=fov,
+                        cam_dist_factor=dist,
+                        use_hull=False,
+                    )
+                    iou, align = _iou(ref, mask)
+                    if iou > best["iou"]:
+                        best = {
+                            "iou": round(iou, 4),
+                            "yaw_deg": yaw,
+                            "pitch_deg": pitch,
+                            "fov_deg": fov,
+                            "cam_dist_factor": dist,
+                            "perspective": use_persp or abs(yaw) > 5,
+                            "align": align,
+                            "rating": rating_for_iou(iou),
+                            "silhouette": "triangles",
+                        }
     best["schema"] = "camera_fit.v1"
     best["photo"] = str(photo)
     best["stl"] = str(stl)
