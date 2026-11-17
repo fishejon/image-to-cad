@@ -12,7 +12,7 @@ Plan: [`docs/plans/product-plan-2026-11-10.md`](../../docs/plans/product-plan-20
 - [ ] Camera-matched IoU ≥ 0.55 (studio) — **blocked**: D8 calibration still ~0.50 / untrusted
 - [x] Blind human rating: **Close** (2026-11-14) — right features/layout/size; wrong case-to-leg massing; missing pill/wishbone silhouette
 - [x] Board-feet scored in A0 harness (`eval/board_feet.py`)
-- [ ] More Fusion GT — **credenza_01** STEP + authoritative hand plan + front/iso photos (2026-11-16); facing layout = left door bay (no drawers), right drawers over cubby; DR1 qty 2 (STEP still one leaf — re-export). Still want clean studio front for D8. Bookcase / nightstand empty. Synthetic `sideboard_01` remains a stress test.
+- [ ] More Fusion GT — **credenza_01** STEP + authoritative hand plan + front/iso photos (2026-11-16); facing layout = left door bay (no drawers), right drawers over cubby; DR1 qty 1. Still want clean studio front for D8. Bookcase / nightstand empty. Synthetic `sideboard_01` remains a stress test.
 
 ## Honest Construct baseline (offline, 2026-11-13)
 
