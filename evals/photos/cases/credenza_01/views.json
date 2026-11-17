@@ -3,6 +3,19 @@
   "id": "credenza_01",
   "photos": [
     {
+      "file": "credenza_01_front.png",
+      "pose_hint": "front",
+      "rectified": false,
+      "clutter": true,
+      "props": [
+        "object_on_top",
+        "lamp_on_top"
+      ],
+      "backdrop": "wood_panel_wall",
+      "d8_calibration_eligible": false,
+      "notes": "Near-front room shot, both bypass doors closed. Better than iso for layout; still not a clean studio front for D8."
+    },
+    {
       "file": "credenza_01_iso.jpg",
       "pose_hint": "three_quarter_left",
       "rectified": false,
@@ -15,11 +28,11 @@
       ],
       "backdrop": "wood_panel_wall",
       "d8_calibration_eligible": false,
-      "notes": "Room photo, three-quarter. Not a clean front \u2014 still need front_clean for D8."
+      "notes": "Three-quarter with drawers/cubby visible on the right; left door open/aside."
     }
   ],
   "needed": [
     "front_clean"
   ],
-  "notes": "Source photo watermarked Manuel Barrera; jpg gitignored."
+  "notes": "Photos gitignored (jpg/png under evals/photos)."
 }
