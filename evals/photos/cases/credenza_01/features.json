@@ -1,0 +1,23 @@
+{
+  "schema": "features.v1",
+  "id": "credenza_01",
+  "counts": {
+    "drawer": 2,
+    "door": 1,
+    "shelf": 0,
+    "leg": 4,
+    "open_cubby": 1,
+    "pull": 0
+  },
+  "attrs": {
+    "end_form": "flat_rounded",
+    "leg_style": "tapered_splayed",
+    "door_style": "sliding",
+    "drawer_layout": "stacked_right",
+    "top_kind": "plank",
+    "back": "thin_panel",
+    "drawer_pulls": false,
+    "class": "casegood.credenza"
+  },
+  "notes": "From photo + STEP: left sliding door (pill finger pull), two stacked drawers with half-moon top pulls over open cubby, four tapered legs. Pulls are carved/integrated so pull count stays 0."
+}

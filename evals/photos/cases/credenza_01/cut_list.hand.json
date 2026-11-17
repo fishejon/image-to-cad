@@ -1,0 +1,328 @@
+{
+  "schema": "hand_cut_list.v1",
+  "id": "credenza_01",
+  "title": "Walnut Credenza (Fusion export)",
+  "date": "2026-11-16",
+  "author": "Jonny Fisher (Fusion) + STEP solid inventory",
+  "dims_in": {
+    "w": 53.15,
+    "d": 17.717,
+    "h": 27.559
+  },
+  "dims_mm": {
+    "w": 1350.0,
+    "d": 450.0,
+    "h": 700.0
+  },
+  "dims_from": "Fusion STEP bbox 1350\u00d7450\u00d7700 mm",
+  "status": "fusion_step_parts",
+  "units_source": "mm",
+  "notes": [
+    "Finished sizes = AABB of each solid in Credenza.step (21 solids \u2192 11 part types).",
+    "Not a shop hand plan: blank sizes are nominal stock proposals; promote to authoritative_hand_plan when blanks/joinery are confirmed.",
+    "Layout from photo: left sliding door, right two stacked drawers over open cubby, four tapered splayed legs.",
+    "Photo is three-quarter with props; still need a clean front for D8."
+  ],
+  "parts": [
+    {
+      "id": "T1",
+      "name": "Top plank",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.8661,
+        "w": 17.7165,
+        "l": 53.1496
+      },
+      "thickness_mm": 22.0,
+      "width_mm": 450.0,
+      "length_mm": 1350.0,
+      "class": "visible",
+      "stock": "walnut_5/4",
+      "material": "walnut",
+      "grain": "length",
+      "blank_in": {
+        "t": 1.25,
+        "w": 17.967,
+        "l": 53.65
+      },
+      "notes": "Outer shell; rounded corners in the model"
+    },
+    {
+      "id": "E1",
+      "name": "End panel",
+      "qty": 2,
+      "finished_in": {
+        "t": 0.7874,
+        "w": 17.3228,
+        "l": 18.8189
+      },
+      "thickness_mm": 20.0,
+      "width_mm": 440.0,
+      "length_mm": 478.0,
+      "class": "visible",
+      "stock": "walnut_4/4",
+      "material": "walnut",
+      "grain": "vertical",
+      "blank_in": {
+        "t": 1.0,
+        "w": 17.573,
+        "l": 19.319
+      }
+    },
+    {
+      "id": "B1",
+      "name": "Bottom panel",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.7874,
+        "w": 17.0866,
+        "l": 50.7874
+      },
+      "thickness_mm": 20.0,
+      "width_mm": 434.0,
+      "length_mm": 1290.0,
+      "class": "construction",
+      "stock": "walnut_4/4",
+      "material": "walnut",
+      "grain": "length",
+      "blank_in": {
+        "t": 1.0,
+        "w": 17.337,
+        "l": 51.287
+      }
+    },
+    {
+      "id": "V1",
+      "name": "Vertical divider",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.7874,
+        "w": 17.0866,
+        "l": 18.0315
+      },
+      "thickness_mm": 20.0,
+      "width_mm": 434.0,
+      "length_mm": 458.0,
+      "class": "construction",
+      "stock": "walnut_4/4",
+      "material": "walnut",
+      "grain": "vertical",
+      "blank_in": {
+        "t": 1.0,
+        "w": 17.337,
+        "l": 18.531
+      },
+      "notes": "Separates sliding-door bay from drawer/cubby bay"
+    },
+    {
+      "id": "BK1",
+      "name": "Back panel",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.2362,
+        "w": 18.0315,
+        "l": 50.7874
+      },
+      "thickness_mm": 6.0,
+      "width_mm": 458.0,
+      "length_mm": 1290.0,
+      "class": "construction",
+      "stock": "ply_1/4",
+      "material": "birch_ply",
+      "grain": "length",
+      "sheet": true
+    },
+    {
+      "id": "DR1",
+      "name": "Sliding door",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.748,
+        "w": 17.7953,
+        "l": 22.4016
+      },
+      "thickness_mm": 19.0,
+      "width_mm": 452.0,
+      "length_mm": 569.0,
+      "class": "visible",
+      "stock": "walnut_4/4",
+      "material": "walnut",
+      "grain": "vertical",
+      "blank_in": {
+        "t": 1.0,
+        "w": 18.045,
+        "l": 22.902
+      },
+      "notes": "Left bay; recessed pill finger pull"
+    },
+    {
+      "id": "DF1",
+      "name": "Drawer front",
+      "qty": 2,
+      "finished_in": {
+        "t": 0.748,
+        "w": 3.7402,
+        "l": 29.4882
+      },
+      "thickness_mm": 19.0,
+      "width_mm": 95.0,
+      "length_mm": 749.0,
+      "class": "visible",
+      "stock": "walnut_4/4",
+      "material": "walnut",
+      "grain": "length",
+      "blank_in": {
+        "t": 1.0,
+        "w": 3.99,
+        "l": 29.988
+      },
+      "notes": "Half-moon top-edge pulls; stacked in right bay"
+    },
+    {
+      "id": "DS1",
+      "name": "Drawer side",
+      "qty": 4,
+      "finished_in": {
+        "t": 0.4724,
+        "w": 2.7559,
+        "l": 14.9606
+      },
+      "thickness_mm": 12.0,
+      "width_mm": 70.0,
+      "length_mm": 380.0,
+      "class": "construction",
+      "stock": "maple_4/4",
+      "material": "maple",
+      "grain": "length",
+      "blank_in": {
+        "t": 1.0,
+        "w": 3.006,
+        "l": 15.461
+      }
+    },
+    {
+      "id": "DB1",
+      "name": "Drawer back",
+      "qty": 2,
+      "finished_in": {
+        "t": 0.4724,
+        "w": 2.7559,
+        "l": 27.7953
+      },
+      "thickness_mm": 12.0,
+      "width_mm": 70.0,
+      "length_mm": 706.0,
+      "class": "construction",
+      "stock": "maple_4/4",
+      "material": "maple",
+      "grain": "length",
+      "blank_in": {
+        "t": 1.0,
+        "w": 3.006,
+        "l": 28.295
+      }
+    },
+    {
+      "id": "DBT1",
+      "name": "Drawer bottom",
+      "qty": 2,
+      "finished_in": {
+        "t": 0.2362,
+        "w": 14.6457,
+        "l": 28.2677
+      },
+      "thickness_mm": 6.0,
+      "width_mm": 372.0,
+      "length_mm": 718.0,
+      "class": "construction",
+      "stock": "ply_1/4",
+      "material": "birch_ply",
+      "grain": "length",
+      "sheet": true
+    },
+    {
+      "id": "L1",
+      "name": "Leg, tapered",
+      "qty": 4,
+      "finished_in": {
+        "t": 1.85,
+        "w": 1.85,
+        "l": 7.874
+      },
+      "thickness_mm": 46.99,
+      "width_mm": 46.99,
+      "length_mm": 200.0,
+      "class": "visible",
+      "stock": "walnut_8/4",
+      "material": "walnut",
+      "grain": "length",
+      "blank_in": {
+        "t": 2.0,
+        "w": 2.1,
+        "l": 8.374
+      },
+      "notes": "Round taper, slight outward splay; envelope from STEP AABB"
+    }
+  ],
+  "stock_buy": [
+    {
+      "stock": "maple_4/4",
+      "parts": [
+        "DS1",
+        "DB1"
+      ],
+      "net_bf": 2.5,
+      "with_25pct_bf": 3.1
+    },
+    {
+      "stock": "walnut_4/4",
+      "parts": [
+        "E1",
+        "B1",
+        "V1",
+        "DR1",
+        "DF1"
+      ],
+      "net_bf": 17.7,
+      "with_25pct_bf": 22.1
+    },
+    {
+      "stock": "walnut_5/4",
+      "parts": [
+        "T1"
+      ],
+      "net_bf": 8.4,
+      "with_25pct_bf": 10.5
+    },
+    {
+      "stock": "walnut_8/4",
+      "parts": [
+        "L1"
+      ],
+      "net_bf": 1.0,
+      "with_25pct_bf": 1.2
+    }
+  ],
+  "joinery": [
+    {
+      "joint": "outer shell corners",
+      "method": "miter / rounded outside"
+    },
+    {
+      "joint": "vertical divider to top/bottom",
+      "method": "dado or biscuit (confirm in Fusion)"
+    },
+    {
+      "joint": "back panel",
+      "method": "floating / thin sheet"
+    },
+    {
+      "joint": "sliding door",
+      "method": "top/bottom track"
+    },
+    {
+      "joint": "legs to case",
+      "method": "recessed base / blocks (confirm)"
+    }
+  ]
+}
