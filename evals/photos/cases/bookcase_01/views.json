@@ -1,8 +1,27 @@
 {
   "schema": "views.v1",
   "id": "bookcase_01",
-  "photos": [],
+  "photos": [
+    {
+      "file": "bookcase_01_front.jpg",
+      "pose_hint": "front",
+      "rectified": false,
+      "clutter": true,
+      "props": [
+        "boxes_on_top",
+        "vases",
+        "books",
+        "plant_right",
+        "framed_photo_left"
+      ],
+      "backdrop": "room_wall",
+      "d8_calibration_eligible": false,
+      "notes": "Near-front room shot with props. Need clean studio front + Fusion STEP for full GT."
+    }
+  ],
   "needed": [
-    "front_clean"
-  ]
+    "front_clean",
+    "step_export"
+  ],
+  "notes": "Photo gitignored under evals/photos/**/*.jpg."
 }

@@ -1,13 +1,14 @@
-# bookcase_01 — ground truth (template)
+# bookcase_01 — ground truth (photo in; STEP pending)
 
-Drop in the Fusion export and fill the templates, then set `cut_list.hand.json` `status` to `"authoritative_hand_plan"`.
+Tall walnut bookcase with an **organic rounded post/rail frame**, four open shelves (curved back gallery lips), and a mid inset **two-door cabinet** with a centered finger-notch.
 
-| File | What to add |
+| File | Status |
 | --- | --- |
-| `bookcase_01.step` | Fusion STEP export (answer key geometry) |
-| `cut_list.hand.json` | one row per part type: `id`, `name`, `qty`, `finished_in` {t,w,l}, `thickness_mm`/`width_mm`/`length_mm` (finished), `blank_in` {t,w,l}, `stock`, `material`; plus `stock_buy` (per-stock `net_bf`) and `joinery` |
-| `known_sizes.json` | overall W/D/H |
-| `features.json` | feature counts |
-| `views.json` + photo | a clean straight-on front photo (jpg files are gitignored) |
+| `bookcase_01_front.jpg` | room front photo (gitignored) |
+| `features.json` | filled from photo |
+| `views.json` | recorded |
+| `known_sizes.json` | empty — need Fusion / measure |
+| `cut_list.hand.json` | template |
+| `bookcase_01.step` | **needed** |
 
-Part ids in the predicted cut list must match the hand ids for part matching to work.
+Next: drop the Fusion STEP here (and overall W/D/H), then promote the cut list.
