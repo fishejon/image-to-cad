@@ -12,7 +12,7 @@ Plan: [`docs/plans/product-plan-2026-11-10.md`](../../docs/plans/product-plan-20
 - [x] Camera-matched IoU ≥ 0.55 (studio) — **0.758** on `console_01_front_clean` after D8 fitter fix (2026-11-17). Strict D8 threshold 0.80 still open (letterbox + triangle silhouette + hole-fill + wider shift).
 - [x] Blind human rating: **Close** (2026-11-14) — right features/layout/size; wrong case-to-leg massing; missing pill/wishbone silhouette
 - [x] Board-feet scored in A0 harness (`eval/board_feet.py`)
-- [ ] More Fusion GT — **credenza_01** ready; **bookcase_01** photo + features in (2026-11-17), STEP/cut list still needed. Nightstand empty. Synthetic `sideboard_01` remains a stress test.
+- [ ] More Fusion GT — **credenza_01** ready; **bookcase_01** photo + features + overall 47.24×14.96×78.74 in (2026-11-17), STEP/cut list still needed. Nightstand empty. Synthetic `sideboard_01` remains a stress test.
 
 ## Honest Construct baseline (offline, 2026-11-13)
 

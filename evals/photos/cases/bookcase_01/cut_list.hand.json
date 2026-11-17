@@ -4,17 +4,21 @@
   "title": "Walnut bookcase (organic frame)",
   "date": "2026-11-17",
   "author": "",
-  "dims_in": {},
-  "dims_mm": {
-    "w": null,
-    "d": null,
-    "h": null
+  "dims_in": {
+    "w": 47.24,
+    "d": 14.96,
+    "h": 78.74
   },
-  "dims_from": "Fusion",
+  "dims_mm": {
+    "w": 1199.9,
+    "d": 380.0,
+    "h": 2000.0
+  },
+  "dims_from": "user: 47.24\u00d714.96\u00d778.74 in",
   "status": "template",
   "units_source": "inches",
   "notes": [
-    "Photo only so far. Drop bookcase_01.step and fill finished/blank sizes from Fusion + shop plan.",
+    "Overall sizes from user. Drop bookcase_01.step and fill finished/blank sizes from Fusion + shop plan.",
     "Form: rounded post/rail frame, 4 open shelves with gallery lips, mid hinged 2-door cabinet, short post legs."
   ],
   "parts": [],
