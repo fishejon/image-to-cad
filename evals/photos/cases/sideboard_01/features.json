@@ -12,7 +12,9 @@
   "attrs": {
     "end_form": "flat",
     "leg_style": "tapered",
-    "drawer_layout": "stacked_center"
+    "drawer_layout": "stacked_center",
+    "door_style": "hinged",
+    "class": "casegood.sideboard"
   },
   "notes": "Counts read off the design."
 }

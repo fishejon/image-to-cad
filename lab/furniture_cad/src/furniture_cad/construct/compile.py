@@ -10,7 +10,9 @@ from typing import Any
 from build123d import Box, Compound, Pos
 
 from furniture_cad.construct.blocks import divider as divider_block
+from furniture_cad.construct.blocks import door as door_block
 from furniture_cad.construct.blocks import drawer_box, drawer_front, leg_set, top_panel
+from furniture_cad.construct.blocks.casegood import fixed_shelf
 from furniture_cad.construct.blocks.flared_leg import leg_set_flared
 from furniture_cad.construct.blocks.swept_shell import swept_shell
 from furniture_cad.construct.validate_ir import validate_ir
@@ -165,16 +167,41 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
     back_t = float(params.get("back_t") or (carcass.get("back") or {}).get("t") or 12.7)
 
     form = carcass.get("form") or "box"
-    # Layout-driven shell sizing: divider setback from the open child, groove depth from back.
-    setback = None
-    for _c in (ir.get("layout") or {}).get("children") or []:
-        if (_c or {}).get("kind") == "open" and (_c or {}).get("setback") is not None:
-            setback = float(_c["setback"])
+    layout = ir.get("layout") or {}
+    layout_children = list(layout.get("children") or [])
+    bay_based = any((c or {}).get("kind") in ("bay", "divider") for c in layout_children)
+
+    def _walk_setback(nodes: list[Any]) -> float | None:
+        found = None
+        for _c in nodes:
+            kind = (_c or {}).get("kind")
+            if kind == "open" and (_c or {}).get("setback") is not None:
+                found = float(_c["setback"])
+            if kind == "bay":
+                nested = _walk_setback(list((_c or {}).get("stack") or []))
+                if nested is not None:
+                    found = nested
+        return found
+
+    def _walk_bank_frac(nodes: list[Any]) -> float | None:
+        found = None
+        for _c in nodes:
+            kind = (_c or {}).get("kind")
+            if kind == "drawer_bank" and (_c or {}).get("bank_frac") is not None:
+                found = float(_c["bank_frac"])
+            if kind == "bay":
+                nested = _walk_bank_frac(list((_c or {}).get("stack") or []))
+                if nested is not None:
+                    found = nested
+        return found
+
+    setback = _walk_setback(layout_children)
     back_groove = float((carcass.get("back") or {}).get("groove") or 0.0)
-    bank_open_h = None
-    for _c in (ir.get("layout") or {}).get("children") or []:
-        if (_c or {}).get("kind") == "drawer_bank" and (_c or {}).get("bank_frac") is not None:
-            bank_open_h = float(_c["bank_frac"]) * max(40.0, H - under_z)
+    bank_frac = _walk_bank_frac(layout_children)
+    bank_open_h = None if bank_frac is None else float(bank_frac) * max(40.0, H - under_z)
+    top_t = float((carcass.get("top") or {}).get("t") or wall)
+    end_profile = (carcass.get("end_profile") or {}).get("kind") or ""
+    end_bottom_r = float((carcass.get("end_profile") or {}).get("r") or 0.0)
     children: list[Any] = []
     parts: list[Any] = []
     features: dict[str, int] = {"drawer": 0, "door": 0, "leg": 0, "shelf": 0, "end_block": 0, "open_cubby": 0}
@@ -194,6 +221,9 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
             back_groove=back_groove,
             bank_open_h=bank_open_h,
             material=mat,
+            top_t=top_t,
+            include_horizontal_divider=not bay_based,
+            end_bottom_r=end_bottom_r if "round" in str(end_profile) else 0.0,
         )
         children.append(shell["assembly"])
         parts.extend(shell["parts"])
@@ -206,40 +236,67 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
     else:
         raise ValueError("geometry_failed: only swept_shell implemented for v2 in P1")
 
-    # Layout: drawer bank under open cubby
-    layout = ir.get("layout") or {}
-    for child in layout.get("children") or []:
-        kind = (child or {}).get("kind")
-        if kind == "drawer_bank":
-            cols = int((child or {}).get("cols") or 2)
-            features["drawer"] += cols
-            front = (child or {}).get("front") or {}
-            ft = float(front.get("t") or 19.05)
-            bay_w = (W - 2 * wall) / cols
-            reveal = float(front.get("reveal") or 1.6)
-            # Drawer box depth: front sits ahead of the box; leave 1/8 in at the back
-            # (usual convention). Applies on every path.
-            box_d = max(60.0, D - ft - back_t - 3.175)
-            if bank_open_h is not None:
-                # Measured bank: front fills the opening less two reveals; box clears
-                # the bottom and the divider by 1/2 in each.
-                span = max(20.0, min(bank_open_h, case_h - 3 * wall))
-                front_h = max(30.0, span - 2 * reveal)
-                box_h = max(25.0, front_h - 25.4)
-                z = under_z + wall + span / 2
-            else:
-                drawer_h = max(40.0, (div_z - under_z - wall) * 0.85)
-                front_h = drawer_h * 0.9
-                box_h = drawer_h * 0.75
-                z = under_z + wall + drawer_h / 2 + 8
-            for i in range(cols):
-                cx = -W / 2 + wall + bay_w * (i + 0.5)
-                box = drawer_box(W=bay_w * 0.9, D=box_d, H=box_h, material=hidden, front_applied=True)
+    z_int = under_z + wall
+    z_top = under_z + case_h - float(meta_shell.get("top_t") or top_t)
+    clear_h = max(10.0, z_top - z_int)
+
+    def _merge_part(plist: list[Any], new_p: Any) -> None:
+        for existing in plist:
+            if existing.id == new_p.id:
+                existing.qty = int(existing.qty) + int(new_p.qty)
+                return
+        plist.append(new_p)
+
+    def _place_drawer_bank(
+        child: dict[str, Any],
+        *,
+        x0: float,
+        x1: float,
+        z0: float,
+        z1: float,
+    ) -> None:
+        cols = max(1, int(child.get("cols") or 1))
+        rows = max(1, int(child.get("rows") or 1))
+        features["drawer"] += cols * rows
+        front = child.get("front") or {}
+        ft = float(front.get("t") or 19.05)
+        reveal = float(front.get("reveal") or 1.6)
+        align = str(child.get("align") or "fill")
+        bay_w = max(20.0, x1 - x0)
+        col_w = bay_w / cols
+        box_d = max(60.0, D - ft - back_t - 3.175)
+        span_avail = max(20.0, z1 - z0)
+        if child.get("bank_frac") is not None:
+            span = max(20.0, min(float(child["bank_frac"]) * case_h, span_avail))
+        elif bank_open_h is not None and not bay_based:
+            span = max(20.0, min(bank_open_h, span_avail))
+        else:
+            span = span_avail * (0.92 if rows > 1 else 0.85)
+        # Per-row front height from the bank span
+        front_h = max(30.0, (span - (rows + 1) * reveal) / rows)
+        box_h = max(25.0, front_h - 25.4)
+        if align == "top":
+            bank_top = z1
+            bank_bot = bank_top - span
+        elif align == "bottom":
+            bank_bot = z0
+            bank_top = bank_bot + span
+        else:
+            bank_bot = z0
+            bank_top = z0 + span
+        n_drawers = cols * rows
+        for r in range(rows):
+            z_front0 = bank_bot + reveal + r * (front_h + reveal)
+            z = z_front0 + front_h / 2
+            for c in range(cols):
+                cx = x0 + col_w * (c + 0.5)
+                box = drawer_box(W=col_w * 0.9, D=box_d, H=box_h, material=hidden, front_applied=True)
                 children.append(Pos(cx, 0, z) * box["assembly"])
-                if i == 0:
+                fr = drawer_front(W=max(20.0, col_w - 2 * reveal), H=front_h, t=ft, material=mat)
+                children.append(Pos(cx, D / 2 - ft / 2, z) * fr["solid"])
+                if r == 0 and c == 0:
                     for p in box["parts"]:
-                        p.qty = p.qty * cols
-                        # map to hand-list-ish ids
+                        p.qty = int(p.qty) * n_drawers
                         if p.id == "drawer_side":
                             p.id = "DS1"
                         elif p.id == "drawer_fb":
@@ -247,36 +304,142 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
                         elif p.id == "drawer_bottom":
                             p.id = "DBT1"
                         parts.append(p)
-                fr = drawer_front(W=bay_w * 0.94, H=front_h, t=ft, material=mat)
-                fr["parts"][0].id = "DF1"
-                fr["parts"][0].name = "Drawer front"
-                children.append(Pos(cx, D / 2 - ft / 2, z) * fr["solid"])
-                if i == 0:
-                    fr["parts"][0].qty = cols
+                    fr["parts"][0].id = "DF1"
+                    fr["parts"][0].name = "Drawer front"
+                    fr["parts"][0].qty = n_drawers
                     parts.append(fr["parts"][0])
-        elif kind == "open":
-            features["open_cubby"] = max(features.get("open_cubby", 0), 1)
+
+    def _place_bay_stack(stack: list[Any], *, x0: float, x1: float, count_open: bool = True) -> None:
+        # Partition vertical clear height among stack items.
+        items = [s for s in stack if s]
+        if not items:
+            return
+        # Place from top when a bank is align=top, else bottom-up.
+        cursor_top = z_top
+        cursor_bot = z_int
+        for s in items:
+            kind = s.get("kind")
+            if kind == "drawer_bank":
+                frac = float(s["bank_frac"]) if s.get("bank_frac") is not None else (
+                    0.5 if any(i.get("kind") == "open" for i in items) else 1.0
+                )
+                span = max(20.0, min(clear_h * frac, clear_h - 10.0))
+                align = str(s.get("align") or "fill")
+                if align == "top":
+                    _place_drawer_bank(s, x0=x0, x1=x1, z0=cursor_top - span, z1=cursor_top)
+                    cursor_top -= span
+                else:
+                    _place_drawer_bank(s, x0=x0, x1=x1, z0=cursor_bot, z1=cursor_bot + span)
+                    cursor_bot += span
+            elif kind == "shelf":
+                setback_s = float(s.get("setback") or wall)
+                sh_d = max(20.0, D - back_t - setback_s)
+                sh_w = max(20.0, x1 - x0 - 2.0)
+                sh = fixed_shelf(W=sh_w, D=sh_d, t=wall, material=mat)
+                # Mid of remaining clear
+                z_s = (cursor_bot + cursor_top) / 2
+                children.append(Pos((x0 + x1) / 2, -D / 2 + back_t + sh_d / 2, z_s) * sh["solid"])
+                _merge_part(parts, sh["parts"][0])
+                features["shelf"] = features.get("shelf", 0) + 1
+            elif kind == "open" and count_open:
+                features["open_cubby"] = features.get("open_cubby", 0) + 1
+
+    def _place_door_on_bay(door_spec: dict[str, Any], *, x0: float, x1: float) -> None:
+        leaf_n = max(1, int(door_spec.get("leaf_count") or 1))
+        ft = float(door_spec.get("t") or 19.0)
+        reveal = float(door_spec.get("reveal") or 3.0)
+        style = str(door_spec.get("type") or "hinged")
+        door_h = max(40.0, clear_h - 2 * reveal)
+        door_w = max(40.0, (x1 - x0 - (leaf_n + 1) * reveal) / leaf_n)
+        # Sliding leaves can be wider than the bay (overlap the divider).
+        if style == "sliding":
+            door_w = max(door_w, (x1 - x0) * 0.85)
+        z = z_int + reveal + door_h / 2
+        for i in range(leaf_n):
+            cx = x0 + reveal + door_w * (i + 0.5) + i * reveal
+            # Keep door inside overall case width
+            cx = max(-W / 2 + wall + door_w / 2, min(W / 2 - wall - door_w / 2, cx))
+            d = door_block(W=door_w, H=door_h, t=ft, style=style, material=mat)
+            children.append(Pos(cx, D / 2 - ft / 2, z) * d["solid"])
+            if i == 0:
+                d["parts"][0].qty = leaf_n
+                _merge_part(parts, d["parts"][0])
+        features["door"] = features.get("door", 0) + leaf_n
+
+    # Layout: bay-based (multi-bay) or flat console children
+    if bay_based:
+        int_w = max(20.0, W - 2 * wall)
+        div_ts = [float((c or {}).get("t") or wall) for c in layout_children if (c or {}).get("kind") == "divider"]
+        rem = max(20.0, int_w - sum(div_ts))
+        bay_nodes = [c for c in layout_children if (c or {}).get("kind") == "bay"]
+        explicit = [float(b["w_mm"]) for b in bay_nodes if b.get("w_mm") is not None]
+        n_flex = len(bay_nodes) - len(explicit)
+        flex_w = max(20.0, (rem - sum(explicit)) / max(1, n_flex))
+        x_cursor = -W / 2 + wall
+        for child in layout_children:
+            kind = (child or {}).get("kind")
+            if kind == "divider":
+                t = float((child or {}).get("t") or wall)
+                div_h = clear_h
+                div_d = max(20.0, D - back_t)
+                d = divider_block(width=div_d, height=div_h, thickness=t, material=mat)
+                children.append(Pos(x_cursor + t / 2, -D / 2 + back_t + div_d / 2, z_int + div_h / 2) * d["solid"])
+                _merge_part(parts, d["parts"][0])
+                x_cursor += t
+            elif kind == "bay":
+                bw = float(child["w_mm"]) if child.get("w_mm") is not None else flex_w
+                x0, x1 = x_cursor, x_cursor + bw
+                has_door = bool(child.get("door"))
+                if has_door:
+                    _place_door_on_bay(child["door"], x0=x0, x1=x1)
+                # Door bays are closed voids, not open cubbies.
+                _place_bay_stack(list(child.get("stack") or []), x0=x0, x1=x1, count_open=not has_door)
+                x_cursor = x1
+    else:
+        for child in layout_children:
+            kind = (child or {}).get("kind")
+            if kind == "drawer_bank":
+                # Legacy: full interior width, bottom of case
+                x0, x1 = -W / 2 + wall, W / 2 - wall
+                # Prefer measured bank height against the shell divider
+                z1 = div_z - wall / 2 if bank_open_h is not None else z_int + (div_z - under_z - wall) * 0.85
+                _place_drawer_bank(child, x0=x0, x1=x1, z0=z_int, z1=max(z_int + 40.0, z1))
+            elif kind == "open":
+                features["open_cubby"] = max(features.get("open_cubby", 0), 1)
 
     # Legs
     legs_spec = ir.get("legs") or {}
     if legs_spec:
         leg_h = float(under_z)  # legs reach underside
-        # Hand list envelope length ~520 includes tenon; use under_z as visible height
         height = max(50.0, leg_h)
-        legs = leg_set_flared(
-            count=int(legs_spec.get("count") or 4),
-            height=height,
-            top=list(legs_spec.get("top") or [76.2, 50.8]),
-            foot=list(legs_spec.get("foot") or [28.0, 25.4]),
-            flare_r=list(legs_spec.get("flare_r") or [25.4, 50.8, 25.4]),
-            material=mat,
-        )
+        style = str(legs_spec.get("style") or "")
+        if "flared" in style or "two_profile" in style:
+            legs = leg_set_flared(
+                count=int(legs_spec.get("count") or 4),
+                height=height,
+                top=list(legs_spec.get("top") or [76.2, 50.8]),
+                foot=list(legs_spec.get("foot") or [28.0, 25.4]),
+                flare_r=list(legs_spec.get("flare_r") or [25.4, 50.8, 25.4]),
+                material=mat,
+            )
+        else:
+            legs = leg_set(
+                count=int(legs_spec.get("count") or 4),
+                height=height,
+                top=list(legs_spec.get("top") or [38.0, 38.0]),
+                foot=list(legs_spec.get("foot") or [38.0, 38.0]),
+                splay_deg=float(legs_spec.get("splay_deg") or 0.0),
+                material=mat,
+            )
+            # Remap generic leg id → L1 for hand-list matching
+            for p in legs["parts"]:
+                p.id = "L1"
+                p.name = "Leg, tapered" if "taper" in style else "Leg"
         features["leg"] = int(legs_spec.get("count") or 4)
         inset = legs_spec.get("inset") or [45, 40]
         ix, iy = float(inset[0]), float(inset[1])
         lx = float((legs_spec.get("top") or [76.2, 50.8])[0])
         ly = float((legs_spec.get("top") or [76.2, 50.8])[1])
-        # Lofted leg already spans z=0..height (not centered) — place on the floor
         for sx, sy in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
             children.append(
                 Pos(sx * (W / 2 - ix - lx / 2), sy * (D / 2 - iy - ly / 2), 0) * legs["solid"]
@@ -314,6 +477,7 @@ def _compile_v2(ir: dict[str, Any]) -> dict[str, Any]:
             "H": H,
             "form": form,
             "under_z": under_z,
+            "bay_based": bay_based,
         },
         "ir": ir,
         "report": {"ok": True, "ir_hash": ir_hash(ir), "validate": check},

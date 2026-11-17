@@ -10,10 +10,11 @@ from furniture_cad.derive import part
 
 
 def divider(*, width: float, height: float, thickness: float = 19.0, material: str = "walnut") -> dict[str, Any]:
+    """Vertical divider panel. ``width`` is depth (Y), ``height`` is Z."""
     solid = Box(thickness, width, height)
     return {
         "solid": solid,
-        "parts": [part("divider", solid, material=material, qty=1, name="Divider")],
+        "parts": [part("V1", solid, material=material, qty=1, name="Vertical divider")],
         "meta": {"block": "divider"},
     }
 
@@ -83,10 +84,22 @@ def drawer_front(*, W: float, H: float, t: float = 19.0, material: str = "walnut
 
 def door(*, W: float, H: float, t: float = 19.0, style: str = "slab", material: str = "walnut") -> dict[str, Any]:
     solid = Box(W, t, H)
+    name = "Sliding door" if "sliding" in style else f"Door ({style})"
     return {
         "solid": solid,
-        "parts": [part("door", solid, material=material, qty=1, name=f"Door ({style})")],
+        "parts": [part("DR1", solid, material=material, qty=1, name=name)],
         "meta": {"block": "door", "style": style},
+    }
+
+
+def fixed_shelf(
+    *, W: float, D: float, t: float = 19.0, material: str = "walnut"
+) -> dict[str, Any]:
+    solid = Box(W, D, t)
+    return {
+        "solid": solid,
+        "parts": [part("SH1", solid, material=material, qty=1, name="Fixed shelf")],
+        "meta": {"block": "shelf"},
     }
 
 

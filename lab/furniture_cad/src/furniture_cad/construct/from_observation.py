@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from furniture_cad.construct.layout_build import build_layout_children
 from furniture_cad.perceive import feature_counts_from_observation
 
 
@@ -40,6 +41,20 @@ def construct_ir_from_observation(
     wall = float(stock.get("t_panel") or 19.0)
     back_t = float(stock.get("t_back") or 6.0)
 
+    drawers = max(0, int(counts.get("drawer") or 0))
+    doors = max(0, int(counts.get("door") or 0))
+    open_cubby = max(0, int(counts.get("open_cubby") or 0))
+    shelf = max(0, int(counts.get("shelf") or 0))
+    legs_n = max(0, int(counts.get("leg") or 0))
+    if legs_n == 0 and str(observation.get("class") or class_hint).startswith("casegood"):
+        legs_n = 4  # freestanding prior when Perceive omitted legs
+
+    drawer_layout = str(observation.get("drawer_layout") or "")
+    door_style = str(observation.get("door_style") or "")
+    layout_facing = str(observation.get("layout_facing") or "")
+    stacked = "stack" in drawer_layout.lower() or (doors > 0 and drawers > 1 and "side" not in drawer_layout.lower())
+    rows_for_bank = drawers if stacked and drawers > 0 else 1
+
     # Proportions measured by Perceive win; otherwise fall back to a generic prior
     # (case underside ~35% of height for a freestanding casegood), clamped to a sane range.
     props = observation.get("proportions") or {}
@@ -58,10 +73,12 @@ def construct_ir_from_observation(
     bank_frac = props.get("drawer_bank_frac")
     bank_src = "perceive" if bank_frac is not None else "default fractions"
     reveal = 1.5
+    case_h = max(40.0, H - under_z)
     if extra.get("drawer_front_h"):
-        # front height = opening - 2 reveals, so opening = front + 2 reveals
-        case_h = max(40.0, H - under_z)
-        bank_frac = max(0.05, min(0.95, (float(extra["drawer_front_h"]) + 2 * reveal) / case_h))
+        front_h = float(extra["drawer_front_h"])
+        # Stacked: N fronts + (N+1) reveals fill the bank opening.
+        span = rows_for_bank * front_h + (rows_for_bank + 1) * reveal
+        bank_frac = max(0.05, min(0.98, span / case_h))
         bank_src = "user"
 
     end_form = str(observation.get("end_form") or "").lower()
@@ -72,34 +89,23 @@ def construct_ir_from_observation(
 
     lean_deg = 6.0 if swept else 0.0
     sweep_r = min(D * 0.4, W * 0.12, 150.0) if swept else 0.0
-    # Compiler currently only implements swept_shell for v2.
     form = "swept_shell"
     if not swept:
         lean_deg = 0.0
         sweep_r = 0.0  # straight ends: plain panels with square corners
 
-    drawers = max(0, int(counts.get("drawer") or 0))
-    open_cubby = max(0, int(counts.get("open_cubby") or 0))
-    shelf = max(0, int(counts.get("shelf") or 0))
-    legs_n = max(0, int(counts.get("leg") or 0))
-    if legs_n == 0 and str(observation.get("class") or class_hint).startswith("casegood"):
-        legs_n = 4  # freestanding prior when Perceive omitted legs
-
-    children: list[dict[str, Any]] = []
-    if drawers > 0:
-        bank: dict[str, Any] = {
-            "kind": "drawer_bank",
-            "cols": drawers,
-            "front": {"t": 19.0, "reveal": reveal, "corner": "follow_outline" if swept else "square"},
-        }
-        if bank_frac is not None:
-            bank["bank_frac"] = float(bank_frac)
-        children.append(bank)
-    if open_cubby > 0 or shelf > 0:
-        children.append({"kind": "open", "setback": wall})
-    if not children:
-        # Closed case fallback: one open bay so shell has a layout.
-        children.append({"kind": "open", "setback": wall})
+    children, split = build_layout_children(
+        drawers=drawers,
+        doors=doors,
+        open_cubby=open_cubby,
+        shelf=shelf,
+        wall=wall,
+        reveal=reveal,
+        bank_frac=float(bank_frac) if bank_frac is not None else None,
+        drawer_layout=drawer_layout,
+        door_style=door_style,
+        layout_facing=layout_facing,
+    )
 
     flared = "flared" in leg_style or "two_profile" in leg_style or swept
     legs: dict[str, Any] | None = None
@@ -115,16 +121,21 @@ def construct_ir_from_observation(
                 "inset": [40.0, 35.0],
             }
         else:
+            # Tapered square prior (credenza / sideboard)
+            top = 42.0 if "taper" in leg_style else 38.0
+            foot = 24.0 if "taper" in leg_style else top
+            splay = 4.0 if "splay" in leg_style or "taper" in leg_style else 0.0
             legs = {
-                "style": "square",
+                "style": "tapered" if foot != top else "square",
                 "count": legs_n,
-                "top": [38.0, 38.0],
-                "foot": [38.0, 38.0],
+                "top": [top, top],
+                "foot": [foot, foot],
                 "flare_r": [0.0, 0.0, 0.0],
-                "splay_deg": 0.0,
-                "inset": [40.0, 35.0],
+                "splay_deg": splay,
+                "inset": [50.0, 50.0],
             }
 
+    end_profile = "swept" if swept else ("rounded_bottom" if "round" in end_form else "plain")
     ir: dict[str, Any] = {
         "schema": "furniture_ir.v2",
         "units": "mm",
@@ -148,14 +159,21 @@ def construct_ir_from_observation(
                 "under_z": round(under_z, 3),
             },
             "open_front": True,
-            "top": {"kind": "plank", "edge_r": 3.0},
-            "back": {"t": back_t, "kind": "floating", "groove": min(back_t, 9.5)},
+            "top": {"kind": "plank", "edge_r": 3.0, "t": wall},
+            "back": {
+                "t": back_t,
+                "kind": "floating",
+                # Console uses a groove; straight multi-bay pieces usually don't pad the blank.
+                "groove": (min(back_t, 9.5) if swept else 0.0),
+            },
+            "end_profile": {"kind": end_profile, "r": 45.0 if end_profile == "rounded_bottom" else 0.0},
         },
-        "layout": {"split": "z", "children": children},
+        "layout": {"split": split, "children": children},
         "notes": [
             "Constructed from Perceive observation + Dimension (generic casegood template).",
             f"class={observation.get('class') or class_hint}",
             f"counts={counts}",
+            f"layout={drawer_layout or 'default'} door_style={door_style or 'none'} split={split}",
             f"under_z from {under_src}"
             + (" (prior 0.35 H)" if under_src == "prior" else f" ({round(under_z, 1)} mm)"),
             f"drawer bank height from {bank_src}",

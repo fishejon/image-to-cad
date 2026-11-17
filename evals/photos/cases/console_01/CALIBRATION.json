@@ -1,6 +1,6 @@
 {
   "schema": "furniture_cad.calibrated_table.v1",
-  "recorded_at": "2026-11-11T01:47:09.164047+00:00",
+  "recorded_at": "2026-11-17T18:32:16.475841+00:00",
   "piece": "console_01",
   "photo": {
     "file": "console_01_front_clean.jpg",
@@ -11,18 +11,18 @@
     "schema": "calibration.d8.v1",
     "passed": false,
     "threshold": 0.8,
-    "iou": 0.5017,
-    "rating": "Close",
+    "iou": 0.7578,
+    "rating": "Match",
     "camera": {
-      "yaw_deg": -20.0,
+      "yaw_deg": 0.0,
       "pitch_deg": 12.0,
       "fov_deg": 35.0,
-      "perspective": true,
+      "perspective": false,
       "align": {
-        "dx": 5,
-        "dy": -19,
-        "inter": 41988,
-        "union": 83694
+        "dx": 6,
+        "dy": 23,
+        "inter": 28946,
+        "union": 38195
       }
     },
     "pose_hint": "front",
@@ -32,18 +32,18 @@
     "schema": "calibration.d8.v1",
     "passed": false,
     "threshold": 0.8,
-    "iou": 0.4987,
-    "rating": "Close",
+    "iou": 0.5582,
+    "rating": "Close+",
     "camera": {
       "yaw_deg": -35.0,
-      "pitch_deg": 5.0,
-      "fov_deg": 45.0,
+      "pitch_deg": 25.0,
+      "fov_deg": 28.0,
       "perspective": true,
       "align": {
-        "dx": -13,
-        "dy": -19,
-        "inter": 37511,
-        "union": 75213
+        "dx": -48,
+        "dy": 53,
+        "inter": 27944,
+        "union": 50065
       }
     },
     "pose_hint": "three_quarter_left",
@@ -61,7 +61,7 @@
   "non_iou_metrics": {
     "gt_dims_within_3pct": true,
     "ir_stub_dims_within_3pct": true,
-    "ir_stub_parts_recall": 0.6923,
+    "ir_stub_parts_recall": 0.6154,
     "a0_parts_recall": 0.2308,
     "a0_cut_list_match_share": 0.0769,
     "a0_cost_usd": 0.0981

@@ -62,8 +62,8 @@ def test_run_case_blind_asks_for_the_two_sizes():
 @pytest.mark.skipif(not is_ready(CONSOLE), reason="console_01 GT not present")
 def test_run_case_reproduces_the_console_harness_numbers():
     rep = run_case("console_01")
-    # same generic IR + oracle counts as the earlier offline baseline: dimension share 0.385
-    assert rep["parts"]["dim_match_share"] == pytest.approx(0.3846, abs=0.01)
+    # Oracle proportions + flared prior: dimension share ~0.51 (was 0.385 blind prior)
+    assert rep["parts"]["dim_match_share"] == pytest.approx(0.5128, abs=0.03)
     assert rep["parts"]["recall_excl_joinery"] == 1.0
 
 
@@ -91,26 +91,45 @@ def test_straight_ends_stay_straight_and_square():
     assert shell["meta"]["bottom_len"] == pytest.approx(1524 - 2 * 19, abs=0.01)
 
 
-# ---- known generalisation gaps: strict xfail so they flip loudly when implemented -----------------
 @needs_side
-@pytest.mark.xfail(strict=True, reason="Construct has no doors yet")
-def test_gap_doors_are_built():
+def test_doors_are_built():
     assert run_case("sideboard_01")["features_built_vs_truth"]["door"]["built"] == 2
 
 
 @needs_side
-@pytest.mark.xfail(strict=True, reason="drawer banks are side by side only; no stacked drawers yet")
-def test_gap_stacked_drawers_share_one_bay():
-    _, ir = None, construct_ir_from_observation(
-        oracle_observation(SIDE), apply_dims(oracle_observation(SIDE), known_mm={"w": 1524.0, "d": 457.2, "h": 812.8})
+def test_stacked_drawers_share_one_bay():
+    ir = construct_ir_from_observation(
+        oracle_observation(SIDE),
+        apply_dims(oracle_observation(SIDE), known_mm={"w": 1524.0, "d": 457.2, "h": 812.8}),
     )
-    bank = next(c for c in ir["layout"]["children"] if c["kind"] == "drawer_bank")
-    assert bank.get("rows") == 3
+    banks = [
+        s
+        for c in ir["layout"]["children"]
+        if c.get("kind") == "bay"
+        for s in (c.get("stack") or [])
+        if s.get("kind") == "drawer_bank"
+    ]
+    assert banks and banks[0].get("rows") == 3
 
 
 @needs_side
-@pytest.mark.xfail(strict=True, reason="no vertical dividers / multi-bay layout yet")
-def test_gap_vertical_dividers_and_second_shelf_exist():
+def test_vertical_dividers_doors_and_shelves_exist():
     rep = run_case("sideboard_01", assist=True)
     matched = {e["truth"] for e in rep["parts"]["size_errors"]}
     assert {"V1", "SH1", "DR1"} <= matched
+    assert rep["features_built_vs_truth"]["shelf"]["built"] == 2
+
+
+CRED = CASES_DIR / "credenza_01"
+needs_cred = pytest.mark.skipif(not is_ready(CRED), reason="credenza_01 GT not present")
+
+
+@needs_cred
+def test_credenza_multibay_sliding_door_and_stacked_right():
+    rep = run_case("credenza_01", assist=True)
+    assert rep["features_built_vs_truth"]["door"]["built"] == 1
+    assert rep["features_built_vs_truth"]["drawer"]["built"] == 2
+    assert rep["features_built_vs_truth"]["open_cubby"]["built"] == 1
+    assert rep["parts"]["recall"] == 1.0
+    matched = {e["truth"] for e in rep["parts"]["size_errors"]}
+    assert {"V1", "DR1"} <= matched
