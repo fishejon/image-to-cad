@@ -1,0 +1,25 @@
+{
+  "schema": "views.v1",
+  "id": "credenza_01",
+  "photos": [
+    {
+      "file": "credenza_01_iso.jpg",
+      "pose_hint": "three_quarter_left",
+      "rectified": false,
+      "clutter": true,
+      "props": [
+        "painting_on_top",
+        "sculpture_on_top",
+        "model_plane_in_cubby",
+        "books_in_cubby"
+      ],
+      "backdrop": "wood_panel_wall",
+      "d8_calibration_eligible": false,
+      "notes": "Room photo, three-quarter. Not a clean front \u2014 still need front_clean for D8."
+    }
+  ],
+  "needed": [
+    "front_clean"
+  ],
+  "notes": "Source photo watermarked Manuel Barrera; jpg gitignored."
+}

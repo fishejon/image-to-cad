@@ -12,7 +12,7 @@ Plan: [`docs/plans/product-plan-2026-11-10.md`](../../docs/plans/product-plan-20
 - [ ] Camera-matched IoU ≥ 0.55 (studio) — **blocked**: D8 calibration still ~0.50 / untrusted
 - [x] Blind human rating: **Close** (2026-11-14) — right features/layout/size; wrong case-to-leg massing; missing pill/wishbone silhouette
 - [x] Board-feet scored in A0 harness (`eval/board_feet.py`)
-- [ ] More Fusion GT (sideboard / bookcase / nightstand) — **blocked on Jonny**; empty case folders scaffolded
+- [ ] More Fusion GT — **credenza_01** STEP + iso photo + STEP-derived cut list in (2026-11-16); still need clean front + authoritative hand plan. Bookcase / nightstand still empty templates. Synthetic `sideboard_01` remains a generalisation stress test.
 
 ## Honest Construct baseline (offline, 2026-11-13)
 

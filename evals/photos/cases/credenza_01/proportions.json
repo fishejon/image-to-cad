@@ -1,0 +1,17 @@
+{
+  "schema": "proportions.v1",
+  "id": "credenza_01",
+  "proportions": {
+    "under_z_frac": 0.2857,
+    "drawer_bank_frac": 0.38
+  },
+  "derivation": {
+    "under_z_frac": "leg height 200 mm / overall height 700 mm",
+    "drawer_bank_frac": "(2 drawer fronts @ 95 mm) / (overall - leg); reveals not modelled separately"
+  },
+  "known_mm_assist": {
+    "leg": 200.0,
+    "drawer_front": 95.0
+  },
+  "tolerance": 0.05
+}
