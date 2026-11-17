@@ -2,13 +2,22 @@
   "schema": "features.v1",
   "id": "nightstand_01",
   "counts": {
-    "drawer": null,
-    "door": null,
-    "shelf": null,
-    "leg": null,
-    "open_cubby": null,
-    "pull": null
+    "drawer": 1,
+    "door": 0,
+    "shelf": 1,
+    "leg": 4,
+    "open_cubby": 1,
+    "pull": 0
   },
-  "attrs": {},
-  "notes": "Counts a person can read off the photo. Replace null with integers."
+  "attrs": {
+    "end_form": "rounded_leg_frame",
+    "leg_style": "square_rounded_outer",
+    "drawer_layout": "single_inset_top",
+    "frame_style": "arched_inner_fillets",
+    "joinery_cue": "pill_tenon_tabs_through_front_legs",
+    "top_kind": "plank_flush_with_legs",
+    "drawer_pulls": false,
+    "class": "casegood.nightstand"
+  },
+  "notes": "From studio front photo: dark oak/ash nightstand, 4 legs with rounded outer corners and arched inner fillets at the upper rail. One inset drawer (no knob; pill-shaped wood tabs through the front legs), one low open shelf, open cubby between drawer and shelf. Pull count 0 (tabs are joinery, not pulls)."
 }

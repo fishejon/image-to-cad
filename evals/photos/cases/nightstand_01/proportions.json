@@ -1,0 +1,9 @@
+{
+  "schema": "proportions.v1",
+  "id": "nightstand_01",
+  "proportions": {},
+  "derivation": {},
+  "known_mm_assist": {},
+  "tolerance": 0.05,
+  "notes": "Shelf height / drawer front height unknown until STEP or user known sizes."
+}

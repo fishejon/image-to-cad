@@ -1,13 +1,16 @@
-# nightstand_01 — ground truth (template)
+# nightstand_01 — ground truth (photo + overall sizes; STEP pending)
 
-Drop in the Fusion export and fill the templates, then set `cut_list.hand.json` `status` to `"authoritative_hand_plan"`.
+**Dims:** 584.2 × 457.2 × 584.2 mm → **23.0 × 18.0 × 23.0 in** (W × D × H).
 
-| File | What to add |
+Dark oak/ash nightstand: **4 rounded legs**, arched inner fillets, one **inset drawer** (pill tenon tabs through the front legs, no knob), and a **low open shelf**.
+
+| File | Status |
 | --- | --- |
-| `nightstand_01.step` | Fusion STEP export (answer key geometry) |
-| `cut_list.hand.json` | one row per part type: `id`, `name`, `qty`, `finished_in` {t,w,l}, `thickness_mm`/`width_mm`/`length_mm` (finished), `blank_in` {t,w,l}, `stock`, `material`; plus `stock_buy` (per-stock `net_bf`) and `joinery` |
-| `known_sizes.json` | overall W/D/H |
-| `features.json` | feature counts |
-| `views.json` + photo | a clean straight-on front photo (jpg files are gitignored) |
+| `nightstand_01_front.jpg` | clean studio front (gitignored) |
+| `features.json` | filled from photo |
+| `known_sizes.json` | user overall |
+| `views.json` | recorded (D8-eligible once STEP exists) |
+| `cut_list.hand.json` | template (dims filled) |
+| `nightstand_01.step` | **needed** |
 
-Part ids in the predicted cut list must match the hand ids for part matching to work.
+Next: drop the Fusion STEP, then promote the cut list.
