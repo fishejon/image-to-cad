@@ -5,20 +5,20 @@
   "overall": {
     "w": {
       "v": 584.2,
-      "src": "user",
+      "src": "user+step",
       "in": 23.0
     },
     "d": {
       "v": 457.2,
-      "src": "user",
+      "src": "user+step",
       "in": 18.0
     },
     "h": {
       "v": 584.2,
-      "src": "user",
+      "src": "user+step",
       "in": 23.0
     }
   },
   "anchor": "w",
-  "notes": "User overall: 23\u00d718\u00d723 in (W\u00d7D\u00d7H). STEP bbox still pending for cross-check."
+  "notes": "User overall; STEP bbox 584.2\u00d7457.2\u00d7584.2 mm (exact)."
 }

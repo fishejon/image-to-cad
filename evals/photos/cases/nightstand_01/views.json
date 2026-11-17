@@ -10,11 +10,9 @@
       "props": [],
       "backdrop": "white_studio",
       "d8_calibration_eligible": true,
-      "notes": "Clean studio front \u2014 good D8 candidate once STEP is in."
+      "notes": "Clean studio front \u2014 D8 candidate with STEP in."
     }
   ],
-  "needed": [
-    "step_export"
-  ],
-  "notes": "Photo gitignored under evals/photos/**/*.jpg."
+  "needed": [],
+  "notes": "Photo gitignored. STEP in repo."
 }

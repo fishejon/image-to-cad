@@ -1,9 +1,9 @@
 {
   "schema": "hand_cut_list.v1",
   "id": "nightstand_01",
-  "title": "Nightstand (rounded-leg frame)",
+  "title": "Cherry nightstand with walnut slide rails",
   "date": "2026-11-17",
-  "author": "",
+  "author": "design script walnut_nightstand.py (photo + user envelope)",
   "dims_in": {
     "w": 23.0,
     "d": 18.0,
@@ -14,14 +14,277 @@
     "d": 457.2,
     "h": 584.2
   },
-  "dims_from": "user: 23\u00d718\u00d723 in",
-  "status": "template",
+  "dims_from": "user + STEP bbox (exact match)",
+  "status": "design_script",
   "units_source": "inches",
   "notes": [
-    "Overall sizes from user. Drop nightstand_01.step and fill finished/blank sizes from Fusion + shop plan.",
-    "Form: 4 rounded legs, arched inner fillets, inset drawer with pill tenon tabs, low open shelf."
+    "Finished sizes = STEP solid AABBs from make_nightstand_gt.py / cut_list.source.csv (16 bodies).",
+    "Visible cherry; oval drawer slide rails are black walnut.",
+    "Concept model from studio photo + 23\u00d718\u00d723 in envelope; confirm shop blanks before cutting."
   ],
-  "parts": [],
-  "stock_buy": [],
-  "joinery": []
+  "parts": [
+    {
+      "id": "L1",
+      "name": "Leg",
+      "qty": 4,
+      "finished_in": {
+        "t": 1.1811,
+        "w": 1.1811,
+        "l": 22.0
+      },
+      "thickness_mm": 30.0,
+      "width_mm": 30.0,
+      "length_mm": 558.8,
+      "class": "visible",
+      "stock": "cherry_5/4",
+      "material": "cherry",
+      "grain": "vertical",
+      "notes": "Blind mortises for rail tenons; rounded outer corners",
+      "blank_in": {
+        "t": 1.25,
+        "w": 1.431,
+        "l": 22.5
+      }
+    },
+    {
+      "id": "T1",
+      "name": "Top panel",
+      "qty": 1,
+      "finished_in": {
+        "t": 1.0,
+        "w": 18.0,
+        "l": 23.0
+      },
+      "thickness_mm": 25.4,
+      "width_mm": 457.2,
+      "length_mm": 584.2,
+      "class": "visible",
+      "stock": "cherry_5/4",
+      "material": "cherry",
+      "grain": "length",
+      "notes": "Flush with leg tops; rounded front corners",
+      "blank_in": {
+        "t": 1.25,
+        "w": 18.25,
+        "l": 23.5
+      }
+    },
+    {
+      "id": "A1",
+      "name": "Apron / cross rail",
+      "qty": 3,
+      "finished_in": {
+        "t": 0.7087,
+        "w": 0.7087,
+        "l": 21.5827
+      },
+      "thickness_mm": 18.0,
+      "width_mm": 18.0,
+      "length_mm": 548.2,
+      "class": "construction",
+      "stock": "cherry_4/4",
+      "material": "cherry",
+      "grain": "length",
+      "notes": "Front lower, rear lower, rear upper; integral end tenons",
+      "blank_in": {
+        "t": 1.0,
+        "w": 0.959,
+        "l": 22.083
+      }
+    },
+    {
+      "id": "SR1",
+      "name": "Drawer slide rail, oval",
+      "qty": 2,
+      "finished_in": {
+        "t": 0.5512,
+        "w": 1.8898,
+        "l": 16.8189
+      },
+      "thickness_mm": 14.0,
+      "width_mm": 48.0,
+      "length_mm": 427.2,
+      "class": "construction",
+      "stock": "walnut_4/4",
+      "material": "black_walnut",
+      "grain": "length",
+      "notes": "Continuous oval section; housed into legs and drawer-side channel",
+      "blank_in": {
+        "t": 1.0,
+        "w": 2.14,
+        "l": 17.319
+      }
+    },
+    {
+      "id": "SH1",
+      "name": "Open lower shelf",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.9449,
+        "w": 17.0079,
+        "l": 20.6378
+      },
+      "thickness_mm": 24.0,
+      "width_mm": 432.0,
+      "length_mm": 524.2,
+      "class": "visible",
+      "stock": "cherry_5/4",
+      "material": "cherry",
+      "grain": "length",
+      "notes": "Projects ~3.4 mm beyond front/rear apron edges",
+      "blank_in": {
+        "t": 1.25,
+        "w": 17.258,
+        "l": 21.138
+      }
+    },
+    {
+      "id": "DF1",
+      "name": "Drawer front",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.7874,
+        "w": 4.5669,
+        "l": 17.3228
+      },
+      "thickness_mm": 20.0,
+      "width_mm": 116.0,
+      "length_mm": 440.0,
+      "class": "visible",
+      "stock": "cherry_4/4",
+      "material": "cherry",
+      "grain": "horizontal",
+      "notes": "Inset; ~25.4 mm setback from frame front",
+      "blank_in": {
+        "t": 1.0,
+        "w": 4.817,
+        "l": 17.823
+      }
+    },
+    {
+      "id": "DS1",
+      "name": "Drawer side",
+      "qty": 2,
+      "finished_in": {
+        "t": 0.5906,
+        "w": 3.7795,
+        "l": 12.9921
+      },
+      "thickness_mm": 15.0,
+      "width_mm": 96.0,
+      "length_mm": 330.0,
+      "class": "construction",
+      "stock": "cherry_4/4",
+      "material": "cherry",
+      "grain": "length",
+      "notes": "Oval channel for walnut slide rail",
+      "blank_in": {
+        "t": 1.0,
+        "w": 4.03,
+        "l": 13.492
+      }
+    },
+    {
+      "id": "DB1",
+      "name": "Drawer back",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.6299,
+        "w": 3.7795,
+        "l": 17.0079
+      },
+      "thickness_mm": 16.0,
+      "width_mm": 96.0,
+      "length_mm": 432.0,
+      "class": "construction",
+      "stock": "cherry_4/4",
+      "material": "cherry",
+      "grain": "length",
+      "blank_in": {
+        "t": 1.0,
+        "w": 4.03,
+        "l": 17.508
+      }
+    },
+    {
+      "id": "DBT1",
+      "name": "Drawer bottom",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.4724,
+        "w": 12.3622,
+        "l": 15.8268
+      },
+      "thickness_mm": 12.0,
+      "width_mm": 314.0,
+      "length_mm": 402.0,
+      "class": "construction",
+      "stock": "ply_cherry_1/2",
+      "material": "cherry_ply",
+      "grain": "sheet",
+      "notes": "Fits in shallow grooves",
+      "sheet": true,
+      "blank_in": {
+        "t": 0.4724,
+        "w": 12.3622,
+        "l": 15.8268
+      }
+    }
+  ],
+  "stock_buy": [
+    {
+      "stock": "cherry_4/4",
+      "parts": [
+        "A1",
+        "DF1",
+        "DS1",
+        "DB1"
+      ],
+      "net_bf": 2.28,
+      "with_25pct_bf": 2.85
+    },
+    {
+      "stock": "cherry_5/4",
+      "parts": [
+        "L1",
+        "T1",
+        "SH1"
+      ],
+      "net_bf": 8.01,
+      "with_25pct_bf": 10.01
+    },
+    {
+      "stock": "walnut_4/4",
+      "parts": [
+        "SR1"
+      ],
+      "net_bf": 0.51,
+      "with_25pct_bf": 0.64
+    },
+    {
+      "stock": "ply_cherry_1/2",
+      "parts": [
+        "DBT1"
+      ],
+      "sheet": true
+    }
+  ],
+  "joinery": [
+    {
+      "joint": "apron to leg",
+      "method": "integral tenon / blind mortise"
+    },
+    {
+      "joint": "walnut slide rail to leg",
+      "method": "housed oval socket through front and rear legs"
+    },
+    {
+      "joint": "slide rail to drawer side",
+      "method": "oval channel in cherry drawer side"
+    },
+    {
+      "joint": "drawer bottom",
+      "method": "groove in sides and back"
+    }
+  ]
 }
