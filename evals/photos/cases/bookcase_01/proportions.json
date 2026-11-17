@@ -1,9 +1,21 @@
 {
   "schema": "proportions.v1",
   "id": "bookcase_01",
-  "proportions": {},
-  "derivation": {},
+  "proportions": {
+    "shelf_z_mm": [
+      250.0,
+      850.0,
+      1190.0,
+      1530.0,
+      1878.0
+    ],
+    "cabinet_z0_mm": 488.0,
+    "cabinet_z1_mm": 830.0
+  },
+  "derivation": {
+    "shelf_z_mm": "make_bookcase_gt.py SHELF_CENTERS",
+    "cabinet": "cabinet band between lower openings"
+  },
   "known_mm_assist": {},
-  "tolerance": 0.05,
-  "notes": "Leg/cabinet band heights unknown until STEP or user known sizes."
+  "tolerance": 0.05
 }

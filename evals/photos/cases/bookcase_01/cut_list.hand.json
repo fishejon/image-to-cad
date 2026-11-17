@@ -3,7 +3,7 @@
   "id": "bookcase_01",
   "title": "Walnut bookcase (organic frame)",
   "date": "2026-11-17",
-  "author": "",
+  "author": "design script walnut_bookcase.py (photo + user envelope)",
   "dims_in": {
     "w": 47.24,
     "d": 14.96,
@@ -14,14 +14,218 @@
     "d": 380.0,
     "h": 2000.0
   },
-  "dims_from": "user: 47.24\u00d714.96\u00d778.74 in",
-  "status": "template",
+  "dims_from": "user + STEP bbox (exact match)",
+  "status": "design_script",
   "units_source": "inches",
   "notes": [
-    "Overall sizes from user. Drop bookcase_01.step and fill finished/blank sizes from Fusion + shop plan.",
-    "Form: rounded post/rail frame, 4 open shelves with gallery lips, mid hinged 2-door cabinet, short post legs."
+    "Finished sizes = STEP solid AABBs from make_bookcase_gt.py / cut_list.source.csv (16 bodies).",
+    "Concept model from the room photo + 47.24\u00d714.96\u00d778.74 in envelope; confirm shop blanks before cutting.",
+    "Five shelves with integral tenons; four full-height stiles; mid inset 2-door cabinet."
   ],
-  "parts": [],
-  "stock_buy": [],
-  "joinery": []
+  "parts": [
+    {
+      "id": "ST1",
+      "name": "Stile",
+      "qty": 4,
+      "finished_in": {
+        "t": 2.0472,
+        "w": 1.811,
+        "l": 78.7402
+      },
+      "thickness_mm": 52.0,
+      "width_mm": 46.0,
+      "length_mm": 2000.0,
+      "class": "visible",
+      "stock": "walnut_8/4",
+      "material": "walnut",
+      "grain": "vertical",
+      "notes": "Mortises at five shelf heights; rounded outer edges",
+      "blank_in": {
+        "t": 2.0,
+        "w": 2.061,
+        "l": 79.24
+      }
+    },
+    {
+      "id": "SH1",
+      "name": "Shelf with integral tenons",
+      "qty": 5,
+      "finished_in": {
+        "t": 1.3386,
+        "w": 14.9598,
+        "l": 45.3504
+      },
+      "thickness_mm": 34.0,
+      "width_mm": 379.98,
+      "length_mm": 1151.9,
+      "class": "visible",
+      "stock": "walnut_8/4",
+      "material": "walnut",
+      "grain": "length",
+      "notes": "Four integral tongues into stile mortises; AABB includes tenon projection",
+      "blank_in": {
+        "t": 2.0,
+        "w": 15.21,
+        "l": 45.85
+      }
+    },
+    {
+      "id": "CG1",
+      "name": "Cabinet gable",
+      "qty": 2,
+      "finished_in": {
+        "t": 0.7087,
+        "w": 12.8339,
+        "l": 13.4646
+      },
+      "thickness_mm": 18.0,
+      "width_mm": 325.98,
+      "length_mm": 342.0,
+      "class": "construction",
+      "stock": "walnut_4/4",
+      "material": "walnut",
+      "grain": "vertical",
+      "blank_in": {
+        "t": 1.0,
+        "w": 13.084,
+        "l": 13.965
+      }
+    },
+    {
+      "id": "CB1",
+      "name": "Cabinet bottom",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.7087,
+        "w": 12.8339,
+        "l": 40.8622
+      },
+      "thickness_mm": 18.0,
+      "width_mm": 325.98,
+      "length_mm": 1037.9,
+      "class": "construction",
+      "stock": "walnut_4/4",
+      "material": "walnut",
+      "grain": "length",
+      "notes": "Housed dado ends",
+      "blank_in": {
+        "t": 1.0,
+        "w": 13.084,
+        "l": 41.362
+      }
+    },
+    {
+      "id": "CT1",
+      "name": "Cabinet top",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.7087,
+        "w": 12.8339,
+        "l": 40.8622
+      },
+      "thickness_mm": 18.0,
+      "width_mm": 325.98,
+      "length_mm": 1037.9,
+      "class": "construction",
+      "stock": "walnut_4/4",
+      "material": "walnut",
+      "grain": "length",
+      "notes": "Housed dado ends",
+      "blank_in": {
+        "t": 1.0,
+        "w": 13.084,
+        "l": 41.362
+      }
+    },
+    {
+      "id": "BK1",
+      "name": "Cabinet back panel",
+      "qty": 1,
+      "finished_in": {
+        "t": 0.7087,
+        "w": 12.0472,
+        "l": 40.3898
+      },
+      "thickness_mm": 18.0,
+      "width_mm": 306.0,
+      "length_mm": 1025.9,
+      "class": "construction",
+      "stock": "ply_walnut_3/4",
+      "material": "walnut_ply",
+      "grain": "sheet",
+      "notes": "Walnut plywood",
+      "sheet": true,
+      "blank_in": {
+        "t": 0.7087,
+        "w": 12.0472,
+        "l": 40.3898
+      }
+    },
+    {
+      "id": "DR1",
+      "name": "Cabinet door",
+      "qty": 2,
+      "finished_in": {
+        "t": 0.7087,
+        "w": 11.9291,
+        "l": 20.1358
+      },
+      "thickness_mm": 18.0,
+      "width_mm": 303.0,
+      "length_mm": 511.45,
+      "class": "visible",
+      "stock": "walnut_4/4",
+      "material": "walnut",
+      "grain": "horizontal",
+      "notes": "Inset with 3 mm reveal; finger notch at meeting edge in the photo",
+      "blank_in": {
+        "t": 1.0,
+        "w": 12.179,
+        "l": 20.636
+      }
+    }
+  ],
+  "stock_buy": [
+    {
+      "stock": "walnut_4/4",
+      "parts": [
+        "CG1",
+        "CB1",
+        "CT1",
+        "DR1"
+      ],
+      "net_bf": 13.54,
+      "with_25pct_bf": 16.93
+    },
+    {
+      "stock": "walnut_8/4",
+      "parts": [
+        "ST1",
+        "SH1"
+      ],
+      "net_bf": 57.5,
+      "with_25pct_bf": 71.88
+    },
+    {
+      "stock": "ply_walnut_3/4",
+      "parts": [
+        "BK1"
+      ],
+      "sheet": true
+    }
+  ],
+  "joinery": [
+    {
+      "joint": "shelf to stile",
+      "method": "integral tongue / blind mortise at five heights"
+    },
+    {
+      "joint": "cabinet top/bottom to gables",
+      "method": "housed dado"
+    },
+    {
+      "joint": "cabinet doors",
+      "method": "inset, 3 mm reveal"
+    }
+  ]
 }

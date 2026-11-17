@@ -16,12 +16,11 @@
       ],
       "backdrop": "room_wall",
       "d8_calibration_eligible": false,
-      "notes": "Near-front room shot with props. Need clean studio front + Fusion STEP for full GT."
+      "notes": "Near-front room shot with props. Clean studio front still useful for D8."
     }
   ],
   "needed": [
-    "front_clean",
-    "step_export"
+    "front_clean"
   ],
-  "notes": "Photo gitignored under evals/photos/**/*.jpg."
+  "notes": "Photo gitignored. STEP in repo."
 }
