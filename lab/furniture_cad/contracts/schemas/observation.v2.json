@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-to-cad.local/schemas/observation.v2.json",
+  "title": "observation.v2",
+  "description": "Perceive+Measure output: labeled regions and metric measurements with provenance. Lengths come from CV/user only — never from the model.",
+  "type": "object",
+  "required": ["schema", "class", "measurements", "regions"],
+  "properties": {
+    "schema": { "const": "observation.v2" },
+    "class": { "type": "string" },
+    "counts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "regions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "bbox_px", "conf"],
+        "properties": {
+          "id": { "type": "integer" },
+          "label": {
+            "type": "string",
+            "enum": [
+              "drawer_front",
+              "door",
+              "open_bay",
+              "top",
+              "case_bottom_rail",
+              "leg",
+              "end_block",
+              "back",
+              "divider",
+              "shelf",
+              "pull",
+              "none"
+            ]
+          },
+          "bbox_px": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "conf": { "type": "number", "minimum": 0, "maximum": 1 },
+          "label_source": { "type": "string", "enum": ["model", "heuristic", "user"] }
+        }
+      }
+    },
+    "measurements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "value_mm", "source"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string" },
+          "value_mm": { "type": "number" },
+          "err_mm": { "type": ["number", "null"] },
+          "source": { "type": "string", "enum": ["cv", "user", "snapped", "default", "guessed"] },
+          "conf": { "type": "number", "minimum": 0, "maximum": 1 },
+          "region_id": { "type": ["integer", "null"] }
+        }
+      }
+    },
+    "end_outline": {
+      "type": "object",
+      "properties": {
+        "side": { "type": "string", "enum": ["left", "right", "both"] },
+        "segments": {
+          "type": "array",
+          "maxItems": 24,
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["line", "arc"] },
+              "points_mm": { "type": "array" },
+              "r_mm": { "type": ["number", "null"] }
+            }
+          }
+        },
+        "source": { "type": "string" }
+      }
+    },
+    "asks": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "prompt": { "type": "string" },
+          "choices": { "type": "array", "items": { "type": "string" }, "maxItems": 2 }
+        }
+      }
+    },
+    "meta": { "type": "object" }
+  }
+}

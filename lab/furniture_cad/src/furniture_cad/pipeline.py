@@ -78,7 +78,33 @@ def run_pipeline(
         }
         _event(events, "intake", ok=True, note="no_photo")
 
-    # 2. Perceive
+    # 2. Measure (CV geometry on rectified intake — lengths never from the model)
+    measured: dict[str, Any] | None = None
+    if intake.get("image") is not None and intake.get("mask") is not None:
+        try:
+            from furniture_cad.perceive.measure import measure_from_intake
+
+            measured = measure_from_intake(
+                intake,
+                class_hint=class_hint,
+                api_key=None,  # labels: heuristic offline; model labels in WP3
+            )
+            (work / "measure.json").write_text(
+                json.dumps({k: v for k, v in measured.items() if k != "marked_image"}, indent=2, default=str)
+                + "\n",
+                encoding="utf-8",
+            )
+            _event(
+                events,
+                "measure",
+                ok=True,
+                n_measurements=len(measured.get("measurements") or []),
+                label_mode=(measured.get("meta") or {}).get("label_mode"),
+            )
+        except Exception as exc:  # noqa: BLE001 — measure must not kill the pipeline
+            _event(events, "measure", ok=False, error=str(exc))
+
+    # 3. Perceive (labels / counts — observation.v1 until WP3 migrates callers)
     if vision:
         obs = perceive_vision(
             intake,
@@ -88,6 +114,8 @@ def run_pipeline(
         )
     else:
         obs = perceive_casegood(intake, class_hint=class_hint, known_mm=known_mm or None)
+    if measured:
+        obs = {**obs, "measure_ref": "measure.json", "measurements": measured.get("measurements")}
     (work / "observation.json").write_text(json.dumps(obs, indent=2) + "\n", encoding="utf-8")
     feat_counts = feature_counts_from_observation(obs)
     spend += float((obs.get("meta") or {}).get("spend_usd_approx") or 0.0)
