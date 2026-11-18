@@ -3,6 +3,16 @@
   "id": "bookcase_01",
   "photos": [
     {
+      "file": "bookcase_01_front_open.png",
+      "pose_hint": "front",
+      "rectified": false,
+      "clutter": false,
+      "props": [],
+      "backdrop": "dark_studio",
+      "d8_calibration_eligible": false,
+      "notes": "Clean front, doors swung open 180\u00b0 against the frame. Best reference for organic continuous post/rail silhouette and cabinet bay. Dark backdrop \u2014 not D8-eligible."
+    },
+    {
       "file": "bookcase_01_front.jpg",
       "pose_hint": "front",
       "rectified": false,
@@ -16,11 +26,11 @@
       ],
       "backdrop": "room_wall",
       "d8_calibration_eligible": false,
-      "notes": "Near-front room shot with props. Clean studio front still useful for D8."
+      "notes": "Room shot with props; doors closed."
     }
   ],
   "needed": [
-    "front_clean"
+    "front_clean_studio"
   ],
-  "notes": "Photo gitignored. STEP in repo."
+  "notes": "Photos gitignored. Prefer front_open for form; studio white front still wanted for D8."
 }

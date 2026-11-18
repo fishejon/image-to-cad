@@ -10,4 +10,5 @@ Tall walnut bookcase: four full-height stiles, five shelves with integral tenons
 | `cut_list.hand.json` | `design_script` |
 | `make_bookcase_gt.py` | regenerator |
 | `features.json` / `known_sizes.json` | filled |
-| `bookcase_01_front.jpg` | room photo (gitignored) |
+| `bookcase_01_front_open.png` | clean front, doors open (gitignored) |
+| `bookcase_01_front.jpg` | room photo with props (gitignored) |
