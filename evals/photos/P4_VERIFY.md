@@ -9,10 +9,10 @@ Plan: [`docs/plans/product-plan-2026-11-10.md`](../../docs/plans/product-plan-20
 - [x] Pipeline uses repair loop; optional model patches via `FURNITURE_CAD_VERIFY_MODEL_PATCH`
 - [x] Three blind pipeline+vision runs on `console_01` (`python -m furniture_cad p4-a0`)
 - [x] Construct derives IR from Perceive (generic casegood template) — `construct/from_observation.py`
-- [x] Camera-matched IoU ≥ 0.55 (studio) — **0.758** on `console_01_front_clean` after D8 fitter fix (2026-11-17). Strict D8 threshold 0.80 still open (letterbox + triangle silhouette + hole-fill + wider shift).
+- [x] Camera-matched IoU ≥ 0.55 (studio) — **0.832** on `console_01_front_clean` (2026-11-18). Strict D8 ≥ 0.80 **passed** (scale/pitch/pad refine + soft morph close).
 - [x] Blind human rating: **Close** (2026-11-14) — right features/layout/size; wrong case-to-leg massing; missing pill/wishbone silhouette
 - [x] Board-feet scored in A0 harness (`eval/board_feet.py`)
-- [x] More Fusion GT — **credenza_01**, **bookcase_01**, **nightstand_01** each have STEP + cut list (2026-11-17). Synthetic `sideboard_01` remains a stress test. Clean studio fronts still help D8 on bookcase/credenza.
+- [x] More Fusion GT — **credenza_01**, **bookcase_01**, **nightstand_01** each have STEP + cut list (2026-11-17). Synthetic `sideboard_01` remains a stress test.
 
 ## Honest Construct baseline (offline, 2026-11-13)
 
@@ -92,21 +92,27 @@ Live A0 ×3 with landmark rows (PR #82): `mean_proportion_abs_err` **0.2012**, w
 
 Bay / divider / door / stacked-drawer layout is live. Oracle attrs (`drawer_layout`, `door_style`, `layout_facing`) drive IR; compile emits `V1`, `SH1`, `DR1` and stacked `DF1` rows.
 
-| Generic IR, oracle counts (assisted where noted) | part recall | dim match | cut-list match | feature match | shape IoU front / side |
+| Generic IR, oracle counts (assisted where noted) | part recall | dim match | cut-list match | feature match | notes |
 | --- | --- | --- | --- | --- | --- |
-| console_01, blind (+ oracle proportions) | 0.77 | 0.51 | 0.23 | 1.00 | — |
-| sideboard_01, assisted | **1.00** | 0.64 | 0.17 | **1.00** | 0.83 / 0.83 |
-| credenza_01, assisted | **1.00** | 0.70 | 0.45 | **1.00** | 0.77 / 0.71 |
+| console_01, blind (+ oracle proportions) | 0.77 | 0.51 | 0.23 | 1.00 | joinery not invented |
+| sideboard_01, assisted | **1.00** | **0.78** | **0.58** | **1.00** | overhang + top_t + bay fracs |
+| credenza_01, assisted | **1.00** | **0.85** | **0.64** | **1.00** | wall/top priors + unequal bays |
+| nightstand_01, assisted | **1.00** | 0.56 | 0.33 | **1.00** | frame form (L1/T1/A1/SR1/SH1/DF…) |
+| bookcase_01, assisted | **1.00** | 0.67 | 0.29 | **1.00** | rectilinear ST1/SH1/cabinet |
 
-**Also fixed in this pass**
-- Straight-end `lean_deg`/`sweep_r` 0 handling (earlier); multi-bay no longer invents a phantom full-width D1 / open cubby.
-- Console swept ends: pill / wishbone massing cues at the case-to-leg transition.
-- D8 camera fit: letterbox photo mask, triangle silhouette + hole-fill (keeps leg gaps), FOV-sensitive projection, wider shift search → front IoU **0.758** (P4 ≥0.55 cleared; strict 0.80 still open).
+### Cut-list / D8 / forms follow-up (2026-11-18)
+
+**Shipped**
+- Class stock priors (`wall` / `top_t` / overhang); carcass shrinks under overall-AABB top.
+- Unequal bay `w_frac` (credenza door/drawer; sideboard mid bank).
+- Drawer slide-gap box width; shaped-leg blank pads.
+- D8: soft morph close + local scale/pitch/pad refine → front IoU **0.832** (strict bar cleared).
+- `frame_nightstand` + `bookcase_frame` compilers (rectilinear Phase A).
 
 **Still open**
-- Cut-list size match / board-ft (top overhang, stock thickness priors, blank allowances).
-- Strict D8 ≥ 0.80; uncropped studio fronts help.
-- Bookcase / nightstand Fusion GT (Jonny).
+- Console cut-list / board-ft (carved E1 blank envelope vs hand 16/4).
+- Nightstand / bookcase finished-size fidelity (organic fillets, oval rails).
+- Studio fronts for bookcase / credenza D8.
 
 ## Commands
 

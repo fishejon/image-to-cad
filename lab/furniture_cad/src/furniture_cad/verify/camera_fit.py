@@ -76,6 +76,9 @@ def _calibration_photo_mask(path: Path, size: tuple[int, int] = (384, 384)) -> n
     for mask in candidates:
         # cleanup
         pil = Image.fromarray((mask.astype(np.uint8) * 255))
+        # Soft morphological close picks up shadow toes without ballooning the mask
+        pil = pil.filter(ImageFilter.MaxFilter(5))
+        pil = pil.filter(ImageFilter.MinFilter(5))
         pil = pil.filter(ImageFilter.MaxFilter(3))
         pil = pil.filter(ImageFilter.MinFilter(3))
         m = np.asarray(pil) > 127
@@ -146,6 +149,7 @@ def _project_mask(
     fov_deg: float = 35.0,
     cam_dist_factor: float = 2.8,
     use_hull: bool = False,
+    scale: float = 1.0,
 ) -> np.ndarray:
     """Rasterize a filled silhouette from projected triangles (true outline).
 
@@ -169,7 +173,8 @@ def _project_mask(
     oz_min, oz_max = float(z.min()), float(z.max())
     ospan = max(ox_max - ox_min, oz_max - oz_min, 1e-6)
     ocx, ocz = (ox_min + ox_max) * 0.5, (oz_min + oz_max) * 0.5
-    half = ospan * (0.5 + pad)
+    # scale > 1 enlarges the projected silhouette (mesh appears closer / larger in frame)
+    half = ospan * (0.5 + pad) / max(0.5, float(scale))
 
     if perspective:
         span = float(max(x.max() - x.min(), z.max() - z.min(), 1e-6))
@@ -222,11 +227,11 @@ def _project_mask(
     return mask
 
 
-def _iou(ref: np.ndarray, model: np.ndarray, *, max_shift_frac: float = 0.12) -> tuple[float, dict[str, Any]]:
+def _iou(ref: np.ndarray, model: np.ndarray, *, max_shift_frac: float = 0.14) -> tuple[float, dict[str, Any]]:
     h, w = ref.shape
     max_dx = max(1, int(round(w * max_shift_frac)))
     max_dy = max(1, int(round(h * max_shift_frac)))
-    step = max(1, max_dx // 4)
+    step = max(1, max_dx // 5)
     best = 0.0
     meta: dict[str, Any] = {"dx": 0, "dy": 0}
     for dy in range(-max_dy, max_dy + 1, step):
@@ -240,11 +245,23 @@ def _iou(ref: np.ndarray, model: np.ndarray, *, max_shift_frac: float = 0.12) ->
             if iou > best:
                 best = iou
                 meta = {"dx": dx, "dy": dy, "inter": int(inter), "union": int(union)}
-    # Fine refine around best
+    # Fine refine around best (1-px then half-step)
     if best > 0:
         bdx, bdy = int(meta["dx"]), int(meta["dy"])
         for dy in range(bdy - step, bdy + step + 1):
             for dx in range(bdx - step, bdx + step + 1):
+                m = _shift(model, dx, dy)
+                inter = np.logical_and(ref, m).sum()
+                union = np.logical_or(ref, m).sum()
+                if union == 0:
+                    continue
+                iou = float(inter / union)
+                if iou > best:
+                    best = iou
+                    meta = {"dx": dx, "dy": dy, "inter": int(inter), "union": int(union)}
+        bdx, bdy = int(meta["dx"]), int(meta["dy"])
+        for dy in range(bdy - 2, bdy + 3):
+            for dx in range(bdx - 2, bdx + 3):
                 m = _shift(model, dx, dy)
                 inter = np.logical_and(ref, m).sum()
                 union = np.logical_or(ref, m).sum()
@@ -292,34 +309,72 @@ def fit_camera_iou(
     fov_grid = [28.0, 35.0, 45.0, 60.0] if use_persp else [35.0]
     dist_grid = [2.2, 2.8, 3.6] if use_persp else [2.8]
 
+    # Coarse pose search at scale=1, then refine best with ±2% scale
+    scale_coarse = [1.0]
     best: dict[str, Any] = {"iou": 0.0}
     for yaw in yaw_grid:
         for pitch in pitch_grid:
             for fov in fov_grid:
                 for dist in dist_grid:
+                    for sc in scale_coarse:
+                        mask = _project_mask(
+                            verts,
+                            faces,
+                            yaw_deg=yaw,
+                            pitch_deg=pitch,
+                            size=size,
+                            perspective=use_persp or abs(yaw) > 5,
+                            fov_deg=fov,
+                            cam_dist_factor=dist,
+                            use_hull=False,
+                            scale=sc,
+                        )
+                        iou, align = _iou(ref, mask)
+                        if iou > best["iou"]:
+                            best = {
+                                "iou": round(iou, 4),
+                                "yaw_deg": yaw,
+                                "pitch_deg": pitch,
+                                "fov_deg": fov,
+                                "cam_dist_factor": dist,
+                                "scale": sc,
+                                "perspective": use_persp or abs(yaw) > 5,
+                                "align": align,
+                                "rating": rating_for_iou(iou),
+                                "silhouette": "triangles",
+                            }
+    if best.get("iou", 0) > 0:
+        yaw = float(best["yaw_deg"])
+        pitch = float(best["pitch_deg"])
+        fov = float(best["fov_deg"])
+        dist = float(best["cam_dist_factor"])
+        # Local refine: scale ±3%, pitch ±4°, pad variants
+        for sc in (0.97, 0.98, 0.99, 1.0, 1.01, 1.02, 1.03):
+            for d_pitch in (-4.0, -2.0, 0.0, 2.0, 4.0):
+                for pad in (0.06, 0.08, 0.10, 0.12):
                     mask = _project_mask(
                         verts,
                         faces,
                         yaw_deg=yaw,
-                        pitch_deg=pitch,
+                        pitch_deg=pitch + d_pitch,
                         size=size,
-                        perspective=use_persp or abs(yaw) > 5,
+                        pad=pad,
+                        perspective=bool(best.get("perspective")),
                         fov_deg=fov,
                         cam_dist_factor=dist,
                         use_hull=False,
+                        scale=sc,
                     )
                     iou, align = _iou(ref, mask)
                     if iou > best["iou"]:
                         best = {
+                            **best,
                             "iou": round(iou, 4),
-                            "yaw_deg": yaw,
-                            "pitch_deg": pitch,
-                            "fov_deg": fov,
-                            "cam_dist_factor": dist,
-                            "perspective": use_persp or abs(yaw) > 5,
+                            "pitch_deg": pitch + d_pitch,
+                            "scale": sc,
+                            "pad": pad,
                             "align": align,
                             "rating": rating_for_iou(iou),
-                            "silhouette": "triangles",
                         }
     best["schema"] = "camera_fit.v1"
     best["photo"] = str(photo)

@@ -140,9 +140,11 @@ def leg_set(
     """Square/tapered legs (taper approximated as top section for Phase 1)."""
     top = top or [38.0, 38.0]
     foot = foot or top
-    # Use max section so blank covers taper; solid uses top for now
-    lx, ly = float(top[0]), float(top[1])
+    # Blank covers max section + carve/taper pad; solid uses top for now
+    lx = max(float(top[0]), float(foot[0]))
+    ly = max(float(top[1]), float(foot[1]))
     solid = Box(lx, ly, height)
+    tapered = foot != top or abs(float(splay_deg)) > 0.1
     parts = [
         part(
             "leg",
@@ -150,8 +152,9 @@ def leg_set(
             material=material,
             qty=max(1, int(count)),
             name="Leg",
-            make="shaped" if foot != top or splay_deg else "solid",
-            blank_pad_mm=3.0 if foot != top else 0.0,
+            make="shaped" if tapered else "solid",
+            # Hand plans typically leave ~6–12 mm on shaped leg blanks
+            blank_pad_mm=8.0 if tapered else 2.0,
         )
     ]
     return {

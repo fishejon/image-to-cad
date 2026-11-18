@@ -2,7 +2,7 @@
 
 Console stays a flat ``drawer_bank`` + ``open`` list. Credenza / sideboard forms
 become ``bay`` / ``divider`` sequences so compile can emit V1, SH1, DR1 and
-stacked drawers.
+stacked drawers. Nightstand / bookcase get form-specific trees.
 """
 
 from __future__ import annotations
@@ -39,6 +39,11 @@ def build_layout_children(
     drawer_layout: str = "",
     door_style: str = "",
     layout_facing: str = "",
+    form_hint: str = "",
+    proportions: dict[str, Any] | None = None,
+    overall_w: float = 0.0,
+    overall_d: float = 0.0,
+    overall_h: float = 0.0,
 ) -> tuple[list[dict[str, Any]], str]:
     """Return (layout children, split axis)."""
     drawers = max(0, int(drawers))
@@ -47,6 +52,8 @@ def build_layout_children(
     shelf = max(0, int(shelf))
     stacked = _stacked(drawer_layout, doors, drawers)
     dtype = _door_type(door_style)
+    props = proportions or {}
+    form = (form_hint or "").lower()
 
     def front_spec() -> dict[str, Any]:
         return {"t": 19.0, "reveal": reveal, "corner": "square"}
@@ -66,6 +73,37 @@ def build_layout_children(
             b["bank_frac"] = float(bank_frac)
         return b
 
+    # --- bookcase: shelves + mid cabinet bay (rectilinear Phase A) ---
+    if "bookcase" in form:
+        shelf_zs = list(props.get("shelf_z_mm") or [])
+        n_shelf = max(shelf, len(shelf_zs), 1)
+        children: list[dict[str, Any]] = [
+            {
+                "kind": "bookcase",
+                "stile_t": 52.0,
+                "stile_w": 46.0,
+                "shelf_t": 34.0,
+                "shelf_count": n_shelf,
+                "shelf_z_mm": shelf_zs,
+                "cabinet_z0_mm": props.get("cabinet_z0_mm"),
+                "cabinet_z1_mm": props.get("cabinet_z1_mm"),
+                "doors": max(1, doors) if doors else 2,
+                "door": door_spec(max(1, doors) if doors else 2),
+            }
+        ]
+        return children, "z"
+
+    # --- nightstand: single bay, drawer on top, open + lower shelf ---
+    if "nightstand" in form:
+        stack: list[dict[str, Any]] = [
+            bank(rows=max(1, drawers) if drawers else 1, cols=1, align="top"),
+        ]
+        if open_cubby > 0:
+            stack.append({"kind": "open", "setback": wall})
+        if shelf > 0:
+            stack.append({"kind": "shelf", "setback": wall, "align": "bottom"})
+        return [{"kind": "bay", "stack": stack}], "z"
+
     # --- multi-bay: doors on the sides, drawers in the middle (sideboard) ---
     if doors >= 2 and drawers > 0:
         rows = drawers if stacked else 1
@@ -76,12 +114,13 @@ def build_layout_children(
             door_stack.append({"kind": "shelf", "setback": wall})
         door_stack.append({"kind": "open", "setback": wall})
         mid_stack = [bank(rows=rows, cols=cols, align="fill")]
+        # Slightly wider drawer bay (matches synthetic sideboard BANK_W prior ~1/3+)
         children = [
-            {"kind": "bay", "door": door_spec(1), "stack": door_stack},
+            {"kind": "bay", "w_frac": 0.32, "door": door_spec(1), "stack": door_stack},
             {"kind": "divider", "t": wall},
-            {"kind": "bay", "stack": mid_stack},
+            {"kind": "bay", "w_frac": 0.36, "stack": mid_stack},
             {"kind": "divider", "t": wall},
-            {"kind": "bay", "door": door_spec(1), "stack": list(door_stack)},
+            {"kind": "bay", "w_frac": 0.32, "door": door_spec(1), "stack": list(door_stack)},
         ]
         return children, "x"
 
@@ -93,12 +132,14 @@ def build_layout_children(
         drawer_stack: list[dict[str, Any]] = [bank(rows=rows, cols=cols, align=align)]
         if open_cubby > 0:
             drawer_stack.append({"kind": "open", "setback": wall})
+        # Door bay ~42% / drawer bay ~58% matches credenza DF≈749 vs DR≈569 leaf
         door_bay: dict[str, Any] = {
             "kind": "bay",
+            "w_frac": 0.42,
             "door": door_spec(1),
             "stack": [{"kind": "open", "setback": wall}],
         }
-        drawer_bay: dict[str, Any] = {"kind": "bay", "stack": drawer_stack}
+        drawer_bay: dict[str, Any] = {"kind": "bay", "w_frac": 0.58, "stack": drawer_stack}
         left_is_door = "right" not in (layout_facing or "").lower()
         if "stacked_right" in (drawer_layout or "").lower():
             left_is_door = True
