@@ -1,7 +1,7 @@
 # Image to CAD: Plan and Technical Specification
 
-> **Status: ACTIVE.** Day-to-day sequencing for the wired IR pipeline.  
-> Supersedes sequencing in [`product-plan-2026-11-08.md`](product-plan-2026-11-08.md) (D1–D6 still locked; that doc remains historical context).  
+> **Status: SUPERSEDED for post-P4 sequencing** by [`shop-ready-spec-2026-11-17.md`](shop-ready-spec-2026-11-17.md).  
+> D1–D12 and P0–P4 history still apply. Day-to-day work follows the shop-ready WP/gate plan.  
 > Nov 10, 2026 · Jonny Fisher.
 
 ## Bottom line

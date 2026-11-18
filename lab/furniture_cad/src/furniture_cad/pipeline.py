@@ -69,11 +69,12 @@ def run_pipeline(
         _event(events, "intake", ok=True, seg=intake.get("segmentation"))
     else:
         intake = {
-            "schema": "intake.v1",
+            "schema": "intake.v2",
             "path": None,
-            "segmentation": {"score": 0.4, "quality": "no_photo"},
-            "rectify": {"rectified": False},
+            "segmentation": {"score": 0.4, "quality": "low", "method": "brightness"},
+            "rectify": {"rectified": False, "method": "none"},
             "scale": None,
+            "asks": [],
         }
         _event(events, "intake", ok=True, note="no_photo")
 

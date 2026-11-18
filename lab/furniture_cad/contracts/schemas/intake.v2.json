@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-to-cad.local/schemas/intake.v2.json",
+  "title": "intake.v2",
+  "description": "Photo intake: EXIF-oriented image, mask, rectification, and metric scale with provenance.",
+  "type": "object",
+  "required": ["schema", "path", "meta", "segmentation", "rectify", "scale"],
+  "properties": {
+    "schema": { "const": "intake.v2" },
+    "path": { "type": "string" },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string" },
+        "size": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "exif_oriented": { "type": "boolean" }
+      }
+    },
+    "segmentation": {
+      "type": "object",
+      "required": ["method", "quality", "score"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["sam2", "grabcut", "brightness", "brightness_v1_pending_sam"]
+        },
+        "quality": { "type": "string", "enum": ["high", "ok", "low", "fallback_adaptive"] },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fill": { "type": "number", "minimum": 0, "maximum": 1 },
+        "conf": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "rectify": {
+      "type": "object",
+      "required": ["rectified"],
+      "properties": {
+        "rectified": { "type": "boolean" },
+        "method": { "type": "string", "enum": ["aruco", "lsd_keystone", "none"] },
+        "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+        "residual_angle_deg": { "type": ["number", "null"] },
+        "retake_request": { "type": ["string", "null"] },
+        "homography": {
+          "type": ["array", "null"],
+          "description": "3x3 row-major homography from original to rectified",
+          "items": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "aruco": {
+          "type": "object",
+          "properties": {
+            "dict": { "type": "string" },
+            "id": { "type": "integer" },
+            "size_mm": { "type": "number" },
+            "found": { "type": "boolean" }
+          }
+        },
+        "reason": { "type": "string" }
+      }
+    },
+    "scale": {
+      "type": ["object", "null"],
+      "properties": {
+        "px_per_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "scale_source": { "type": "string", "enum": ["aruco", "user", "ask", "guessed"] },
+        "source_tag": { "type": "string", "enum": ["cv", "user", "snapped", "default", "guessed"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rel_error_est": { "type": ["number", "null"] },
+        "axis": { "type": "string", "enum": ["w", "d", "h"] },
+        "extent_px": { "type": ["number", "null"] },
+        "known_mm": { "type": ["number", "null"] },
+        "note": { "type": "string" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "rectified_image_path": { "type": ["string", "null"] },
+        "mask_path": { "type": ["string", "null"] }
+      }
+    },
+    "asks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "prompt": { "type": "string" }
+        }
+      }
+    }
+  }
+}
