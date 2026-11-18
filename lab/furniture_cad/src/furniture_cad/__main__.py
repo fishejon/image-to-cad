@@ -148,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.known_mm:
             known = {"w": args.known_mm[0], "d": args.known_mm[1], "h": args.known_mm[2]}
         intake = {
-            "schema": "intake.v1",
+            "schema": "intake.v2",
             "path": str(args.photo),
             "segmentation": {"score": 0.5, "quality": "cli"},
             "rectify": {"rectified": False},

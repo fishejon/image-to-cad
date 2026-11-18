@@ -33,6 +33,15 @@ def test_intake_on_case_photo() -> None:
     if not photo.is_file():
         return
     out = intake_photo(photo, known_mm={"w": 1219, "d": 305, "h": 1803})
-    assert out["schema"] == "intake.v1"
+    assert out["schema"] in ("intake.v1", "intake.v2")
     assert out["segmentation"]["score"] > 0
     assert "mask" in out
+    if out["schema"] == "intake.v2":
+        assert out["scale"] is None or out["scale"].get("source_tag") in (
+            "cv",
+            "user",
+            "snapped",
+            "default",
+            "guessed",
+            None,
+        )
