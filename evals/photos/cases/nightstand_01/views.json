@@ -3,6 +3,16 @@
   "id": "nightstand_01",
   "photos": [
     {
+      "file": "nightstand_01_front_straight.png",
+      "pose_hint": "front",
+      "rectified": false,
+      "clutter": false,
+      "props": [],
+      "backdrop": "plaster_wall",
+      "d8_calibration_eligible": true,
+      "notes": "Straight-on front; primary view for layout and D8. Walnut oval slides visible through leg cutouts."
+    },
+    {
       "file": "nightstand_01_front.jpg",
       "pose_hint": "front",
       "rectified": false,
@@ -10,9 +20,9 @@
       "props": [],
       "backdrop": "white_studio",
       "d8_calibration_eligible": true,
-      "notes": "Clean studio front \u2014 D8 candidate with STEP in."
+      "notes": "Earlier studio front; keep as secondary."
     }
   ],
   "needed": [],
-  "notes": "Photo gitignored. STEP in repo."
+  "notes": "Photos gitignored. Prefer front_straight for orthographic alignment."
 }

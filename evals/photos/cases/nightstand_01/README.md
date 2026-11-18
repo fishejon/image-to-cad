@@ -10,4 +10,5 @@ Cherry nightstand with **oval black-walnut slide rails**, inset drawer, low open
 | `cut_list.hand.json` | `design_script` |
 | `make_nightstand_gt.py` | regenerator |
 | `features.json` / `known_sizes.json` | filled |
-| `nightstand_01_front.jpg` | studio front (gitignored) |
+| `nightstand_01_front_straight.png` | straight-on front (gitignored) |
+| `nightstand_01_front.jpg` | studio front, secondary (gitignored) |
