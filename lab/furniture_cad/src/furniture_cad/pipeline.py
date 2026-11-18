@@ -129,9 +129,21 @@ def run_pipeline(
         counts=feat_counts,
     )
 
-    # 3. Dimension
+    # 4. Dimension (provenance-tagged)
     dims = apply_dims(obs, known_mm=known_mm or None)
     (work / "dimension.json").write_text(json.dumps(dims, indent=2) + "\n", encoding="utf-8")
+    (work / "provenance.json").write_text(
+        json.dumps(
+            {
+                "schema": "provenance.v1",
+                "values": dims.get("provenance") or [],
+                "cv_source_share": dims.get("cv_source_share"),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     _event(
         events,
         "dimension",
@@ -139,6 +151,7 @@ def run_pipeline(
         overall=dims.get("overall_mm"),
         conflicts=len(dims.get("conflicts") or []),
         within_3pct=dims.get("within_3pct"),
+        cv_source_share=dims.get("cv_source_share"),
     )
 
     # 4–6. Construct + Compile + Verify (+ IR patch repair)
