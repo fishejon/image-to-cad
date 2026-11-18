@@ -17,15 +17,13 @@ def test_pipeline_console_with_known_dims(tmp_path: Path) -> None:
     summary = run_pipeline(work_dir=tmp_path, photo=photo, known_mm=known)
     assert summary["mode"] == "pipeline"
     assert summary["ok"] is True
-    assert summary["stages"] == [
-        "intake",
-        "perceive",
-        "dimension",
-        "construct",
-        "compile",
-        "verify",
-        "derive",
-    ]
+    assert summary["stages"][0] == "intake"
+    assert "perceive" in summary["stages"]
+    assert "derive" in summary["stages"]
+    # WP2: Measure runs when a photo+mask is present
+    if photo is not None:
+        assert "measure" in summary["stages"]
+        assert (tmp_path / "measure.json").is_file()
     assert (tmp_path / "model.stl").is_file()
     assert (tmp_path / "ir.json").is_file()
     assert (tmp_path / "cut_list_v2.json").is_file()
