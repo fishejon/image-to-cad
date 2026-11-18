@@ -1,4 +1,4 @@
-"""Vision Perceive — observation.v1 via Anthropic (P3)."""
+"""Vision Perceive — observation.v1 via Anthropic (WP3 attrs)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from furniture_cad.perceive.attrs import ATTR_ENUMS, majority_vote, normalize_attrs
 from furniture_cad.perceive.observe import perceive_casegood
 from furniture_cad.tools.loop import _approx_cost_usd, _photo_content_block
 
@@ -16,6 +17,7 @@ COUNT_KEYS = ("drawer", "door", "shelf", "leg", "open_cubby", "pull", "end_block
 
 SYSTEM = """You are a furniture perception module. Look at the photo and return ONLY valid JSON
 matching observation.v1 (no markdown). Count visible features carefully.
+Do NOT return any lengths, sizes, or millimeter values.
 Schema:
 {
   "schema": "observation.v1",
@@ -27,16 +29,29 @@ Schema:
   "components": [{"id": str, "type": str, "count": int, "style": str, "conf": 0-1}],
   "unknowns": [{"q": str, "default": any, "ask": bool}],
   "end_form": "flat|leaning|swept|swept_leaning|unknown",
-  "leg_style": "square|tapered|flared|two_profile_flared|none|unknown"
+  "leg_style": "square|tapered|flared|two_profile_flared|none|unknown",
+  "attrs": {
+    "leg_style": "square|tapered|flared|two_profile_flared|cabriole|turned|none|unknown",
+    "foot_style": "square|tapered|pad|spade|bun|none|unknown",
+    "end_profile": "flat|rounded_bottom|swept|swept_leaning|pill|wishbone|unknown",
+    "top_edge": "square|eased|roundover|chamfer|ogee|bullnose|unknown",
+    "drawer_front_style": "flush_inset|inset_beaded|overlay|shaker|slab|unknown",
+    "pull_style": "none|knob|bar|cup|integrated|unknown",
+    "back_style": "thin_panel|frame_panel|solid|open|unknown",
+    "visible_joinery": "through_dovetail|half_blind_dovetail|box_joint|wedged_tenon|finger_joint|mortise_tenon|none|unknown",
+    "grain_direction": "length|vertical|cross|unknown",
+    "wood_guess": "string",
+    "wood_guess_conf": 0-1
+  }
 }
 Rules:
 - Do not invent pulls if none are visible.
 - Prefer lower counts when unsure — except legs: freestanding casegoods almost always have 4 legs;
   if only two front legs are visible, still count leg=4 (rear legs inferred).
-- end_block_carved = carved/sculpted solid wood end panels (not plain box ends).
+- end_block_carved = carved/sculpted solid wood end panels (not plain box ends). If unsure, set 0 and add an unknown ask — never invent.
 - Open recessed shelf bay above drawers = open_cubby=1 AND shelf=1 (the bay floor/ceiling is the shelf).
-- Temperature 0."""
-
+- attrs values must be from the enums above; use unknown when unsure.
+- Never estimate lengths."""
 
 def _extract_json(text: str) -> dict[str, Any]:
     text = text.strip()
@@ -175,23 +190,60 @@ def perceive_vision(
         counts1.get("leg", 0), reconciled.get("leg", 0)
     ) >= 4:
         reconciled["leg"] = 4
-    # Front-on photos often miss end sculpture: infer carved ends from end_form,
-    # or from console class when end_form is unknown.
+    # WP3: never invent end_block_carved from class/end_form — ask instead.
     end_form = str(data.get("end_form") or "").lower().strip()
-    class_name = str(data.get("class") or class_hint).lower()
-    if reconciled.get("end_block_carved", 0) == 0:
-        swept = any(x in end_form for x in ("swept", "leaning"))
-        console_unknown = "console" in class_name and end_form in ("", "unknown", "none")
-        if swept or console_unknown:
-            reconciled["end_block_carved"] = 2
-            unknowns.append(
-                {
-                    "q": "Carved end blocks present (inferred from end_form/class)?",
-                    "default": 2,
-                    "ask": True,
-                }
-            )
+    if reconciled.get("end_block_carved", 0) == 0 and any(x in end_form for x in ("swept", "leaning", "pill", "wishbone")):
+        unknowns.append(
+            {
+                "q": "Are the end panels carved/sculpted blocks (not plain boards)?",
+                "default": 0,
+                "ask": True,
+                "choices": ["0", "2"],
+            }
+        )
     counts2 = reconciled
+
+    # Detail attrs: normalize primary pass + optional self-consistency samples
+    attr_samples = [normalize_attrs(data.get("attrs") or {
+        "leg_style": data.get("leg_style"),
+        "end_profile": data.get("end_form"),
+    })]
+    # k=3 self-consistency when env requests it (extra cost — off by default in CI)
+    k = int(os.environ.get("FURNITURE_CAD_PERCEIVE_ATTR_K") or "1")
+    in_tok = int(getattr(getattr(resp, "usage", None), "input_tokens", 0) or 0)
+    out_tok = int(getattr(getattr(resp, "usage", None), "output_tokens", 0) or 0)
+    in_tok += int(getattr(getattr(resp2, "usage", None), "input_tokens", 0) or 0)
+    out_tok += int(getattr(getattr(resp2, "usage", None), "output_tokens", 0) or 0)
+    for i in range(1, max(1, min(3, k))):
+        wordings = [
+            "Focus on leg foot and apron junction. Return JSON with attrs enums only.",
+            "Focus on top edge and end profile. Return JSON with attrs enums only.",
+        ]
+        try:
+            r_attr = client.messages.create(
+                model=model,
+                max_tokens=400,
+                system="Return ONLY JSON {\"attrs\": {...}} using the fixed enums. No lengths.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            image_block,
+                            {"type": "text", "text": wordings[i - 1] + f" Enums: {list(ATTR_ENUMS.keys())}"},
+                        ],
+                    }
+                ],
+            )
+            t_attr = "".join(getattr(b, "text", "") for b in r_attr.content if getattr(b, "type", None) == "text")
+            attr_samples.append(normalize_attrs(_extract_json(t_attr).get("attrs")))
+            in_tok += int(getattr(getattr(r_attr, "usage", None), "input_tokens", 0) or 0)
+            out_tok += int(getattr(getattr(r_attr, "usage", None), "output_tokens", 0) or 0)
+        except Exception:
+            break
+    voted = majority_vote(attr_samples)
+    attrs = voted["attrs"]
+    for a in voted.get("asks") or []:
+        unknowns.append({"q": a.get("prompt"), "default": a.get("choices", [None])[0], "ask": True, **a})
 
     components = data.get("components") or []
     if not components:
@@ -208,10 +260,6 @@ def perceive_vision(
                     }
                 )
 
-    usage1 = getattr(resp, "usage", None)
-    usage2 = getattr(resp2, "usage", None)
-    in_tok = int(getattr(usage1, "input_tokens", 0) or 0) + int(getattr(usage2, "input_tokens", 0) or 0)
-    out_tok = int(getattr(usage1, "output_tokens", 0) or 0) + int(getattr(usage2, "output_tokens", 0) or 0)
     spend = _approx_cost_usd(input_tokens=in_tok, output_tokens=out_tok)
 
     return {
@@ -222,12 +270,14 @@ def perceive_vision(
         "dims_mm": base.get("dims_mm") or {},
         "counts": counts2,
         "counts_pass1": counts1,
-        "end_form": data.get("end_form"),
-        "leg_style": data.get("leg_style"),
+        "end_form": data.get("end_form") or attrs.get("end_profile"),
+        "leg_style": data.get("leg_style") or attrs.get("leg_style"),
+        "attrs": attrs,
         "unknowns": unknowns,
         "meta": {
-            "perceive": "vision_v1",
+            "perceive": "vision_v2_attrs",
             "model": model,
+            "attr_k": len(attr_samples),
             "input_tokens": in_tok,
             "output_tokens": out_tok,
             "spend_usd_approx": round(spend, 4),

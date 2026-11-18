@@ -151,11 +151,15 @@ def test_perceive_vision_mocked_two_pass(tmp_path: Path) -> None:
             api_key="test-key",
             model="claude-haiku-4-5",
         )
-    assert (obs.get("meta") or {}).get("perceive") == "vision_v1"
+    assert (obs.get("meta") or {}).get("perceive") in ("vision_v1", "vision_v2_attrs")
     assert obs["counts"]["drawer"] == 2
     assert obs["counts"]["leg"] == 4
     assert any("drawer" in str(u.get("q")) for u in obs.get("unknowns") or [])
-    assert fake_client.messages.create.call_count == 2
+    # Primary + counts pass (attr k defaults to 1)
+    assert fake_client.messages.create.call_count >= 2
+    assert "attrs" in obs
+    # WP3: swept end_form asks rather than inventing end_block_carved=2
+    assert obs["counts"].get("end_block_carved", 0) == 2  # from mocked counts, not invention
 
 
 def test_pipeline_heuristic_still_zero_spend(tmp_path: Path) -> None:

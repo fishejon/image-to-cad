@@ -33,6 +33,19 @@ def extract_segments(
         arr = np.asarray(image)
         if arr.ndim == 2:
             arr = np.stack([arr] * 3, axis=-1)
+    # Downsample large studio photos for LSD speed (coords stay in this working space)
+    max_side = 900
+    h0, w0 = arr.shape[:2]
+    scale = 1.0
+    if max(h0, w0) > max_side:
+        scale = max_side / float(max(h0, w0))
+        arr = cv2.resize(arr, (int(w0 * scale), int(h0 * scale)), interpolation=cv2.INTER_AREA)
+        if mask is not None:
+            mask = cv2.resize(
+                mask.astype(np.uint8),
+                (arr.shape[1], arr.shape[0]),
+                interpolation=cv2.INTER_NEAREST,
+            ).astype(bool)
     gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
     if mask is not None:
         gray = cv2.bitwise_and(gray, gray, mask=(mask.astype(np.uint8) * 255))
@@ -69,6 +82,10 @@ def extract_segments(
             orient = "v"
             x = (x0 + x1) / 2
             x0 = x1 = x
+        # Map back to original image coordinates when downsampled
+        if scale != 1.0:
+            x0, y0, x1, y1 = x0 / scale, y0 / scale, x1 / scale, y1 / scale
+            length = length / scale
         snapped.append(
             {
                 "x0": x0,
