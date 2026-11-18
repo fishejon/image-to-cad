@@ -133,3 +133,42 @@ def test_credenza_multibay_sliding_door_and_stacked_right():
     assert rep["parts"]["recall"] == 1.0
     matched = {e["truth"] for e in rep["parts"]["size_errors"]}
     assert {"V1", "DR1"} <= matched
+    assert rep["parts"]["cut_list_match_share"] >= 0.55
+
+
+@needs_side
+def test_sideboard_cutlist_improved_by_overhang_and_top_t():
+    rep = run_case("sideboard_01", assist=True)
+    assert rep["parts"]["cut_list_match_share"] >= 0.50
+    ir = construct_ir_from_observation(
+        oracle_observation(SIDE),
+        apply_dims(oracle_observation(SIDE), known_mm={"w": 1524.0, "d": 457.2, "h": 812.8}),
+    )
+    assert ir["carcass"]["top"]["t"] == pytest.approx(25.4, abs=0.1)
+    assert ir["carcass"]["top"]["overhang"][0] > 0
+
+
+NS = CASES_DIR / "nightstand_01"
+needs_ns = pytest.mark.skipif(not is_ready(NS), reason="nightstand_01 GT not present")
+BC = CASES_DIR / "bookcase_01"
+needs_bc = pytest.mark.skipif(not is_ready(BC), reason="bookcase_01 GT not present")
+
+
+@needs_ns
+def test_nightstand_frame_emits_core_parts():
+    rep = run_case("nightstand_01", assist=True)
+    assert rep["parts"]["recall"] >= 0.85
+    assert rep["features_built_vs_truth"]["drawer"]["built"] == 1
+    assert rep["features_built_vs_truth"]["shelf"]["built"] == 1
+    matched = {e["truth"] for e in rep["parts"]["size_errors"]}
+    assert {"L1", "T1", "SH1", "DF1", "SR1"} <= matched
+
+
+@needs_bc
+def test_bookcase_frame_emits_stiles_shelves_cabinet():
+    rep = run_case("bookcase_01", assist=True)
+    assert rep["parts"]["recall"] >= 0.85
+    assert rep["features_built_vs_truth"]["shelf"]["built"] == 5
+    assert rep["features_built_vs_truth"]["door"]["built"] == 2
+    matched = {e["truth"] for e in rep["parts"]["size_errors"]}
+    assert {"ST1", "SH1", "DR1", "CG1"} <= matched

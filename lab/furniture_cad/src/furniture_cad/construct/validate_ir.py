@@ -29,13 +29,24 @@ def _validate_v2(ir: dict[str, Any]) -> dict[str, Any]:
             errors.append(f"params.{k} required and > 0")
     carcass = ir.get("carcass") or {}
     form = carcass.get("form")
-    if form not in ("swept_shell", "box"):
-        errors.append("carcass.form must be swept_shell or box")
+    if form not in ("swept_shell", "box", "frame_nightstand", "bookcase_frame"):
+        errors.append("carcass.form must be swept_shell, box, frame_nightstand, or bookcase_frame")
     layout = ir.get("layout") or {}
     if not layout.get("children"):
         warnings.append("layout.children empty")
     # Reject unknown top-level keys beyond schema
-    allowed = {"schema", "units", "params", "material", "carcass", "layout", "legs", "joinery", "notes"}
+    allowed = {
+        "schema",
+        "units",
+        "params",
+        "material",
+        "carcass",
+        "layout",
+        "legs",
+        "joinery",
+        "notes",
+        "attrs",
+    }
     unknown = sorted(set(ir) - allowed)
     if unknown:
         errors.append(f"unknown fields: {unknown}")

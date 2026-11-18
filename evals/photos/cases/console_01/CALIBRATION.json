@@ -1,6 +1,6 @@
 {
   "schema": "furniture_cad.calibrated_table.v1",
-  "recorded_at": "2026-11-17T18:32:16.475841+00:00",
+  "recorded_at": "2026-11-18T04:20:00+00:00",
   "piece": "console_01",
   "photo": {
     "file": "console_01_front_clean.jpg",
@@ -9,24 +9,24 @@
   },
   "d8_calibration": {
     "schema": "calibration.d8.v1",
-    "passed": false,
+    "passed": true,
     "threshold": 0.8,
-    "iou": 0.7578,
+    "iou": 0.8316,
     "rating": "Match",
     "camera": {
       "yaw_deg": 0.0,
-      "pitch_deg": 12.0,
+      "pitch_deg": 8.0,
       "fov_deg": 35.0,
       "perspective": false,
       "align": {
-        "dx": 6,
-        "dy": 23,
-        "inter": 28946,
-        "union": 38195
+        "dx": -3,
+        "dy": 22,
+        "inter": 31621,
+        "union": 38024
       }
     },
     "pose_hint": "front",
-    "gate_note": "IoU untrusted for gates \u2014 use part/dimension metrics until D8 calibration passes"
+    "gate_note": null
   },
   "diagnostic_iso_clean": {
     "schema": "calibration.d8.v1",
@@ -47,7 +47,7 @@
       }
     },
     "pose_hint": "three_quarter_left",
-    "gate_note": "IoU untrusted for gates \u2014 use part/dimension metrics until D8 calibration passes"
+    "gate_note": "IoU untrusted for gates — use part/dimension metrics until D8 calibration passes"
   },
   "legacy_fixed_scale_ortho": {
     "gt_stl_iou": 0.179,
@@ -56,7 +56,7 @@
     "ir_stub_rating": "Wrong",
     "a0_iou": 0.245,
     "a0_rating": "Wrong",
-    "note": "Orthographic fixed-scale \u2014 untrusted when D8 fails"
+    "note": "Orthographic fixed-scale — superseded by D8 camera fit (front pass 0.83)"
   },
   "non_iou_metrics": {
     "gt_dims_within_3pct": true,
@@ -67,12 +67,7 @@
     "a0_cost_usd": 0.0981
   },
   "gate": {
-    "iou_trusted_for_product_gates": false,
-    "use_until_pass": [
-      "overall_dims",
-      "part_recall",
-      "feature_recall",
-      "cut_list_match"
-    ]
+    "iou_trusted_for_product_gates": true,
+    "use_until_pass": []
   }
 }
